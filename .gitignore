@@ -1,0 +1,147 @@
+## ------------------------------
+## Unity / Game Project .gitignore
+## Safe for multi-project repos:
+## - DOES NOT ignore *.sln or *.csproj (you may have non-Unity solutions)
+## - Keeps Unity .meta files (critical!)
+## ------------------------------
+
+# --- Core Unity generated caches ---
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Cc]rash[Rr]eports/
+[Ss]ysinfo.txt
+
+# Unity Burst, Shader, IL2CPP caches
+[Bb]ee/
+[Aa]rtifacts/
+*.il2cpp_*
+*.bc
+*.bundle
+*.wasm
+*.symbols.json
+
+# Addressables (keep settings, ignore build outputs)
+# Keep AddressableAssetsData in source control but ignore transient state
+# (adjust if you version your content builds)
+ServerData/
+Assets/AddressableAssetsData/*/addressables_content_state.bin
+Assets/AddressableAssetsData/*/AddressablesBuildTEP.json
+Assets/AddressableAssetsData/*/link.xml
+Assets/AddressableAssetsData/*/catalog_*.json
+Assets/AddressableAssetsData/*/catalog_*.hash
+Assets/AddressableAssetsData/*/map_*.json
+Assets/StreamingAssets/aa/**
+
+# Asset Store tools & caches
+Assets/AssetStoreTools*
+*.unitypackage
+
+# --- Platform export folders ---
+# Android / Gradle
+.gradle/
+gradleOut/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# iOS / Xcode exports
+[Xx]code/
+*.xcworkspace/
+*.xcuserdatad/
+*.xcuserdata/
+
+# WebGL export artifacts
+Build/WebGL/
+Builds/WebGL/
+
+# --- IDE / Editor noise ---
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.ide
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# OmniSharp / Analyzer caches
+.ionide/
+
+# --- .NET build outputs (for any non-Unity C# projects in the repo) ---
+[Bb]in/
+[Oo]bj/
+*.pidb
+*.mdb
+*.pdb
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.assets.json
+PackageRestoreConsent.xml
+
+# --- Logs (project and per-pawn) ---
+# Your sim writes run logs and per-pawn logs—keep them out of git
+[Ll]ogs/
+logs/
+logs/**/
+*.log
+*.log.*
+/logs/pawn/
+/logs/pawn/**
+
+# --- Saves / runtime data (keep folder, ignore contents) ---
+# If you track the directory, add a .gitkeep; adjust path as needed
+saves/**
+!saves/.gitkeep
+
+# --- Crash/trace dumps ---
+*.dmp
+*.stacktrace
+
+# --- OS cruft ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Temporary / misc ---
+*.tmp
+*.bak
+*.swp
+*.orig
+
+# --- IMPORTANT: Do NOT ignore Unity .meta files ---
+# (They must remain tracked; no rule below should match *.meta)
+
+# --- Optional: If you auto-generate solution/project files from Unity,
+# you can ignore the Unity-generated ones explicitly without touching your custom solutions.
+# Uncomment the next lines ONLY if you don't keep these in source control:
+# Assembly-CSharp.csproj
+# Assembly-CSharp-Editor.csproj
+# Assembly-CSharp-Editor-firstpass.csproj
+# Assembly-CSharp-firstpass.csproj
+# Unity.Player.csproj
+# UnityEngine.TestRunner.csproj
+# Unity.RenderPipelines.Core.Runtime.csproj
