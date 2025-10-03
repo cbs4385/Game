@@ -122,7 +122,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         if (!TryLoadMapDefinition(out var mapDefinition))
         {
-            return false;
+            Debug.LogWarning("Falling back to the built-in sample map definition because no external map data was found.");
+            mapDefinition = CreateFallbackMapDefinition();
         }
 
         if (pawnDefinitionAsset == null)
@@ -185,8 +186,44 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         mapDefinition = null;
-        Debug.LogError("Cannot start GOAP simulation without a map definition asset or a configured map loader source.");
+        Debug.LogWarning("No GOAP map definition asset or configured map loader source was found.");
         return false;
+    }
+
+    private static MapDefinitionDto CreateFallbackMapDefinition()
+    {
+        const int width = 12;
+        const int height = 12;
+        const float minElevation = 0f;
+        const float maxElevation = 1f;
+        const float tileSpacing = 1.25f;
+
+        var tiles = new MapTileDefinitionDto[width * height];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var normalized = height <= 1 ? 0f : (float)y / (height - 1);
+                var elevation = Mathf.Lerp(minElevation, maxElevation, normalized);
+                var traversalCost = Mathf.Lerp(1f, 3f, normalized);
+
+                tiles[(y * width) + x] = new MapTileDefinitionDto
+                {
+                    coordinates = new SerializableVector2Int(x, y),
+                    elevation = elevation,
+                    traversalCost = traversalCost
+                };
+            }
+        }
+
+        return new MapDefinitionDto
+        {
+            size = new SerializableVector2Int(width, height),
+            tileSpacing = tileSpacing,
+            minElevation = minElevation,
+            maxElevation = maxElevation,
+            tiles = tiles
+        };
     }
 
     private bool TryLoadMapDefinitionFromMapLoader(out MapDefinitionDto mapDefinition)
