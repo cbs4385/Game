@@ -108,8 +108,6 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return;
         }
 
-        _config = new SimulationConfig(mapSize, pawnCount, tileSpacing, elevationRange, pawnSpeed, pawnHeightOffset, randomSeed);
-        _simulation = SimulationFactory.Create(_config);
         BuildItemSpriteLookup();
         _simulation.TileGenerated += HandleTileGenerated;
         _simulation.PawnSpawned += HandlePawnSpawned;
