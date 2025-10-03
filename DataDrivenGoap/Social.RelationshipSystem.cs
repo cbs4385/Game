@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataDrivenGoap.Compatibility;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
@@ -154,7 +155,7 @@ namespace DataDrivenGoap.Social
                 }
 
                 TryGetRelationshipValue(fromThing, def, to, out var current);
-                double targetValue = Math.Clamp(projector(current), def.MinValue, def.MaxValue);
+                double targetValue = MathUtilities.Clamp(projector(current), def.MinValue, def.MaxValue);
                 if (Math.Abs(targetValue - current) < 1e-6)
                 {
                     return targetValue;
@@ -172,7 +173,7 @@ namespace DataDrivenGoap.Social
                 if (def.Symmetric)
                 {
                     TryGetRelationshipValue(toThing, def, from, out var reverseCurrent);
-                    double reverseTarget = Math.Clamp(projector(reverseCurrent), def.MinValue, def.MaxValue);
+                    double reverseTarget = MathUtilities.Clamp(projector(reverseCurrent), def.MinValue, def.MaxValue);
                     if (Math.Abs(reverseTarget - reverseCurrent) >= 1e-6)
                     {
                         writes.Add(new WriteSetEntry(to, BuildAttributeKey(def.Id, from), reverseTarget));
@@ -246,7 +247,7 @@ namespace DataDrivenGoap.Social
             var key = BuildAttributeKey(def.Id, target);
             if (thing.Attributes.TryGetValue(key, out var existing))
             {
-                value = Math.Clamp(existing, def.MinValue, def.MaxValue);
+                value = MathUtilities.Clamp(existing, def.MinValue, def.MaxValue);
                 return true;
             }
 

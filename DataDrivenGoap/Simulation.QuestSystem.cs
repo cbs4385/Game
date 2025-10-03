@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DataDrivenGoap.Compatibility;
 using System.Linq;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
@@ -206,11 +207,11 @@ namespace DataDrivenGoap.Simulation
             if (state == null || state.Status != QuestStatus.Active)
                 return QuestOperationResult.Failed;
 
-            int index = Math.Clamp(state.ObjectiveIndex, 0, def.Objectives.Length - 1);
+            int index = MathUtilities.Clamp(state.ObjectiveIndex, 0, def.Objectives.Length - 1);
             var objective = def.Objectives[index];
 
             int before = state.Progress;
-            state.Progress = Math.Clamp(state.Progress + amount, 0, objective.Required);
+            state.Progress = MathUtilities.Clamp(state.Progress + amount, 0, objective.Required);
             bool objectiveCompleted = state.Progress >= objective.Required;
             bool stateChanged = state.Progress != before;
 
@@ -385,7 +386,7 @@ namespace DataDrivenGoap.Simulation
                 }
                 else
                 {
-                    index = Math.Clamp(state?.ObjectiveIndex ?? 0, 0, def.Objectives.Length - 1);
+                    index = MathUtilities.Clamp(state?.ObjectiveIndex ?? 0, 0, def.Objectives.Length - 1);
                 }
 
                 var objective = def.Objectives[index];
@@ -420,7 +421,7 @@ namespace DataDrivenGoap.Simulation
                     }
                     else if (index == state.ObjectiveIndex)
                     {
-                        progress = Math.Clamp(state.Progress, 0, objective.Required);
+                        progress = MathUtilities.Clamp(state.Progress, 0, objective.Required);
                         completed = progress >= objective.Required;
                         isCurrent = state.Status == QuestStatus.Active;
                     }

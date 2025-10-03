@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using DataDrivenGoap.Compatibility;
 using DataDrivenGoap.Items;
 
 namespace DataDrivenGoap.Core
@@ -48,7 +49,7 @@ namespace DataDrivenGoap.Core
         public override string ToString() => $"{Pred}({A},{B})";
         public bool Equals(Fact other) => Pred == other.Pred && A.Equals(other.A) && B.Equals(other.B);
         public override bool Equals(object obj) => obj is Fact f && Equals(f);
-        public override int GetHashCode() => HashCode.Combine(Pred, A, B);
+        public override int GetHashCode() => HashCodeCompat.Combine(Pred, A, B);
     }
 
     public interface IWorldSnapshot
