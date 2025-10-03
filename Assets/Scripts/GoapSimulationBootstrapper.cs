@@ -626,13 +626,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 var locationId = annotation.location ?? kv.Key;
                 var id = new ThingId(BuildPrototypeThingId(prototype, locationId));
                 var position = ResolveLocationCenter(villageConfig, annotation.location) ?? new GridPos(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
+                var location = ResolveLocation(villageConfig, locationId);
+                var boundingBox = ResolveBoundingBox(annotation, location);
 
                 var seed = new ThingSeed
                 {
                     Id = id,
                     Type = prototype.type ?? kv.Key,
                     Position = position,
-                    Building = BuildBuildingInfo(prototype.building, ConvertServicePoints(prototype.servicePoints), null)
+                    Building = BuildBuildingInfo(prototype.building, ConvertServicePoints(prototype.servicePoints, boundingBox), null)
                 };
 
                 foreach (var tag in prototype.tags ?? Array.Empty<string>())
@@ -713,6 +715,37 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return null;
     }
 
+    private VillageLocation ResolveLocation(VillageConfig villageConfig, string locationId)
+    {
+        if (string.IsNullOrWhiteSpace(locationId))
+        {
+            return null;
+        }
+
+        if (villageConfig?.locations == null)
+        {
+            return null;
+        }
+
+        villageConfig.locations.TryGetValue(locationId.Trim(), out var location);
+        return location;
+    }
+
+    private double[] ResolveBoundingBox(VillageBuildingAnnotation annotation, VillageLocation location)
+    {
+        if (annotation?.bbox != null && annotation.bbox.Length >= 4)
+        {
+            return annotation.bbox;
+        }
+
+        if (location?.bbox != null && location.bbox.Length >= 4)
+        {
+            return location.bbox;
+        }
+
+        return null;
+    }
+
     private int ClampCoordinate(int? coordinate, int max)
     {
         int value = coordinate ?? 0;
@@ -728,7 +761,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return value;
     }
 
-    private ServicePointConfig[] ConvertServicePoints(MapServicePointConfig[] mapServicePoints)
+    private ServicePointConfig[] ConvertServicePoints(MapServicePointConfig[] mapServicePoints, double[] boundingBox)
     {
         if (mapServicePoints == null)
         {
@@ -750,12 +783,14 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
             if (point.x.HasValue)
             {
-                x = ConvertCoordinate(point.x.Value, "service point x");
+                var resolvedX = TranslateServicePointCoordinate(point.x.Value, boundingBox, axis: 0);
+                x = ConvertCoordinate(resolvedX, "service point x");
             }
 
             if (point.y.HasValue)
             {
-                y = ConvertCoordinate(point.y.Value, "service point y");
+                var resolvedY = TranslateServicePointCoordinate(point.y.Value, boundingBox, axis: 1);
+                y = ConvertCoordinate(resolvedY, "service point y");
             }
 
             converted[i] = new ServicePointConfig
@@ -766,6 +801,46 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         return converted;
+    }
+
+    private double TranslateServicePointCoordinate(double value, double[] boundingBox, int axis)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            throw new InvalidDataException($"Invalid service point coordinate: {value}");
+        }
+
+        if (boundingBox == null || boundingBox.Length < 4)
+        {
+            return value;
+        }
+
+        double min;
+        double max;
+        if (axis == 0)
+        {
+            min = boundingBox[0];
+            max = boundingBox[2];
+        }
+        else
+        {
+            min = boundingBox[1];
+            max = boundingBox[3];
+        }
+
+        if (double.IsNaN(min) || double.IsNaN(max) || double.IsInfinity(min) || double.IsInfinity(max))
+        {
+            throw new InvalidDataException("Bounding box contains invalid values for service point conversion.");
+        }
+
+        double span = max - min;
+        if (span < 0.0)
+        {
+            throw new InvalidDataException($"Invalid bounding box span for service point conversion. min:{min} max:{max}");
+        }
+
+        double offset = Math.Round(value * span, MidpointRounding.AwayFromZero);
+        return min + offset;
     }
 
     private int ConvertCoordinate(double value, string label)
