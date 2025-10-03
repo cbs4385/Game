@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using DataDrivenGoap.Compatibility;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Items;
 
@@ -313,7 +314,7 @@ namespace DataDrivenGoap.Expressions
             {
                 var animal = args.Length > 0 ? AsThingId(args[0], ctx) : AsThingId("$target", ctx);
                 if (ctx?.AnimalQuery != null && ctx.AnimalQuery.TryGet(animal, out var state) && state.Exists)
-                    return Math.Clamp(state.Hunger, 0.0, 1.0);
+                    return MathUtilities.Clamp(state.Hunger, 0.0, 1.0);
                 return 0.0;
             }
 
@@ -329,7 +330,7 @@ namespace DataDrivenGoap.Expressions
             {
                 var animal = args.Length > 0 ? AsThingId(args[0], ctx) : AsThingId("$target", ctx);
                 if (ctx?.AnimalQuery != null && ctx.AnimalQuery.TryGet(animal, out var state) && state.Exists)
-                    return Math.Clamp(state.Happiness, 0.0, 1.0);
+                    return MathUtilities.Clamp(state.Happiness, 0.0, 1.0);
                 return 0.0;
             }
 

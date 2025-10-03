@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataDrivenGoap.Compatibility;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
@@ -472,7 +473,7 @@ namespace DataDrivenGoap.Simulation
                 if (hydrated)
                 {
                     state.DaysInStage++;
-                    int index = Math.Clamp(state.Stage, 0, def.StageDurations.Length - 1);
+                    int index = MathUtilities.Clamp(state.Stage, 0, def.StageDurations.Length - 1);
                     int required = def.StageDurations.Length > 0 ? Math.Max(1, def.StageDurations[index]) : 1;
                     if (state.DaysInStage >= required)
                     {

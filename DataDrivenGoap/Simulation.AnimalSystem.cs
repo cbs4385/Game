@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DataDrivenGoap.Compatibility;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
@@ -285,8 +286,8 @@ namespace DataDrivenGoap.Simulation
                 state = new AnimalStateSnapshot(
                     true,
                     def.Species,
-                    Math.Clamp(s.Hunger, 0.0, 1.0),
-                    Math.Clamp(s.Happiness, 0.0, 1.0),
+                    MathUtilities.Clamp(s.Hunger, 0.0, 1.0),
+                    MathUtilities.Clamp(s.Happiness, 0.0, 1.0),
                     hasProduce,
                     Math.Max(0.0, minReady),
                     hoursSinceFed,
@@ -383,8 +384,8 @@ namespace DataDrivenGoap.Simulation
                             continue;
                         var s = new AnimalState
                         {
-                            Hunger = Math.Clamp(animal.hunger, 0.0, 1.0),
-                            Happiness = Math.Clamp(animal.happiness, 0.0, 1.0),
+                            Hunger = MathUtilities.Clamp(animal.hunger, 0.0, 1.0),
+                            Happiness = MathUtilities.Clamp(animal.happiness, 0.0, 1.0),
                             LastFedHours = Math.Max(0.0, animal.lastFedHours),
                             LastBrushedHours = Math.Max(0.0, animal.lastBrushedHours),
                             Produce = new List<ProduceState>()
@@ -476,9 +477,9 @@ namespace DataDrivenGoap.Simulation
             if (deltaHours <= 0.0)
                 return;
 
-            state.Hunger = Math.Clamp(state.Hunger + def.HungerRatePerHour * deltaHours, 0.0, 1.0);
+            state.Hunger = MathUtilities.Clamp(state.Hunger + def.HungerRatePerHour * deltaHours, 0.0, 1.0);
             double hungerPenalty = state.Hunger >= 0.8 ? 1.5 : (state.Hunger >= 0.6 ? 1.2 : 1.0);
-            state.Happiness = Math.Clamp(state.Happiness - def.HappinessDecayPerHour * deltaHours * hungerPenalty, 0.0, 1.0);
+            state.Happiness = MathUtilities.Clamp(state.Happiness - def.HappinessDecayPerHour * deltaHours * hungerPenalty, 0.0, 1.0);
 
             if (state.Produce.Count == 0)
                 return;
@@ -524,7 +525,7 @@ namespace DataDrivenGoap.Simulation
                 inventory.Add(new InventoryDelta(operation.Actor, feedItem, quantity, true));
 
             state.Hunger = 0.0;
-            state.Happiness = Math.Clamp(state.Happiness + def.FeedHappinessGain, 0.0, 1.0);
+            state.Happiness = MathUtilities.Clamp(state.Happiness + def.FeedHappinessGain, 0.0, 1.0);
             state.LastFedHours = double.IsNaN(_lastWorldHours) ? 0.0 : _lastWorldHours;
 
             return new AnimalOperationResult(true, inventory, Array.Empty<AnimalProduceYield>());
@@ -536,7 +537,7 @@ namespace DataDrivenGoap.Simulation
             if (now - state.LastBrushedHours < def.BrushCooldownHours - 1e-3)
                 return AnimalOperationResult.Failed;
 
-            state.Happiness = Math.Clamp(state.Happiness + def.BrushHappinessGain, 0.0, 1.0);
+            state.Happiness = MathUtilities.Clamp(state.Happiness + def.BrushHappinessGain, 0.0, 1.0);
             state.LastBrushedHours = now;
             return new AnimalOperationResult(true, Array.Empty<InventoryDelta>(), Array.Empty<AnimalProduceYield>());
         }
