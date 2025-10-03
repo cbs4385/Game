@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DataDrivenGoap;
 using UnityEngine;
+using UnityEditor;
 
 /// <summary>
 /// Unity hook that bootstraps the DataDrivenGoap simulation and renders a simple tile map with animated pawns.
@@ -91,6 +92,14 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         InitializeSimulation(simulation);
+    }
+
+    private void OnValidate()
+    {
+        if (!EditorApplication.isPlaying && mapLoaderSettings != null && mapLoaderSettings.TryAssignEditorDefaults())
+        {
+            EditorUtility.SetDirty(this);
+        }
     }
 
     private Simulation CreateSimulation(MapDefinitionDto mapDefinition)
@@ -183,7 +192,20 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         mapDefinition = null;
 
-        if (mapLoaderSettings == null || !mapLoaderSettings.IsConfigured)
+        if (mapLoaderSettings == null)
+        {
+            return false;
+        }
+
+        if (!mapLoaderSettings.IsConfigured && mapLoaderSettings.TryAssignEditorDefaults())
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                EditorUtility.SetDirty(this);
+            }
+        }
+
+        if (!mapLoaderSettings.IsConfigured)
         {
             return false;
         }
@@ -385,6 +407,46 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public Texture2D mapTexture;
 
         public bool IsConfigured => worldSettingsAsset != null && villageDataAsset != null && mapTexture != null;
+        private const string DefaultWorldSettingsAssetPath = "Assets/Scripts/Goap/demo.settings.json";
+        private const string DefaultVillageDataAssetPath = "Assets/Scripts/Goap/village_data.json";
+        private const string DefaultMapTextureAssetPath = "Assets/sprites/village_map_1000x1000.png";
+
+        public bool TryAssignEditorDefaults()
+        {
+            bool changed = false;
+
+            if (worldSettingsAsset == null)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(DefaultWorldSettingsAssetPath);
+                if (asset != null)
+                {
+                    worldSettingsAsset = asset;
+                    changed = true;
+                }
+            }
+
+            if (villageDataAsset == null)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(DefaultVillageDataAssetPath);
+                if (asset != null)
+                {
+                    villageDataAsset = asset;
+                    changed = true;
+                }
+            }
+
+            if (mapTexture == null)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<Texture2D>(DefaultMapTextureAssetPath);
+                if (asset != null)
+                {
+                    mapTexture = asset;
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
     }
 
     private void SubscribeToSimulationEvents()
