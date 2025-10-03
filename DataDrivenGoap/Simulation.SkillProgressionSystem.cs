@@ -18,16 +18,16 @@ namespace DataDrivenGoap.Simulation
         private readonly object _gate = new object();
         private readonly Dictionary<ThingId, Dictionary<string, SkillEntry>> _skills =
             new Dictionary<ThingId, Dictionary<string, SkillEntry>>();
-        private volatile IWorld _world;
+        private IWorld _world;
 
         public SkillProgressionSystem(IWorld world = null)
         {
-            _world = world;
+            Volatile.Write(ref _world, world);
         }
 
         public void AttachWorld(IWorld world)
         {
-            _world = world;
+            Volatile.Write(ref _world, world);
             if (world == null)
                 return;
 
