@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-using System.Text.Json;
+using System.Text;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.World;
@@ -219,43 +220,38 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         _pawnSpritePaths.Clear();
-        using var stream = File.OpenRead(absolutePath);
-        using var document = JsonDocument.Parse(stream);
-        if (document.RootElement.ValueKind != JsonValueKind.Object)
-        {
-            throw new InvalidDataException($"Sprite manifest '{absolutePath}' must contain an object at the root.");
-        }
+        var json = File.ReadAllText(absolutePath);
+        var manifest = StrictJson.ParseObject(json, absolutePath);
 
-        foreach (var entry in document.RootElement.EnumerateObject())
+        foreach (var entry in manifest)
         {
-            if (entry.Value.ValueKind != JsonValueKind.Object)
+            if (entry.Value is not Dictionary<string, object> entryObject)
             {
-                throw new InvalidDataException($"Sprite manifest entry '{entry.Name}' must be an object.");
+                throw new InvalidDataException($"Sprite manifest entry '{entry.Key}' must be an object.");
             }
 
-            if (!entry.Value.TryGetProperty("sprites", out var spritesElement) || spritesElement.ValueKind != JsonValueKind.Object)
+            if (!entryObject.TryGetValue("sprites", out var spritesValue) || spritesValue is not Dictionary<string, object> spritesObject)
             {
-                throw new InvalidDataException($"Sprite manifest entry '{entry.Name}' must contain a 'sprites' object.");
+                throw new InvalidDataException($"Sprite manifest entry '{entry.Key}' must contain a 'sprites' object.");
             }
 
             var spritePaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var spriteProperty in spritesElement.EnumerateObject())
+            foreach (var spriteProperty in spritesObject)
             {
-                var spritePath = spriteProperty.Value.GetString();
-                if (string.IsNullOrWhiteSpace(spritePath))
+                if (spriteProperty.Value is not string spritePath || string.IsNullOrWhiteSpace(spritePath))
                 {
-                    throw new InvalidDataException($"Sprite manifest entry '{entry.Name}' has an empty path for orientation '{spriteProperty.Name}'.");
+                    throw new InvalidDataException($"Sprite manifest entry '{entry.Key}' has an empty path for orientation '{spriteProperty.Key}'.");
                 }
 
-                spritePaths[spriteProperty.Name] = spritePath.Trim();
+                spritePaths[spriteProperty.Key] = spritePath.Trim();
             }
 
             if (spritePaths.Count == 0)
             {
-                throw new InvalidDataException($"Sprite manifest entry '{entry.Name}' does not contain any sprite paths.");
+                throw new InvalidDataException($"Sprite manifest entry '{entry.Key}' does not contain any sprite paths.");
             }
 
-            _pawnSpritePaths[entry.Name] = spritePaths;
+            _pawnSpritePaths[entry.Key] = spritePaths;
         }
     }
 
@@ -344,7 +340,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         if (bootstrapper == null)
         {
-            bootstrapper = FindObjectOfType<GoapSimulationBootstrapper>();
+            bootstrapper = FindFirstObjectByType<GoapSimulationBootstrapper>();
         }
 
         if (bootstrapper == null)
@@ -425,5 +421,355 @@ public sealed class GoapSimulationView : MonoBehaviour
         public Transform Root { get; }
         public SpriteRenderer Renderer { get; }
         public IReadOnlyDictionary<string, string> SpritePaths { get; }
+    }
+
+    private static class StrictJson
+    {
+        public static Dictionary<string, object> ParseObject(string json, string sourceDescription)
+        {
+            if (json == null)
+            {
+                throw new ArgumentNullException(nameof(json));
+            }
+
+            var reader = new Reader(json, sourceDescription);
+            var value = reader.ReadValue();
+            if (value is not Dictionary<string, object> result)
+            {
+                throw new InvalidDataException($"JSON '{sourceDescription}' must contain an object at the root.");
+            }
+
+            reader.SkipWhitespace();
+            if (!reader.EndOfDocument)
+            {
+                throw new InvalidDataException($"JSON '{sourceDescription}' contains trailing content after the root object.");
+            }
+
+            return result;
+        }
+
+        private ref struct Reader
+        {
+            private readonly string _json;
+            private readonly string _sourceDescription;
+            private int _index;
+
+            public Reader(string json, string sourceDescription)
+            {
+                _json = json;
+                _sourceDescription = sourceDescription;
+                _index = 0;
+            }
+
+            public bool EndOfDocument => _index >= _json.Length;
+
+            public object ReadValue()
+            {
+                SkipWhitespace();
+                if (EndOfDocument)
+                {
+                    throw CreateException("Unexpected end of JSON content.");
+                }
+
+                var c = _json[_index];
+                switch (c)
+                {
+                    case '{':
+                        return ReadObject();
+                    case '[':
+                        return ReadArray();
+                    case '"':
+                        return ReadString();
+                    case 't':
+                        return ReadLiteral("true", true);
+                    case 'f':
+                        return ReadLiteral("false", false);
+                    case 'n':
+                        return ReadLiteral("null", null);
+                    case '-':
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        return ReadNumber();
+                    default:
+                        throw CreateException($"Unexpected character '{c}' while parsing JSON value.");
+                }
+            }
+
+            public void SkipWhitespace()
+            {
+                while (!EndOfDocument)
+                {
+                    var c = _json[_index];
+                    if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
+                    {
+                        _index++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            private Dictionary<string, object> ReadObject()
+            {
+                Expect('{');
+                SkipWhitespace();
+
+                var result = new Dictionary<string, object>(StringComparer.Ordinal);
+                if (TryConsume('}'))
+                {
+                    return result;
+                }
+
+                while (true)
+                {
+                    SkipWhitespace();
+                    var key = ReadString();
+                    SkipWhitespace();
+                    Expect(':');
+                    var value = ReadValue();
+                    if (result.ContainsKey(key))
+                    {
+                        throw CreateException($"Duplicate key '{key}' detected in JSON object.");
+                    }
+                    result[key] = value;
+                    SkipWhitespace();
+                    if (TryConsume('}'))
+                    {
+                        break;
+                    }
+
+                    Expect(',');
+                }
+
+                return result;
+            }
+
+            private List<object> ReadArray()
+            {
+                Expect('[');
+                SkipWhitespace();
+                var result = new List<object>();
+                if (TryConsume(']'))
+                {
+                    return result;
+                }
+
+                while (true)
+                {
+                    var value = ReadValue();
+                    result.Add(value);
+                    SkipWhitespace();
+                    if (TryConsume(']'))
+                    {
+                        break;
+                    }
+
+                    Expect(',');
+                }
+
+                return result;
+            }
+
+            private string ReadString()
+            {
+                Expect('"');
+                var builder = new StringBuilder();
+
+                while (true)
+                {
+                    if (EndOfDocument)
+                    {
+                        throw CreateException("Unterminated string literal in JSON content.");
+                    }
+
+                    var c = _json[_index++];
+                    if (c == '"')
+                    {
+                        break;
+                    }
+
+                    if (c == '\\')
+                    {
+                        if (EndOfDocument)
+                        {
+                            throw CreateException("Unterminated escape sequence in JSON string.");
+                        }
+
+                        builder.Append(ReadEscapedCharacter());
+                    }
+                    else
+                    {
+                        builder.Append(c);
+                    }
+                }
+
+                return builder.ToString();
+            }
+
+            private char ReadEscapedCharacter()
+            {
+                var escape = _json[_index++];
+                return escape switch
+                {
+                    '"' => '"',
+                    '\\' => '\\',
+                    '/' => '/',
+                    'b' => '\b',
+                    'f' => '\f',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    'u' => ReadUnicodeEscape(),
+                    _ => throw CreateException($"Unsupported escape sequence '\\{escape}' in JSON string."),
+                };
+            }
+
+            private char ReadUnicodeEscape()
+            {
+                if (_index + 4 > _json.Length)
+                {
+                    throw CreateException("Incomplete unicode escape sequence in JSON string.");
+                }
+
+                var code = 0;
+                for (var i = 0; i < 4; i++)
+                {
+                    var digit = _json[_index++];
+                    code <<= 4;
+                    if (digit >= '0' && digit <= '9')
+                    {
+                        code += digit - '0';
+                    }
+                    else if (digit >= 'a' && digit <= 'f')
+                    {
+                        code += 10 + digit - 'a';
+                    }
+                    else if (digit >= 'A' && digit <= 'F')
+                    {
+                        code += 10 + digit - 'A';
+                    }
+                    else
+                    {
+                        throw CreateException("Invalid character in unicode escape sequence.");
+                    }
+                }
+
+                return (char)code;
+            }
+
+            private object ReadNumber()
+            {
+                var start = _index;
+                if (_json[_index] == '-')
+                {
+                    _index++;
+                }
+
+                while (!EndOfDocument && char.IsDigit(_json[_index]))
+                {
+                    _index++;
+                }
+
+                if (!EndOfDocument && _json[_index] == '.')
+                {
+                    _index++;
+                    if (EndOfDocument || !char.IsDigit(_json[_index]))
+                    {
+                        throw CreateException("Invalid JSON number format.");
+                    }
+
+                    while (!EndOfDocument && char.IsDigit(_json[_index]))
+                    {
+                        _index++;
+                    }
+                }
+
+                if (!EndOfDocument && (_json[_index] == 'e' || _json[_index] == 'E'))
+                {
+                    _index++;
+                    if (!EndOfDocument && (_json[_index] == '+' || _json[_index] == '-'))
+                    {
+                        _index++;
+                    }
+
+                    if (EndOfDocument || !char.IsDigit(_json[_index]))
+                    {
+                        throw CreateException("Invalid JSON number exponent.");
+                    }
+
+                    while (!EndOfDocument && char.IsDigit(_json[_index]))
+                    {
+                        _index++;
+                    }
+                }
+
+                var span = _json.Substring(start, _index - start);
+                if (span.IndexOf('.') >= 0 || span.IndexOf('e') >= 0 || span.IndexOf('E') >= 0)
+                {
+                    if (double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+                    {
+                        return doubleValue;
+                    }
+                }
+                else
+                {
+                    if (long.TryParse(span, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+                    {
+                        return longValue;
+                    }
+                }
+
+                throw CreateException($"Invalid JSON number '{span}'.");
+            }
+
+            private object ReadLiteral(string literal, object value)
+            {
+                for (var i = 0; i < literal.Length; i++)
+                {
+                    if (EndOfDocument || _json[_index++] != literal[i])
+                    {
+                        throw CreateException($"Invalid literal while parsing JSON. Expected '{literal}'.");
+                    }
+                }
+
+                return value;
+            }
+
+            private void Expect(char expected)
+            {
+                if (EndOfDocument || _json[_index] != expected)
+                {
+                    throw CreateException($"Expected character '{expected}'.");
+                }
+
+                _index++;
+            }
+
+            private bool TryConsume(char expected)
+            {
+                if (!EndOfDocument && _json[_index] == expected)
+                {
+                    _index++;
+                    return true;
+                }
+
+                return false;
+            }
+
+            private InvalidDataException CreateException(string message)
+            {
+                return new InvalidDataException($"{message} (while parsing '{_sourceDescription}').");
+            }
+        }
     }
 }
