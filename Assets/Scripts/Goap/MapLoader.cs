@@ -299,15 +299,66 @@ namespace DataDrivenGoap
                 throw new InvalidOperationException("Tile key does not define any entries.");
             }
 
-            return LoadFromTextureInternal(
-                texture,
-                mapConfig,
-                inlineVillage,
-                inlineMapData,
-                tileScale,
-                tileNameByColor,
-                locationLookup,
-                baseDirectory: null);
+            Texture2D workingTexture = texture;
+            Texture2D temporaryCopy = null;
+
+            try
+            {
+                if (!texture.isReadable)
+                {
+                    temporaryCopy = CreateReadableCopy(texture);
+                    workingTexture = temporaryCopy;
+                }
+
+                return LoadFromTextureInternal(
+                    workingTexture,
+                    mapConfig,
+                    inlineVillage,
+                    inlineMapData,
+                    tileScale,
+                    tileNameByColor,
+                    locationLookup,
+                    baseDirectory: null);
+            }
+            finally
+            {
+                if (temporaryCopy != null)
+                {
+                    DestroyTexture(temporaryCopy);
+                }
+            }
+        }
+
+        private static Texture2D CreateReadableCopy(Texture2D source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            var renderTexture = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            try
+            {
+                Graphics.Blit(source, renderTexture);
+
+                var previous = RenderTexture.active;
+                RenderTexture.active = renderTexture;
+                try
+                {
+                    var readable = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+                    readable.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0, false);
+                    readable.Apply(false, false);
+                    return readable;
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                }
+            }
+            finally
+            {
+                RenderTexture.ReleaseTemporary(renderTexture);
+            }
         }
 
         private static MapLoaderResult LoadFromTextureInternal(
