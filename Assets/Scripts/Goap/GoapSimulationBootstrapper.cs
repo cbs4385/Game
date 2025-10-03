@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using DataDrivenGoap.Unity;
 using UnityEngine;
 using UnityEditor;
@@ -87,17 +88,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         ResetSceneState();
 
-        if (!TryLoadMapDefinition(out var mapDefinition))
-        {
-            return;
-        }
-
+        var mapDefinition = LoadMapDefinition();
         var simulation = CreateSimulation(mapDefinition);
-        if (simulation == null)
-        {
-            return;
-        }
-
         InitializeSimulation(simulation);
     }
 
@@ -113,25 +105,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         if (pawnDefinitionAsset == null)
         {
-            Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
-            return null;
+            throw new InvalidOperationException("Cannot start GOAP simulation without a pawn definition asset.");
         }
 
-        try
-        {
-            var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
-            var itemDefinitions = itemDefinitionAsset != null
-                ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
-                : ItemDefinitionsDto.Empty;
+        var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
+        var itemDefinitions = itemDefinitionAsset != null
+            ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
+            : ItemDefinitionsDto.Empty;
 
-            return SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
-            Debug.LogException(ex);
-            return null;
-        }
+        return SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
     }
 
     private void InitializeSimulation(UnitySimulation simulation)
@@ -168,99 +150,92 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     }
 
-    private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
+    private MapDefinitionDto LoadMapDefinition()
     {
         if (mapDefinitionAsset != null)
         {
             try
             {
-                mapDefinition = DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
-                return true;
+                return DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Failed to load GOAP map definition asset '{mapDefinitionAsset.name}': {ex.Message}");
-                Debug.LogException(ex);
+                throw new InvalidDataException(
+                    $"Failed to load GOAP map definition asset '{mapDefinitionAsset.name}'.",
+                    ex);
             }
         }
 
-        if (TryLoadMapDefinitionFromMapLoader(out mapDefinition))
-        {
-            return true;
-        }
-
-        mapDefinition = null;
-        Debug.LogError(
-            "Cannot start GOAP simulation without a map definition asset or a configured map loader source. " +
-            "Configure a proper simulation-provided map definition; automatic fallback generation is no longer supported.");
-        return false;
+        return LoadMapDefinitionFromMapLoader();
     }
 
-    private bool TryLoadMapDefinitionFromMapLoader(out MapDefinitionDto mapDefinition)
+    private MapDefinitionDto LoadMapDefinitionFromMapLoader()
     {
-        mapDefinition = null;
-
         if (mapLoaderSettings == null)
         {
-            return false;
-        }
-
-        if (!mapLoaderSettings.IsConfigured && mapLoaderSettings.TryAssignEditorDefaults())
-        {
-            if (!EditorApplication.isPlaying)
-            {
-                EditorUtility.SetDirty(this);
-            }
+            throw new InvalidOperationException(
+                "Map loader settings must be assigned when no explicit map definition asset is provided.");
         }
 
         if (!mapLoaderSettings.IsConfigured)
         {
-            return false;
+            var assignedDefaults = mapLoaderSettings.TryAssignEditorDefaults();
+            if (assignedDefaults && !EditorApplication.isPlaying)
+            {
+                EditorUtility.SetDirty(this);
+            }
+
+            if (!mapLoaderSettings.IsConfigured)
+            {
+                throw new InvalidOperationException(
+                    "Map loader settings are incomplete. Assign the required DataDrivenGoap assets before starting the scene.");
+            }
         }
 
         if (!MapLoader.TryLoadWorldMap(mapLoaderSettings.worldSettingsAsset, out var worldMapConfig, out var errorMessage))
         {
-            Debug.LogError($"Failed to load world map configuration from '{mapLoaderSettings.worldSettingsAsset.name}': {errorMessage}");
-            return false;
+            var assetName = mapLoaderSettings.worldSettingsAsset != null
+                ? mapLoaderSettings.worldSettingsAsset.name
+                : "<null>";
+            throw new InvalidDataException(
+                $"Failed to load world map configuration from '{assetName}': {errorMessage}");
         }
 
         if (mapLoaderSettings.mapTexture == null)
         {
-            Debug.LogError("Map loader configuration is missing the map texture asset.");
-            return false;
+            throw new InvalidOperationException("Map loader configuration is missing the map texture asset.");
         }
 
         if (mapLoaderSettings.villageDataAsset == null)
         {
-            Debug.LogError("Map loader configuration is missing the village data asset.");
-            return false;
+            throw new InvalidOperationException("Map loader configuration is missing the village data asset.");
         }
 
         VillageConfig villageConfig;
         try
         {
-            villageConfig = JsonUtilities.Deserialize<VillageConfig>(mapLoaderSettings.villageDataAsset.text) ?? new VillageConfig();
+            villageConfig = JsonUtilities.Deserialize<VillageConfig>(mapLoaderSettings.villageDataAsset.text)
+                ?? throw new InvalidDataException(
+                    $"Village data asset '{mapLoaderSettings.villageDataAsset.name}' did not contain a valid configuration.");
             villageConfig.ApplyDefaults();
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Failed to parse village data asset '{mapLoaderSettings.villageDataAsset.name}': {ex.Message}");
-            Debug.LogException(ex);
-            return false;
+            throw new InvalidDataException(
+                $"Failed to parse village data asset '{mapLoaderSettings.villageDataAsset.name}'.",
+                ex);
         }
 
         try
         {
             var mapResult = MapLoader.Load(mapLoaderSettings.mapTexture, worldMapConfig, villageConfig);
-            mapDefinition = ConvertToMapDefinition(mapResult);
+            var mapDefinition = ConvertToMapDefinition(mapResult);
             mapDefinition.ApplyDefaults();
-            return true;
+            return mapDefinition;
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Failed to convert loaded map data into a GOAP map definition: {ex.Message}");
-            Debug.LogException(ex);
-            return false;
+            throw new InvalidDataException("Failed to convert loaded map data into a GOAP map definition.", ex);
         }
     }
 
@@ -415,9 +390,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public Texture2D mapTexture;
 
         public bool IsConfigured => worldSettingsAsset != null && villageDataAsset != null && mapTexture != null;
-        private const string DefaultWorldSettingsAssetPath = "Assets/Scripts/Goap/demo.settings.json";
-        private const string DefaultVillageDataAssetPath = "Assets/Scripts/Goap/village_data.json";
-        private const string DefaultMapTextureAssetPath = "Assets/Scripts/Goap/village_map_1000x1000.png";
+        private const string DefaultWorldSettingsAssetPath = "Packages/DataDrivenGoap/Runtime/Data/demo.settings.json";
+        private const string DefaultVillageDataAssetPath = "Packages/DataDrivenGoap/Runtime/Data/village_data.json";
+        private const string DefaultMapTextureAssetPath = "Packages/DataDrivenGoap/Runtime/Data/village_map_1000x1000.png";
 
         public bool TryAssignEditorDefaults()
         {
@@ -425,35 +400,35 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
             if (worldSettingsAsset == null)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(DefaultWorldSettingsAssetPath);
-                if (asset != null)
-                {
-                    worldSettingsAsset = asset;
-                    changed = true;
-                }
+                worldSettingsAsset = LoadRequiredAsset<TextAsset>(DefaultWorldSettingsAssetPath);
+                changed = true;
             }
 
             if (villageDataAsset == null)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(DefaultVillageDataAssetPath);
-                if (asset != null)
-                {
-                    villageDataAsset = asset;
-                    changed = true;
-                }
+                villageDataAsset = LoadRequiredAsset<TextAsset>(DefaultVillageDataAssetPath);
+                changed = true;
             }
 
             if (mapTexture == null)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<Texture2D>(DefaultMapTextureAssetPath);
-                if (asset != null)
-                {
-                    mapTexture = asset;
-                    changed = true;
-                }
+                mapTexture = LoadRequiredAsset<Texture2D>(DefaultMapTextureAssetPath);
+                changed = true;
             }
 
             return changed;
+        }
+
+        private static T LoadRequiredAsset<T>(string assetPath) where T : UnityEngine.Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            if (asset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required DataDrivenGoap asset not found at '{assetPath}'.");
+            }
+
+            return asset;
         }
     }
 
