@@ -120,7 +120,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         SimulationInitialized?.Invoke(_simulation);
 
         Debug.Log(
-            $"GOAP simulation started with world {_config.MapSize.x}x{_config.MapSize.y}, {_config.PawnCount} pawns, {_simulation.Items.Count} items, tile spacing {_config.TileSpacing:F2}, elevation range {_config.ElevationRange.x:F2}-{_config.ElevationRange.y:F2}, pawn speed {_config.PawnSpeed:F2}, height offset {_config.PawnHeightOffset:F2} (seed {_config.RandomSeed}).");
+            $"GOAP simulation started with world {_config.MapSize.x}x{_config.MapSize.y}, {_config.PawnCount} pawns, {_itemSnapshots.Count} items, tile spacing {_config.TileSpacing:F2}, elevation range {_config.ElevationRange.x:F2}-{_config.ElevationRange.y:F2}, pawn speed {_config.PawnSpeed:F2}, height offset {_config.PawnHeightOffset:F2} (seed {_config.RandomSeed}).");
 
         ConfigureCamera();
     }
