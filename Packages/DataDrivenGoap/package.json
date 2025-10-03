@@ -1,0 +1,8 @@
+{
+  "name": "com.yourco.datadrivengoap",
+  "displayName": "Data Driven GOAP",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Data-driven GOAP library.",
+  "author": { "name": "Your Name" }
+}

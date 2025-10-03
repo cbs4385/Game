@@ -1,0 +1,8 @@
+{
+  "name": "DataDrivenGoap",
+  "autoReferenced": true,
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "noEngineReferences": true,
+  "rootNamespace": "DataDrivenGoap"
+}
