@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text.Json;
 using UnityEngine;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
@@ -110,7 +112,7 @@ public class GoapDemoBootstrap : MonoBehaviour
                     target = "$self",
                     attr = "energy",
                     op = "set",
-                    value = "1"
+                    value = CreateJsonNumber(1.0)
                 }
             }
         };
@@ -130,5 +132,11 @@ public class GoapDemoBootstrap : MonoBehaviour
             new[] { restAction },
             new[] { goal }
         );
+    }
+
+    private static JsonElement CreateJsonNumber(double number)
+    {
+        using var doc = JsonDocument.Parse(number.ToString(CultureInfo.InvariantCulture));
+        return doc.RootElement.Clone();
     }
 }
