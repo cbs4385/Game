@@ -146,15 +146,24 @@ namespace DataDrivenGoap.Execution
                 return false;
             }
 
-            var remaining = candidate.AsSpan();
-            remaining = remaining.Slice(baseName.Length);
-            if (remaining.Length == 0 || remaining[0] != '.')
+            if (candidate.Length <= baseName.Length)
             {
                 return false;
             }
 
-            remaining = remaining.Slice(1);
-            return int.TryParse(remaining, NumberStyles.None, CultureInfo.InvariantCulture, out suffix);
+            var indexAfterBase = baseName.Length;
+            if (candidate[indexAfterBase] != '.')
+            {
+                return false;
+            }
+
+            var suffixText = candidate.Substring(indexAfterBase + 1);
+            if (suffixText.Length == 0)
+            {
+                return false;
+            }
+
+            return int.TryParse(suffixText, NumberStyles.None, CultureInfo.InvariantCulture, out suffix);
         }
 
         private static bool IsSegment(string path, string fileName)
