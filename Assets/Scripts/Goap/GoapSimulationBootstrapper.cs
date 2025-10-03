@@ -409,7 +409,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public bool IsConfigured => worldSettingsAsset != null && villageDataAsset != null && mapTexture != null;
         private const string DefaultWorldSettingsAssetPath = "Assets/Scripts/Goap/demo.settings.json";
         private const string DefaultVillageDataAssetPath = "Assets/Scripts/Goap/village_data.json";
-        private const string DefaultMapTextureAssetPath = "Assets/sprites/village_map_1000x1000.png";
+        private const string DefaultMapTextureAssetPath = "Assets/Scripts/Goap/village_map_1000x1000.png";
 
         public bool TryAssignEditorDefaults()
         {
