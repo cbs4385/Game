@@ -420,8 +420,7 @@ namespace DataDrivenGoap
                         }
                     }
 
-                    var pixelKey = new Color32Key(pixel);
-                    if (!tileNameByColor.TryGetValue(pixelKey, out var tileName))
+                    if (!TryResolveTileName(pixel, tileNameByColor, out var tileName))
                     {
                         throw new InvalidOperationException($"Color {ColorToString(pixel)} at {x},{y} not found in tile key.");
                     }
@@ -566,6 +565,15 @@ namespace DataDrivenGoap
                 && Math.Abs(lhs.a - rhs.a) <= tolerance;
         }
 
+        private static int MaxColorComponentDelta(Color32 lhs, Color32 rhs)
+        {
+            int dr = Math.Abs(lhs.r - rhs.r);
+            int dg = Math.Abs(lhs.g - rhs.g);
+            int db = Math.Abs(lhs.b - rhs.b);
+            int da = Math.Abs(lhs.a - rhs.a);
+            return Math.Max(Math.Max(dr, dg), Math.Max(db, da));
+        }
+
         private static Texture2D LoadTexture(string path)
         {
             var data = File.ReadAllBytes(path);
@@ -648,6 +656,11 @@ namespace DataDrivenGoap
             {
                 return $"#{R:X2}{G:X2}{B:X2}{A:X2}";
             }
+
+            public Color32 ToColor32()
+            {
+                return new Color32(R, G, B, A);
+            }
         }
 
         private static string ResolvePath(string baseDirectory, string relativePath, string propertyName)
@@ -693,6 +706,43 @@ namespace DataDrivenGoap
             }
 
             return map;
+        }
+
+        private static bool TryResolveTileName(Color32 pixel, Dictionary<Color32Key, string> tileNameByColor, out string tileName)
+        {
+            var key = new Color32Key(pixel);
+            if (tileNameByColor.TryGetValue(key, out tileName))
+            {
+                return true;
+            }
+
+            string matchedName = null;
+            int bestDifference = int.MaxValue;
+            foreach (var kvp in tileNameByColor)
+            {
+                var candidate = kvp.Key.ToColor32();
+                if (ApproximatelyEqual(pixel, candidate, DefaultColorTolerance))
+                {
+                    int difference = MaxColorComponentDelta(pixel, candidate);
+                    if (difference > bestDifference)
+                    {
+                        continue;
+                    }
+
+                    if (difference == bestDifference && matchedName != null &&
+                        !string.Equals(matchedName, kvp.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        tileName = null;
+                        return false;
+                    }
+
+                    matchedName = kvp.Value;
+                    bestDifference = difference;
+                }
+            }
+
+            tileName = matchedName;
+            return matchedName != null;
         }
 
         private static IReadOnlyDictionary<string, VillageLocation> BuildLocationLookup(IDictionary<string, VillageLocation> locations)
