@@ -50,16 +50,22 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     public sealed class SimulationReadyEventArgs : EventArgs
     {
-        public SimulationReadyEventArgs(ShardedWorld world, IReadOnlyList<(ThingId Id, VillagePawn Pawn)> actors, string datasetRoot)
+        public SimulationReadyEventArgs(
+            ShardedWorld world,
+            IReadOnlyList<(ThingId Id, VillagePawn Pawn)> actors,
+            string datasetRoot,
+            Texture2D mapTexture)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
             DatasetRoot = datasetRoot ?? throw new ArgumentNullException(nameof(datasetRoot));
+            MapTexture = mapTexture ?? throw new ArgumentNullException(nameof(mapTexture));
         }
 
         public ShardedWorld World { get; }
         public IReadOnlyList<(ThingId Id, VillagePawn Pawn)> ActorDefinitions { get; }
         public string DatasetRoot { get; }
+        public Texture2D MapTexture { get; }
     }
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
@@ -95,6 +101,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private ScheduleDatabaseConfig _scheduleDatabase;
     private DemoConfig _demoConfig;
     private TileClassification _tiles;
+    private Texture2D _mapTexture;
     private List<ActionConfig> _actionConfigs;
     private List<GoalConfig> _goalConfigs;
 
@@ -159,6 +166,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         _worldLogger?.Dispose();
+
+        if (_mapTexture != null)
+        {
+            Destroy(_mapTexture);
+            _mapTexture = null;
+        }
     }
 
     private WorldLogger _worldLogger;
@@ -169,6 +182,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _actorDefinitions.Clear();
         _locationToThing.Clear();
         _seedByThing.Clear();
+
+        if (_mapTexture != null)
+        {
+            Destroy(_mapTexture);
+            _mapTexture = null;
+        }
 
         string projectRoot = ResolveProjectRoot();
         string datasetRoot = Path.GetFullPath(Path.Combine(projectRoot, datasetRelativePath ?? string.Empty));
@@ -210,7 +229,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _questSystem = new QuestSystem(questDatabase?.quests ?? Array.Empty<QuestConfig>());
         _scheduleService = new RoleScheduleService();
 
-        _tiles = LoadTileClassification(mapImagePath, _demoConfig.world.map, villageConfig);
+        var mapData = LoadTileClassification(mapImagePath, _demoConfig.world.map, villageConfig);
+        _tiles = mapData.Classification;
+        _mapTexture = mapData.Texture;
 
         var seeds = BuildThingSeeds(_demoConfig.world, villageConfig);
         var facts = BuildWorldFacts(_demoConfig.world);
@@ -279,8 +300,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException("World must be initialized before publishing bootstrap completion.");
         }
 
+        if (_mapTexture == null)
+        {
+            throw new InvalidOperationException("Map texture must be initialized before publishing bootstrap completion.");
+        }
+
         var actors = _actorDefinitions.ToArray();
-        _readyEventArgs = new SimulationReadyEventArgs(_world, Array.AsReadOnly(actors), datasetRoot);
+        _readyEventArgs = new SimulationReadyEventArgs(_world, Array.AsReadOnly(actors), datasetRoot, _mapTexture);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 
@@ -1114,7 +1140,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
     }
 
-    private TileClassification LoadTileClassification(string imagePath, WorldMapConfig mapConfig, VillageConfig village)
+    private (TileClassification Classification, Texture2D Texture) LoadTileClassification(string imagePath, WorldMapConfig mapConfig, VillageConfig village)
     {
         if (string.IsNullOrWhiteSpace(imagePath))
         {
@@ -1122,60 +1148,73 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         byte[] data = File.ReadAllBytes(imagePath);
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
-        if (!texture.LoadImage(data))
+        Texture2D texture = null;
+        try
         {
-            throw new InvalidDataException($"Failed to load map image '{imagePath}'.");
-        }
-
-        var pixels = texture.GetPixels32();
-        int width = texture.width;
-        int height = texture.height;
-
-        var colorMap = new Dictionary<Color32, string>(new Color32Comparer());
-        foreach (var kv in village?.map?.key ?? new Dictionary<string, string>())
-        {
-            if (ColorUtility.TryParseHtmlString(kv.Value, out var color))
+            texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            if (!texture.LoadImage(data))
             {
-                colorMap[new Color32((byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), 255)] = kv.Key;
+                throw new InvalidDataException($"Failed to load map image '{imagePath}'.");
             }
-        }
 
-        var classification = new TileClassification
-        {
-            Walkable = new bool[width, height],
-            Water = new bool[width, height],
-            Shallow = new bool[width, height],
-            Forest = new bool[width, height],
-            Farmland = new bool[width, height],
-            Coastal = new bool[width, height]
-        };
+            var pixels = texture.GetPixels32();
+            int width = texture.width;
+            int height = texture.height;
 
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
+            var colorMap = new Dictionary<Color32, string>(new Color32Comparer());
+            foreach (var kv in village?.map?.key ?? new Dictionary<string, string>())
             {
-                var pixel = pixels[(height - 1 - y) * width + x];
-                if (!colorMap.TryGetValue(pixel, out var tileId))
+                if (ColorUtility.TryParseHtmlString(kv.Value, out var color))
                 {
-                    throw new InvalidDataException($"Map tile color {pixel} at {x},{y} does not match any key entry.");
+                    colorMap[new Color32((byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), 255)] = kv.Key;
                 }
-
-                if (!mapConfig.tiles.TryGetValue(tileId, out var tile))
-                {
-                    throw new InvalidDataException($"Tile '{tileId}' referenced by map image not present in tiles configuration.");
-                }
-
-                classification.Walkable[x, y] = tile.walkable;
-                classification.Water[x, y] = tile.water;
-                classification.Shallow[x, y] = tile.shallowWater;
-                classification.Forest[x, y] = tile.forest;
-                classification.Farmland[x, y] = tile.farmland;
-                classification.Coastal[x, y] = tile.coastal;
             }
-        }
 
-        return classification;
+            var classification = new TileClassification
+            {
+                Walkable = new bool[width, height],
+                Water = new bool[width, height],
+                Shallow = new bool[width, height],
+                Forest = new bool[width, height],
+                Farmland = new bool[width, height],
+                Coastal = new bool[width, height]
+            };
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    var pixel = pixels[(height - 1 - y) * width + x];
+                    if (!colorMap.TryGetValue(pixel, out var tileId))
+                    {
+                        throw new InvalidDataException($"Map tile color {pixel} at {x},{y} does not match any key entry.");
+                    }
+
+                    if (!mapConfig.tiles.TryGetValue(tileId, out var tile))
+                    {
+                        throw new InvalidDataException($"Tile '{tileId}' referenced by map image not present in tiles configuration.");
+                    }
+
+                    classification.Walkable[x, y] = tile.walkable;
+                    classification.Water[x, y] = tile.water;
+                    classification.Shallow[x, y] = tile.shallowWater;
+                    classification.Forest[x, y] = tile.forest;
+                    classification.Farmland[x, y] = tile.farmland;
+                    classification.Coastal[x, y] = tile.coastal;
+                }
+            }
+
+            return (classification, texture);
+        }
+        catch
+        {
+            if (texture != null)
+            {
+                Destroy(texture);
+            }
+
+            throw;
+        }
     }
 
     private string ResolveProjectRoot()
