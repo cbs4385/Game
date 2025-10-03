@@ -13,6 +13,7 @@ using DataDrivenGoap.Simulation;
 using DataDrivenGoap.Social;
 using DataDrivenGoap.World;
 using UnityEngine;
+using RectInt = DataDrivenGoap.Core.RectInt;
 
 public sealed class GoapSimulationBootstrapper : MonoBehaviour
 {
@@ -792,7 +793,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return 0.0;
         }
 
-        if (TimeSpan.TryParseExact(text.Trim(), new[] { "hh\:mm", "h\:mm", "H\:mm", "HH\:mm" }, CultureInfo.InvariantCulture, out var span))
+        if (TimeSpan.TryParseExact(text.Trim(), new[] { "hh:mm", "hh:mm", "HH:mm", "HH:mm" }, CultureInfo.InvariantCulture, out var span))
         {
             return Math.Clamp(span.TotalHours, 0.0, 24.0);
         }
