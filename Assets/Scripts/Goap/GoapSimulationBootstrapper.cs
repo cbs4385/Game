@@ -24,16 +24,23 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     [SerializeField] private Color highElevationColor = Color.white;
     [SerializeField] private float pawnVisualScale = 0.6f;
 
+    [Header("Visual Assets")]
+    [SerializeField] private Sprite tileSprite;
+    [SerializeField] private Sprite pawnSprite;
+    [SerializeField] private Sprite defaultItemSprite;
+    [SerializeField] private ItemSpriteMapping[] itemSpriteMappings;
+
     private readonly Dictionary<Vector2Int, GameObject> _tiles = new();
     private readonly Dictionary<int, GameObject> _pawns = new();
+    private readonly Dictionary<int, GameObject> _items = new();
     private readonly Dictionary<int, PawnSnapshot> _pawnSnapshots = new();
+    private readonly Dictionary<int, ItemSnapshot> _itemSnapshots = new();
+    private readonly Dictionary<string, Sprite> _itemSpritesById = new(StringComparer.OrdinalIgnoreCase);
     private Simulation _simulation;
     private SimulationConfig _config;
     private Transform _mapRoot;
     private Transform _pawnRoot;
-    private Sprite _tileSprite;
-    private Sprite _pawnSprite;
-    private Texture2D _pawnTexture;
+    private Transform _itemRoot;
 
     public event Action<Simulation> SimulationInitialized;
 
@@ -47,15 +54,18 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     public IReadOnlyDictionary<int, PawnSnapshot> CurrentPawnSnapshots => _pawnSnapshots;
 
+    public IReadOnlyDictionary<int, GameObject> ItemObjects => _items;
+
+    public IReadOnlyDictionary<int, ItemSnapshot> CurrentItemSnapshots => _itemSnapshots;
+
     private void Awake()
     {
         _mapRoot = new GameObject("Generated Map").transform;
         _mapRoot.SetParent(transform, false);
         _pawnRoot = new GameObject("Pawns").transform;
         _pawnRoot.SetParent(transform, false);
-
-        _tileSprite = CreateSquareSprite();
-        _pawnSprite = CreatePawnSprite();
+        _itemRoot = new GameObject("Items").transform;
+        _itemRoot.SetParent(transform, false);
     }
 
     private void Start()
@@ -65,15 +75,18 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _simulation.TileGenerated -= HandleTileGenerated;
             _simulation.PawnSpawned -= HandlePawnSpawned;
             _simulation.PawnUpdated -= HandlePawnUpdated;
+            _simulation.ItemSpawned -= HandleItemSpawned;
         }
 
         ResetSceneState();
 
         _config = new SimulationConfig(mapSize, pawnCount, tileSpacing, elevationRange, pawnSpeed, pawnHeightOffset, randomSeed);
         _simulation = SimulationFactory.Create(_config);
+        BuildItemSpriteLookup();
         _simulation.TileGenerated += HandleTileGenerated;
         _simulation.PawnSpawned += HandlePawnSpawned;
         _simulation.PawnUpdated += HandlePawnUpdated;
+        _simulation.ItemSpawned += HandleItemSpawned;
         _simulation.Start();
 
         SimulationInitialized?.Invoke(_simulation);
@@ -96,25 +109,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _simulation.TileGenerated -= HandleTileGenerated;
             _simulation.PawnSpawned -= HandlePawnSpawned;
             _simulation.PawnUpdated -= HandlePawnUpdated;
+            _simulation.ItemSpawned -= HandleItemSpawned;
             SimulationInitialized = null;
-        }
-
-        if (_pawnTexture != null)
-        {
-            Destroy(_pawnTexture);
-            _pawnTexture = null;
-        }
-
-        if (_pawnSprite != null)
-        {
-            Destroy(_pawnSprite);
-            _pawnSprite = null;
-        }
-
-        if (_tileSprite != null)
-        {
-            Destroy(_tileSprite);
-            _tileSprite = null;
         }
     }
 
@@ -138,7 +134,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         tileObject.transform.localScale = new Vector3(_config.TileSpacing * tileScaleFactor, _config.TileSpacing * tileScaleFactor, 1f);
 
         var renderer = tileObject.AddComponent<SpriteRenderer>();
-        renderer.sprite = _tileSprite;
+        renderer.sprite = tileSprite;
         renderer.sortingOrder = 0;
         renderer.color = EvaluateElevationColor(tile.NormalizedElevation);
 
@@ -167,7 +163,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         pawnObject.transform.localScale = Vector3.one * pawnVisualScale;
 
         var renderer = pawnObject.AddComponent<SpriteRenderer>();
-        renderer.sprite = _pawnSprite;
+        renderer.sprite = pawnSprite;
         renderer.sortingOrder = 1;
         renderer.color = pawn.Color;
 
@@ -200,6 +196,105 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         _pawnSnapshots[pawn.Id] = pawn;
+    }
+
+    private void HandleItemSpawned(ItemSnapshot item)
+    {
+        if (_items.TryGetValue(item.Id, out var existingItem))
+        {
+            if (existingItem != null)
+            {
+                Destroy(existingItem);
+            }
+
+            _items.Remove(item.Id);
+            _itemSnapshots.Remove(item.Id);
+        }
+
+        var itemObject = new GameObject();
+        itemObject.name = GetItemDisplayName(item);
+        itemObject.transform.SetParent(_itemRoot, false);
+        itemObject.transform.position = ProjectTo2D(item.WorldPosition);
+        var scale = Mathf.Max(0.1f, pawnVisualScale * 0.75f);
+        itemObject.transform.localScale = Vector3.one * scale;
+
+        var renderer = itemObject.AddComponent<SpriteRenderer>();
+        renderer.sprite = ResolveItemSprite(item);
+        renderer.sortingOrder = 2;
+
+        _items[item.Id] = itemObject;
+        _itemSnapshots[item.Id] = item;
+
+        Debug.Log($"Item spawned: {itemObject.name} (ID {item.Id}) at tile {item.Tile}, world position {item.WorldPosition}.");
+    }
+
+    private void BuildItemSpriteLookup()
+    {
+        _itemSpritesById.Clear();
+
+        if (itemSpriteMappings != null)
+        {
+            foreach (var mapping in itemSpriteMappings)
+            {
+                if (string.IsNullOrWhiteSpace(mapping.spriteId) || mapping.sprite == null)
+                {
+                    continue;
+                }
+
+                _itemSpritesById[mapping.spriteId] = mapping.sprite;
+            }
+        }
+
+        if (_simulation?.ItemDefinitions == null)
+        {
+            return;
+        }
+
+        foreach (var definition in _simulation.ItemDefinitions)
+        {
+            if (string.IsNullOrEmpty(definition.SpriteId) || _itemSpritesById.ContainsKey(definition.SpriteId))
+            {
+                continue;
+            }
+
+            if (defaultItemSprite != null)
+            {
+                _itemSpritesById[definition.SpriteId] = defaultItemSprite;
+            }
+        }
+    }
+
+    private Sprite ResolveItemSprite(ItemSnapshot item)
+    {
+        if (_simulation != null && _simulation.TryGetItemDefinition(item.DefinitionId, out var definition))
+        {
+            if (!string.IsNullOrEmpty(definition.SpriteId) &&
+                _itemSpritesById.TryGetValue(definition.SpriteId, out var sprite) &&
+                sprite != null)
+            {
+                return sprite;
+            }
+        }
+
+        return defaultItemSprite;
+    }
+
+    private string GetItemDisplayName(ItemSnapshot item)
+    {
+        if (_simulation != null && _simulation.TryGetItemDefinition(item.DefinitionId, out var definition))
+        {
+            if (!string.IsNullOrEmpty(definition.DisplayName))
+            {
+                return $"{definition.DisplayName} ({item.Id})";
+            }
+
+            if (!string.IsNullOrEmpty(definition.Id))
+            {
+                return $"{definition.Id} ({item.Id})";
+            }
+        }
+
+        return $"Item {item.Id}";
     }
 
     private Color EvaluateElevationColor(float normalizedHeight)
@@ -244,44 +339,6 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return new Vector3(worldPosition.x, worldPosition.z, 0f);
     }
 
-    private static Sprite CreateSquareSprite()
-    {
-        var texture = Texture2D.whiteTexture;
-        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), texture.width);
-    }
-
-    private Sprite CreatePawnSprite()
-    {
-        const int size = 64;
-        _pawnTexture = new Texture2D(size, size, TextureFormat.ARGB32, false)
-        {
-            filterMode = FilterMode.Bilinear,
-            wrapMode = TextureWrapMode.Clamp,
-            name = "PawnSpriteTexture"
-        };
-
-        var center = (size - 1) * 0.5f;
-        var radius = center;
-        var pixels = new Color[size * size];
-
-        for (var y = 0; y < size; y++)
-        {
-            for (var x = 0; x < size; x++)
-            {
-                var dx = x - center;
-                var dy = y - center;
-                var distance = Mathf.Sqrt(dx * dx + dy * dy);
-                var alpha = distance <= radius ? 1f : 0f;
-                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
-            }
-        }
-
-        _pawnTexture.SetPixels(pixels);
-        _pawnTexture.Apply();
-
-        return Sprite.Create(_pawnTexture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
-    }
-
     private void ResetSceneState()
     {
         foreach (var tileObject in _tiles.Values)
@@ -300,12 +357,24 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             }
         }
 
+        foreach (var itemObject in _items.Values)
+        {
+            if (itemObject != null)
+            {
+                Destroy(itemObject);
+            }
+        }
+
         _tiles.Clear();
         _pawns.Clear();
+        _items.Clear();
         _pawnSnapshots.Clear();
+        _itemSnapshots.Clear();
+        _itemSpritesById.Clear();
 
         ClearTransformChildren(_mapRoot);
         ClearTransformChildren(_pawnRoot);
+        ClearTransformChildren(_itemRoot);
     }
 
     private static void ClearTransformChildren(Transform root)
@@ -323,6 +392,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 Destroy(child.gameObject);
             }
         }
+    }
+
+    [Serializable]
+    private struct ItemSpriteMapping
+    {
+        public string spriteId;
+        public Sprite sprite;
     }
 }
 
