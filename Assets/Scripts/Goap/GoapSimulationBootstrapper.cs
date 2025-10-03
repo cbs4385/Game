@@ -60,6 +60,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Start()
     {
+        if (_simulation != null)
+        {
+            _simulation.TileGenerated -= HandleTileGenerated;
+            _simulation.PawnSpawned -= HandlePawnSpawned;
+            _simulation.PawnUpdated -= HandlePawnUpdated;
+        }
+
+        ResetSceneState();
+
         _config = new SimulationConfig(mapSize, pawnCount, tileSpacing, elevationRange, pawnSpeed, pawnHeightOffset, randomSeed);
         _simulation = SimulationFactory.Create(_config);
         _simulation.TileGenerated += HandleTileGenerated;
@@ -111,9 +120,14 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void HandleTileGenerated(MapTile tile)
     {
-        if (_tiles.ContainsKey(tile.Coordinates))
+        if (_tiles.TryGetValue(tile.Coordinates, out var existingTile))
         {
-            return;
+            if (existingTile != null)
+            {
+                Destroy(existingTile);
+            }
+
+            _tiles.Remove(tile.Coordinates);
         }
 
         var tileObject = new GameObject();
@@ -136,9 +150,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void HandlePawnSpawned(PawnSnapshot pawn)
     {
-        if (_pawns.ContainsKey(pawn.Id))
+        if (_pawns.TryGetValue(pawn.Id, out var existingPawn))
         {
-            return;
+            if (existingPawn != null)
+            {
+                Destroy(existingPawn);
+            }
+
+            _pawns.Remove(pawn.Id);
+            _pawnSnapshots.Remove(pawn.Id);
         }
 
         var pawnObject = new GameObject();
@@ -260,6 +280,49 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _pawnTexture.Apply();
 
         return Sprite.Create(_pawnTexture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    private void ResetSceneState()
+    {
+        foreach (var tileObject in _tiles.Values)
+        {
+            if (tileObject != null)
+            {
+                Destroy(tileObject);
+            }
+        }
+
+        foreach (var pawnObject in _pawns.Values)
+        {
+            if (pawnObject != null)
+            {
+                Destroy(pawnObject);
+            }
+        }
+
+        _tiles.Clear();
+        _pawns.Clear();
+        _pawnSnapshots.Clear();
+
+        ClearTransformChildren(_mapRoot);
+        ClearTransformChildren(_pawnRoot);
+    }
+
+    private static void ClearTransformChildren(Transform root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        for (var i = root.childCount - 1; i >= 0; i--)
+        {
+            var child = root.GetChild(i);
+            if (child != null)
+            {
+                Destroy(child.gameObject);
+            }
+        }
     }
 }
 
