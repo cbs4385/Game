@@ -469,14 +469,15 @@ namespace DataDrivenGoap
             return new VillageLocation
         public void ApplyDefaults()
         {
-                id = src.id.Trim(),
-                name = string.IsNullOrWhiteSpace(src.name) ? null : src.name.Trim(),
-                type = string.IsNullOrWhiteSpace(src.type) ? null : src.type.Trim(),
-                bbox = src.bbox.ToArray(),
-                center = src.center.ToArray()
-            };
-            id ??= string.Empty;
-            prototypeId ??= string.Empty;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (prototypeId == null)
+            {
+                prototypeId = string.Empty;
+            }
         }
     }
 
@@ -528,14 +529,20 @@ namespace DataDrivenGoap
                 var annotation = new VillageBuildingAnnotation
         public void ApplyDefaults()
         {
-                    name = name.Trim(),
-                    bbox = bbox,
-                    location = string.IsNullOrWhiteSpace(locationRef) ? null : locationRef.Trim()
-                };
-                annotations.Add(annotation);
-            id ??= string.Empty;
-            displayName ??= id;
-            spriteId ??= string.Empty;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (spriteId == null)
+            {
+                spriteId = string.Empty;
+            }
         }
 
             return LoadBuildings(annotations, prototypes, tileScale, width, height, locations);
@@ -566,65 +573,16 @@ namespace DataDrivenGoap
             foreach (var annotation in annotations)
         public void ApplyDefaults()
         {
-                if (annotation == null)
-                    throw new InvalidOperationException("Building annotations must not contain null entries.");
+            if (id == null)
+            {
+                id = string.Empty;
+            }
 
-                string name = annotation.name;
-                if (string.IsNullOrWhiteSpace(name))
-                    throw new InvalidOperationException("Building annotations must define a non-empty name.");
+            if (displayName == null)
+            {
+                displayName = id;
+            }
 
-                if (!prototypes.TryGetValue(name, out var prototype) || prototype == null)
-                    throw new InvalidOperationException($"No building prototype defined for annotation '{name}'.");
-
-                var bbox = ResolveBoundingBox(annotation, locations);
-                if (bbox == null || bbox.Length != 4)
-                    throw new InvalidOperationException($"Building '{name}' must define a bounding box with four coordinates.");
-
-                double minPx = bbox[0];
-                double minPy = bbox[1];
-                double maxPx = bbox[2];
-                double maxPy = bbox[3];
-                if (maxPx < minPx || maxPy < minPy)
-                    throw new InvalidOperationException($"Building '{name}' bounding box is invalid.");
-
-                int minX = Math.Clamp((int)Math.Floor(minPx / tileScale), 0, width - 1);
-                int minY = Math.Clamp((int)Math.Floor(minPy / tileScale), 0, height - 1);
-                int maxX = Math.Clamp((int)Math.Ceiling(maxPx / tileScale) - 1, 0, width - 1);
-                int maxY = Math.Clamp((int)Math.Ceiling(maxPy / tileScale) - 1, 0, height - 1);
-                if (maxX < minX) maxX = minX;
-                if (maxY < minY) maxY = minY;
-
-                var area = new RectInt(minX, minY, maxX, maxY);
-                var pos = new GridPos((minX + maxX) / 2, (minY + maxY) / 2);
-
-                var idPrefix = string.IsNullOrWhiteSpace(prototype.idPrefix) ? name : prototype.idPrefix;
-                if (!counters.TryGetValue(idPrefix, out var count)) count = 0;
-                count++;
-                counters[idPrefix] = count;
-                string id = $"{idPrefix}-{count}";
-
-                var tags = (prototype.tags ?? Array.Empty<string>())
-                    .Where(t => !string.IsNullOrWhiteSpace(t))
-                    .Select(t => t.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                var attributes = new Dictionary<string, double>(prototype.attributes ?? new Dictionary<string, double>(), StringComparer.OrdinalIgnoreCase);
-
-                var servicePoints = BuildServicePoints(prototype.servicePoints, area);
-
-                var seed = new MapThingSeed(
-                    id,
-                    prototype.type,
-                    tags,
-                    pos,
-                    attributes,
-                    prototype.building,
-                    area,
-                    servicePoints);
-                result.Add(seed);
-            id ??= string.Empty;
-            displayName ??= id;
             radius = Math.Max(0, radius);
         }
 
@@ -644,11 +602,15 @@ namespace DataDrivenGoap
             if (annotation.bbox != null)
         public void ApplyDefaults()
         {
-                if (annotation.bbox.Length != 4)
-                    throw new InvalidOperationException($"Building '{annotation.name}' must define a 'bbox' with four coordinates when provided explicitly.");
-                return annotation.bbox.ToArray();
-            villageId ??= string.Empty;
-            buildingId ??= string.Empty;
+            if (villageId == null)
+            {
+                villageId = string.Empty;
+            }
+
+            if (buildingId == null)
+            {
+                buildingId = string.Empty;
+            }
         }
 
             if (string.IsNullOrWhiteSpace(annotation.location))
@@ -676,23 +638,21 @@ namespace DataDrivenGoap
             foreach (var cfg in configs)
         public void ApplyDefaults()
         {
-                if (cfg == null)
-                    continue;
-                double rx = cfg.x ?? 0.5;
-                double ry = cfg.y ?? 0.5;
-                rx = Math.Clamp(rx, 0.0, 1.0);
-                ry = Math.Clamp(ry, 0.0, 1.0);
-                int x = area.MinX + (int)Math.Round(rx * (area.MaxX - area.MinX));
-                int y = area.MinY + (int)Math.Round(ry * (area.MaxY - area.MinY));
-                x = Math.Clamp(x, area.MinX, area.MaxX);
-                y = Math.Clamp(y, area.MinY, area.MaxY);
-                points.Add(new GridPos(x, y));
-            id ??= string.Empty;
-            displayName ??= id;
-            serviceType ??= string.Empty;
-        }
+            if (id == null)
+            {
+                id = string.Empty;
+            }
 
-            return points;
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (serviceType == null)
+            {
+                serviceType = string.Empty;
+            }
+        }
     }
 
         private static GridPos? FindDoorLocation(RectInt area, IReadOnlyList<GridPos> servicePoints, bool[,] walkable)
@@ -724,18 +684,27 @@ namespace DataDrivenGoap
                 ReadOnlySpan<GridPos> dirs = stackalloc GridPos[4]
         public void ApplyDefaults()
         {
-                    new GridPos(1, 0),
-                    new GridPos(-1, 0),
-                    new GridPos(0, 1),
-                    new GridPos(0, -1)
-                };
-            id ??= string.Empty;
-            displayName ??= id;
-            location ??= new VillageLocation();
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (location == null)
+            {
+                location = new VillageLocation();
+            }
+
             location.ApplyDefaults();
 
-                foreach (var dir in dirs)
-            buildings ??= Array.Empty<BuildingConfig>();
+            if (buildings == null)
+            {
+                buildings = Array.Empty<BuildingConfig>();
+            }
             foreach (var building in buildings)
             {
                     var neighbor = new GridPos(p.X + dir.X, p.Y + dir.Y);
@@ -751,12 +720,10 @@ namespace DataDrivenGoap
                 building?.ApplyDefaults();
             }
 
-            GridPos? fallback = null;
-
-            if (servicePoints != null)
+            if (servicePoints == null)
             {
-                foreach (var sp in servicePoints)
-            servicePoints ??= Array.Empty<MapServicePointConfig>();
+                servicePoints = Array.Empty<MapServicePointConfig>();
+            }
             foreach (var servicePoint in servicePoints)
             {
                     if (!IsOnPerimeter(sp) || !IsInsideMap(sp))
@@ -769,8 +736,10 @@ namespace DataDrivenGoap
                 servicePoint?.ApplyDefaults();
             }
 
-            foreach (var candidate in EnumeratePerimeter(area))
-            annotations ??= Array.Empty<VillageBuildingAnnotation>();
+            if (annotations == null)
+            {
+                annotations = Array.Empty<VillageBuildingAnnotation>();
+            }
             foreach (var annotation in annotations)
             {
                 if (!IsInsideMap(candidate))
@@ -823,8 +792,10 @@ namespace DataDrivenGoap
         }
             tileSpacing = Mathf.Max(0.01f, tileSpacing);
 
-        private static Rgba32 ParseColor(string hex)
-            villages ??= Array.Empty<VillageConfig>();
+            if (villages == null)
+            {
+                villages = Array.Empty<VillageConfig>();
+            }
             foreach (var village in villages)
             {
             if (hex.StartsWith("#", StringComparison.Ordinal))
@@ -834,10 +805,10 @@ namespace DataDrivenGoap
                 village?.ApplyDefaults();
             }
 
-            if (!byte.TryParse(hex.Substring(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var r) ||
-                !byte.TryParse(hex.Substring(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var g) ||
-                !byte.TryParse(hex.Substring(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
-            buildingPrototypes ??= Array.Empty<MapBuildingPrototypeConfig>();
+            if (buildingPrototypes == null)
+            {
+                buildingPrototypes = Array.Empty<MapBuildingPrototypeConfig>();
+            }
             foreach (var prototype in buildingPrototypes)
             {
                 throw new InvalidOperationException($"Color '{hex}' contains invalid hex characters.");
