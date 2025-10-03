@@ -48,11 +48,28 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public int GetHashCode(Color32 obj) => (obj.r << 16) | (obj.g << 8) | obj.b;
     }
 
+    public sealed class SimulationReadyEventArgs : EventArgs
+    {
+        public SimulationReadyEventArgs(ShardedWorld world, IReadOnlyList<(ThingId Id, VillagePawn Pawn)> actors, string datasetRoot)
+        {
+            World = world ?? throw new ArgumentNullException(nameof(world));
+            ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
+            DatasetRoot = datasetRoot ?? throw new ArgumentNullException(nameof(datasetRoot));
+        }
+
+        public ShardedWorld World { get; }
+        public IReadOnlyList<(ThingId Id, VillagePawn Pawn)> ActorDefinitions { get; }
+        public string DatasetRoot { get; }
+    }
+
+    public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
+
     private readonly List<ActorHost> _actorHosts = new List<ActorHost>();
     private readonly List<(ThingId Id, VillagePawn Pawn)> _actorDefinitions = new List<(ThingId, VillagePawn)>();
     private readonly Dictionary<string, ThingId> _locationToThing = new Dictionary<string, ThingId>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ThingId, ThingSeed> _seedByThing = new Dictionary<ThingId, ThingSeed>();
 
+    private SimulationReadyEventArgs _readyEventArgs;
     private ShardedWorld _world;
     private WorldClock _clock;
     private NeedScheduler _needScheduler;
@@ -85,6 +102,10 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         Bootstrap();
     }
+
+    public bool HasBootstrapped => _readyEventArgs != null;
+
+    public SimulationReadyEventArgs LatestBootstrap => _readyEventArgs ?? throw new InvalidOperationException("Bootstrap has not completed yet.");
 
     private void Start()
     {
@@ -243,6 +264,24 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _skillSystem);
 
         BuildActorHosts(logRoot);
+        NotifyBootstrapped(datasetRoot);
+    }
+
+    private void NotifyBootstrapped(string datasetRoot)
+    {
+        if (string.IsNullOrWhiteSpace(datasetRoot))
+        {
+            throw new ArgumentException("Dataset root must be a valid, non-empty path.", nameof(datasetRoot));
+        }
+
+        if (_world == null)
+        {
+            throw new InvalidOperationException("World must be initialized before publishing bootstrap completion.");
+        }
+
+        var actors = _actorDefinitions.ToArray();
+        _readyEventArgs = new SimulationReadyEventArgs(_world, Array.AsReadOnly(actors), datasetRoot);
+        Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 
     private void ConfigureScheduleDefinitions()
