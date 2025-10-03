@@ -63,6 +63,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\GoapSimulationBootstrapper.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\Scripts\GoapSimulationView.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
