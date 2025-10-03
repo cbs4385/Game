@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using DataDrivenGoap.Config;
 using UnityEngine;
 
 namespace DataDrivenGoap.Unity
@@ -483,58 +485,93 @@ namespace DataDrivenGoap.Unity
 
     internal static class GoapContentLoader
     {
-        private const string ResourcePath = "DataDrivenGoap/GoapContent";
+        private const string ItemsRelativePath = "Packages/DataDrivenGoap/Runtime/Data/items.json";
 
         public static GoapContent Load()
         {
-            var asset = Resources.Load<TextAsset>(ResourcePath);
-            if (asset == null || string.IsNullOrWhiteSpace(asset.text))
-            {
-                return new GoapContent(Array.Empty<UnityItemDefinition>());
-            }
+            var fullPath = ResolveItemsPath();
 
+            List<ItemConfig> itemConfigs;
             try
             {
-                var payload = JsonUtility.FromJson<GoapContentPayload>(asset.text);
-                if (payload?.items == null || payload.items.Length == 0)
-                {
-                    return new GoapContent(Array.Empty<UnityItemDefinition>());
-                }
-
-                var definitions = new List<UnityItemDefinition>(payload.items.Length);
-                foreach (var item in payload.items)
-                {
-                    if (item == null || string.IsNullOrWhiteSpace(item.id))
-                    {
-                        continue;
-                    }
-
-                    var displayName = string.IsNullOrWhiteSpace(item.displayName) ? item.id : item.displayName;
-                    var spriteId = item.spriteId ?? string.Empty;
-                    definitions.Add(new UnityItemDefinition(item.id, displayName, spriteId));
-                }
-
-                return new GoapContent(definitions);
+                itemConfigs = ConfigLoader.LoadItems(fullPath);
+            }
+            catch (InvalidDataException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is FileNotFoundException || exception is DirectoryNotFoundException)
+            {
+                throw new InvalidDataException($"GOAP content items file was not found at '{fullPath}'.", exception);
             }
             catch (Exception exception)
             {
-                Debug.LogError($"Failed to parse GOAP content at Resources/{ResourcePath}: {exception}");
-                return new GoapContent(Array.Empty<UnityItemDefinition>());
+                throw new InvalidDataException($"Failed to load GOAP items from '{fullPath}'.", exception);
             }
+
+            if (itemConfigs == null || itemConfigs.Count == 0)
+            {
+                throw new InvalidDataException($"Item config at '{fullPath}' did not contain any entries.");
+            }
+
+            var definitions = new List<UnityItemDefinition>(itemConfigs.Count);
+
+            for (int i = 0; i < itemConfigs.Count; i++)
+            {
+                var config = itemConfigs[i];
+                if (config == null)
+                {
+                    throw new InvalidDataException($"Item config at '{fullPath}' contains a null entry at index {i}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(config.id))
+                {
+                    throw new InvalidDataException($"Item config at '{fullPath}' entry {i} is missing 'id'.");
+                }
+
+                var id = config.id.Trim();
+                var displayName = DeriveDisplayName(config, id);
+                var spriteSlug = (config.spriteSlug ?? string.Empty).Trim();
+
+                definitions.Add(new UnityItemDefinition(id, displayName, spriteSlug));
+            }
+
+            return new GoapContent(definitions);
         }
 
-        [Serializable]
-        private sealed class GoapContentPayload
+        private static string ResolveItemsPath()
         {
-            public ItemDefinitionPayload[] items;
+            if (string.IsNullOrWhiteSpace(Application.dataPath))
+            {
+                throw new InvalidOperationException("Unity Application.dataPath is not available.");
+            }
+
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var normalizedRelativePath = ItemsRelativePath.Replace('/', Path.DirectorySeparatorChar);
+            return Path.Combine(projectRoot, normalizedRelativePath);
         }
 
-        [Serializable]
-        private sealed class ItemDefinitionPayload
+        private static string DeriveDisplayName(ItemConfig config, string itemId)
         {
-            public string id;
-            public string displayName;
-            public string spriteId;
+            if (!string.IsNullOrWhiteSpace(config.displayName))
+            {
+                return config.displayName.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return string.Empty;
+            }
+
+            var normalized = itemId.Replace('_', ' ').Replace('-', ' ');
+            var collapsed = string.Join(" ", normalized.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+            if (collapsed.Length == 0)
+            {
+                return itemId;
+            }
+
+            var lower = collapsed.ToLowerInvariant();
+            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(lower);
         }
     }
 
