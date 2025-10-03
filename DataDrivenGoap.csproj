@@ -88,6 +88,8 @@
     <Compile Include="Packages\DataDrivenGoap\Runtime\Persistence\WorldSnapshot.cs" />
     <Compile Include="Packages\DataDrivenGoap\Runtime\Planning.JsonDrivenPlanner.cs" />
     <Compile Include="Packages\DataDrivenGoap\Runtime\World.Sharded.cs" />
+    <Compile Include="Packages\DataDrivenGoap\Runtime\Polyfills\ImmutableShim.cs" />
+    <Compile Include="Packages\DataDrivenGoap\Runtime\Polyfills\JsonShim.cs" />
     <Compile Include="Packages\DataDrivenGoap\Runtime\Persistence\SnapshotBuilder.cs" />
     <Compile Include="Packages\DataDrivenGoap\Runtime\Simulation.CropSystem.cs" />
     <Compile Include="Packages\DataDrivenGoap\Runtime\Social.RelationshipSystem.cs" />
