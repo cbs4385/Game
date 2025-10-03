@@ -72,10 +72,10 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Start()
     {
-        _simulation.TileGenerated -= HandleTileGenerated;
-        _simulation.PawnSpawned -= HandlePawnSpawned;
-        _simulation.PawnUpdated -= HandlePawnUpdated;
-        _simulation.ItemSpawned -= HandleItemSpawned;
+        if (_simulation != null)
+        {
+            UnsubscribeFromSimulationEvents();
+        }
 
         ResetSceneState();
 
@@ -84,10 +84,21 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return;
         }
 
+        var simulation = CreateSimulation(mapDefinition);
+        if (simulation == null)
+        {
+            return;
+        }
+
+        InitializeSimulation(simulation);
+    }
+
+    private Simulation CreateSimulation(MapDefinitionDto mapDefinition)
+    {
         if (pawnDefinitionAsset == null)
         {
             Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
-            return;
+            return null;
         }
 
         try
@@ -97,21 +108,23 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
                 : ItemDefinitionsDto.Empty;
 
-            _simulation = SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
-            _config = _simulation.Config;
+            return SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
         }
         catch (Exception ex)
         {
             Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
             Debug.LogException(ex);
-            return;
+            return null;
         }
+    }
+
+    private void InitializeSimulation(Simulation simulation)
+    {
+        _simulation = simulation;
+        _config = _simulation.Config;
 
         BuildItemSpriteLookup();
-        _simulation.TileGenerated += HandleTileGenerated;
-        _simulation.PawnSpawned += HandlePawnSpawned;
-        _simulation.PawnUpdated += HandlePawnUpdated;
-        _simulation.ItemSpawned += HandleItemSpawned;
+        SubscribeToSimulationEvents();
         _simulation.Start();
 
         SimulationInitialized?.Invoke(_simulation);
@@ -131,11 +144,10 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         if (_simulation != null)
         {
-            _simulation.TileGenerated -= HandleTileGenerated;
-            _simulation.PawnSpawned -= HandlePawnSpawned;
-            _simulation.PawnUpdated -= HandlePawnUpdated;
-            _simulation.ItemSpawned -= HandleItemSpawned;
+            UnsubscribeFromSimulationEvents();
             SimulationInitialized = null;
+            _simulation = null;
+            _config = null;
         }
     }
 
@@ -371,6 +383,32 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public Texture2D mapTexture;
 
         public bool IsConfigured => worldSettingsAsset != null && villageDataAsset != null && mapTexture != null;
+    }
+
+    private void SubscribeToSimulationEvents()
+    {
+        if (_simulation == null)
+        {
+            return;
+        }
+
+        _simulation.TileGenerated += HandleTileGenerated;
+        _simulation.PawnSpawned += HandlePawnSpawned;
+        _simulation.PawnUpdated += HandlePawnUpdated;
+        _simulation.ItemSpawned += HandleItemSpawned;
+    }
+
+    private void UnsubscribeFromSimulationEvents()
+    {
+        if (_simulation == null)
+        {
+            return;
+        }
+
+        _simulation.TileGenerated -= HandleTileGenerated;
+        _simulation.PawnSpawned -= HandlePawnSpawned;
+        _simulation.PawnUpdated -= HandlePawnUpdated;
+        _simulation.ItemSpawned -= HandleItemSpawned;
     }
 
     private void HandleTileGenerated(MapTile tile)
