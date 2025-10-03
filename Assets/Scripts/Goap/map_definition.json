@@ -1,0 +1,7 @@
+{
+  "size": {"x": 32, "y": 32},
+  "tileSpacing": 1.5,
+  "minElevation": 0.25,
+  "maxElevation": 1.75,
+  "tiles": []
+}
