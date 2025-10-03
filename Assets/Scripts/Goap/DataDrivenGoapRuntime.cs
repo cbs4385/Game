@@ -310,7 +310,7 @@ namespace DataDrivenGoap
     /// <summary>
     /// Internal mutable pawn state used to drive the simulation.
     /// </summary>
-    internal sealed class PawnInternal
+    public sealed class PawnInternal
     {
         public PawnInternal(int id, string name, Color color, float speed, float heightOffset)
         {
