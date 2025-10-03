@@ -1286,6 +1286,12 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="DataDrivenGoap/DataDrivenGoap.csproj">
+      <Project>{6B7E7E1F-2A6A-4F3F-8FB5-6E8F862C1E0B}</Project>
+      <Name>DataDrivenGoap</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
