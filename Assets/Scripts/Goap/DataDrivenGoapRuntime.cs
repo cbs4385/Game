@@ -239,12 +239,48 @@ namespace DataDrivenGoap
     /// </summary>
     public static class SimulationFactory
     {
-        public static Simulation Create(SimulationConfig config)
+        public static Simulation Create(
+            MapDefinitionDto mapDefinition,
+            PawnDefinitionsDto pawnDefinitions,
+            ItemDefinitionsDto itemDefinitions,
+            int randomSeed)
         {
-            if (config == null)
+            if (mapDefinition == null)
             {
-                throw new ArgumentNullException(nameof(config));
+                throw new ArgumentNullException(nameof(mapDefinition));
             }
+
+            if (pawnDefinitions == null)
+            {
+                throw new ArgumentNullException(nameof(pawnDefinitions));
+            }
+
+            mapDefinition.ApplyDefaults();
+            pawnDefinitions.ApplyDefaults();
+            itemDefinitions ??= ItemDefinitionsDto.Empty;
+            itemDefinitions.ApplyDefaults();
+
+            var mapSize = mapDefinition.size.ToVector2Int();
+            if (mapSize.x <= 0 || mapSize.y <= 0)
+            {
+                throw new ArgumentException("The map definition must specify a positive size.", nameof(mapDefinition));
+            }
+
+            var tileSpacing = Mathf.Max(0.01f, mapDefinition.tileSpacing);
+            var minElevation = Mathf.Min(mapDefinition.minElevation, mapDefinition.maxElevation);
+            var maxElevation = Mathf.Max(mapDefinition.minElevation, mapDefinition.maxElevation);
+            var pawnCount = pawnDefinitions.pawns.Length;
+            var defaultSpeed = Mathf.Max(0.01f, pawnDefinitions.defaultSpeed);
+            var defaultHeightOffset = pawnDefinitions.defaultHeightOffset;
+
+            var config = new SimulationConfig(
+                mapSize,
+                pawnCount,
+                tileSpacing,
+                new Vector2(minElevation, maxElevation),
+                defaultSpeed,
+                defaultHeightOffset,
+                randomSeed);
 
             var random = new System.Random(config.RandomSeed);
             var content = GoapContentLoader.Load();
