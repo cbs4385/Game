@@ -4,9 +4,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using UnityEngine;
 
 namespace DataDrivenGoap
@@ -179,7 +176,7 @@ namespace DataDrivenGoap
 
             try
             {
-                var wrapper = JsonSerializer.Deserialize<WorldMapDefinitionWrapper>(json);
+                var wrapper = JsonUtilities.Deserialize<WorldMapDefinitionWrapper>(json);
                 if (wrapper?.world == null)
                 {
                     config = WorldMapConfig.CreateEmpty();
@@ -228,7 +225,7 @@ namespace DataDrivenGoap
 
             int tileScale = Math.Max(1, mapConfig.tileSize);
 
-            Dictionary<Rgba32, string> tileNameByColor;
+            Dictionary<Color32Key, string> tileNameByColor;
             if (inlineMapData?.key != null && inlineMapData.key.Count > 0)
             {
                 tileNameByColor = LoadTileKey(inlineMapData.key);
@@ -244,157 +241,166 @@ namespace DataDrivenGoap
                 throw new InvalidOperationException("Tile key does not define any entries.");
             }
 
-            using var image = Image.Load<Rgba32>(imagePath);
-
-            if (image.Width % tileScale != 0 || image.Height % tileScale != 0)
+            var texture = LoadTexture(imagePath);
+            try
             {
-                throw new InvalidOperationException($"Image dimensions {image.Width}x{image.Height} are not divisible by tile size {tileScale}.");
-            }
-
-            int width = image.Width / tileScale;
-            int height = image.Height / tileScale;
-
-            var tileConfig = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
-            foreach (var kvp in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
-            {
-                if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
+                if (texture.width % tileScale != 0 || texture.height % tileScale != 0)
                 {
-                    continue;
+                    throw new InvalidOperationException($"Image dimensions {texture.width}x{texture.height} are not divisible by tile size {tileScale}.");
                 }
 
-                tileConfig[kvp.Key.Trim()] = kvp.Value;
-            }
+                int width = texture.width / tileScale;
+                int height = texture.height / tileScale;
 
-            var walkable = new bool[width, height];
-            var farmlandTiles = new List<GridPos>();
-            var waterTiles = new List<GridPos>();
-            var shallowWaterTiles = new List<GridPos>();
-            var forestTiles = new List<GridPos>();
-            var coastalTiles = new List<GridPos>();
-            bool anyWalkable = false;
+                var pixels = texture.GetPixels32();
 
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    var pixel = image[x * tileScale, y * tileScale];
-                    if (tileScale > 1)
-                    {
-                        for (int oy = 0; oy < tileScale; oy++)
-                        {
-                            for (int ox = 0; ox < tileScale; ox++)
-                            {
-                                var sample = image[(x * tileScale) + ox, (y * tileScale) + oy];
-                                if (sample != pixel)
-                                {
-                                    throw new InvalidOperationException($"Tile at ({x},{y}) contains multiple colors and cannot be processed with the configured tile size.");
-                                }
-                            }
-                        }
-                    }
-
-                    if (!tileNameByColor.TryGetValue(pixel, out var tileName))
-                    {
-                        throw new InvalidOperationException($"Color {pixel} at {x},{y} not found in tile key.");
-                    }
-
-                    MapTileConfig cfg = null;
-                    tileConfig.TryGetValue(tileName, out cfg);
-
-                    bool isWalkable = cfg?.walkable ?? false;
-                    bool isFarmland = cfg?.farmland ?? false;
-                    bool isWater = cfg?.water ?? false;
-                    bool isShallow = cfg?.shallowWater ?? false;
-                    bool isForest = cfg?.forest ?? false;
-                    bool isCoastal = cfg?.coastal ?? false;
-
-                    walkable[x, y] = isWalkable;
-                    if (isWalkable)
-                    {
-                        anyWalkable = true;
-                    }
-
-                    if (isFarmland)
-                    {
-                        farmlandTiles.Add(new GridPos(x, y));
-                    }
-
-                    if (isWater)
-                    {
-                        waterTiles.Add(new GridPos(x, y));
-                    }
-
-                    if (isShallow)
-                    {
-                        shallowWaterTiles.Add(new GridPos(x, y));
-                    }
-
-                    if (isForest)
-                    {
-                        forestTiles.Add(new GridPos(x, y));
-                    }
-
-                    if (isCoastal)
-                    {
-                        coastalTiles.Add(new GridPos(x, y));
-                    }
-                }
-            }
-
-            if (!anyWalkable)
-            {
-                throw new InvalidOperationException("Loaded map does not contain any walkable tiles.");
-            }
-
-            var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
-            if (mapConfig.buildingPrototypes != null)
-            {
-                foreach (var kvp in mapConfig.buildingPrototypes)
+                var tileConfig = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kvp in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
                 {
                     if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
                     {
                         continue;
                     }
 
-                    kvp.Value.ApplyDefaults();
-                    buildingPrototypes[kvp.Key.Trim()] = kvp.Value;
+                    tileConfig[kvp.Key.Trim()] = kvp.Value;
                 }
-            }
 
-            IReadOnlyList<VillageBuildingAnnotation> annotations;
-            if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
-            {
-                annotations = inlineMapData.annotations.buildings;
-            }
-            else if (!string.IsNullOrWhiteSpace(mapConfig.annotations))
-            {
-                string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
-                annotations = LoadAnnotations(annotationsPath);
-            }
-            else
-            {
-                annotations = Array.Empty<VillageBuildingAnnotation>();
-            }
+                var walkable = new bool[width, height];
+                var farmlandTiles = new List<GridPos>();
+                var waterTiles = new List<GridPos>();
+                var shallowWaterTiles = new List<GridPos>();
+                var forestTiles = new List<GridPos>();
+                var coastalTiles = new List<GridPos>();
+                bool anyWalkable = false;
 
-            var buildings = LoadBuildings(
-                annotations,
-                buildingPrototypes,
-                tileScale,
-                width,
-                height,
-                locationLookup).ToArray();
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        var pixel = GetPixel(pixels, texture.width, x * tileScale, y * tileScale);
+                        if (tileScale > 1)
+                        {
+                            for (int oy = 0; oy < tileScale; oy++)
+                            {
+                                for (int ox = 0; ox < tileScale; ox++)
+                                {
+                                    var sample = GetPixel(pixels, texture.width, (x * tileScale) + ox, (y * tileScale) + oy);
+                                    if (!ApproximatelyEqual(sample, pixel, 0))
+                                    {
+                                        throw new InvalidOperationException($"Tile at ({x},{y}) contains multiple colors and cannot be processed with the configured tile size.");
+                                    }
+                                }
+                            }
+                        }
 
-            return new MapLoaderResult(
-                width,
-                height,
-                tileScale,
-                walkable,
-                buildings,
-                farmlandTiles,
-                waterTiles,
-                shallowWaterTiles,
-                forestTiles,
-                coastalTiles);
+                        var pixelKey = new Color32Key(pixel);
+                        if (!tileNameByColor.TryGetValue(pixelKey, out var tileName))
+                        {
+                            throw new InvalidOperationException($"Color {ColorToString(pixel)} at {x},{y} not found in tile key.");
+                        }
+
+                        MapTileConfig cfg = null;
+                        tileConfig.TryGetValue(tileName, out cfg);
+
+                        bool isWalkable = cfg?.walkable ?? false;
+                        bool isFarmland = cfg?.farmland ?? false;
+                        bool isWater = cfg?.water ?? false;
+                        bool isShallow = cfg?.shallowWater ?? false;
+                        bool isForest = cfg?.forest ?? false;
+                        bool isCoastal = cfg?.coastal ?? false;
+
+                        walkable[x, y] = isWalkable;
+                        if (isWalkable)
+                        {
+                            anyWalkable = true;
+                        }
+
+                        if (isFarmland)
+                        {
+                            farmlandTiles.Add(new GridPos(x, y));
+                        }
+
+                        if (isWater)
+                        {
+                            waterTiles.Add(new GridPos(x, y));
+                        }
+
+                        if (isShallow)
+                        {
+                            shallowWaterTiles.Add(new GridPos(x, y));
+                        }
+
+                        if (isForest)
+                        {
+                            forestTiles.Add(new GridPos(x, y));
+                        }
+
+                        if (isCoastal)
+                        {
+                            coastalTiles.Add(new GridPos(x, y));
+                        }
+                    }
+                }
+
+                if (!anyWalkable)
+                {
+                    throw new InvalidOperationException("Loaded map does not contain any walkable tiles.");
+                }
+
+                var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
+                if (mapConfig.buildingPrototypes != null)
+                {
+                    foreach (var kvp in mapConfig.buildingPrototypes)
+                    {
+                        if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
+                        {
+                            continue;
+                        }
+
+                        kvp.Value.ApplyDefaults();
+                        buildingPrototypes[kvp.Key.Trim()] = kvp.Value;
+                    }
+                }
+
+                IReadOnlyList<VillageBuildingAnnotation> annotations;
+                if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
+                {
+                    annotations = inlineMapData.annotations.buildings;
+                }
+                else if (!string.IsNullOrWhiteSpace(mapConfig.annotations))
+                {
+                    string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
+                    annotations = LoadAnnotations(annotationsPath);
+                }
+                else
+                {
+                    annotations = Array.Empty<VillageBuildingAnnotation>();
+                }
+
+                var buildings = LoadBuildings(
+                    annotations,
+                    buildingPrototypes,
+                    tileScale,
+                    width,
+                    height,
+                    locationLookup).ToArray();
+
+                return new MapLoaderResult(
+                    width,
+                    height,
+                    tileScale,
+                    walkable,
+                    buildings,
+                    farmlandTiles,
+                    waterTiles,
+                    shallowWaterTiles,
+                    forestTiles,
+                    coastalTiles);
+            }
+            finally
+            {
+                DestroyTexture(texture);
+            }
         }
 
         public static IReadOnlyList<GridPos> CollectTilesMatchingColor(
@@ -433,6 +439,90 @@ namespace DataDrivenGoap
                 && Math.Abs(lhs.a - rhs.a) <= tolerance;
         }
 
+        private static Texture2D LoadTexture(string path)
+        {
+            var data = File.ReadAllBytes(path);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!ImageConversion.LoadImage(texture, data, false))
+            {
+                DestroyTexture(texture);
+                throw new InvalidOperationException($"Failed to load image '{path}'.");
+            }
+
+            return texture;
+        }
+
+        private static Color32 GetPixel(Color32[] pixels, int width, int x, int y)
+        {
+            return pixels[(y * width) + x];
+        }
+
+        private static string ColorToString(Color32 color)
+        {
+            return $"#{ColorUtility.ToHtmlStringRGBA(color)}";
+        }
+
+        private static void DestroyTexture(Texture2D texture)
+        {
+            if (texture == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(texture);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
+        private readonly struct Color32Key : IEquatable<Color32Key>
+        {
+            public readonly byte R;
+            public readonly byte G;
+            public readonly byte B;
+            public readonly byte A;
+
+            public Color32Key(Color32 color)
+            {
+                R = color.r;
+                G = color.g;
+                B = color.b;
+                A = color.a;
+            }
+
+            public Color32Key(byte r, byte g, byte b, byte a)
+            {
+                R = r;
+                G = g;
+                B = b;
+                A = a;
+            }
+
+            public bool Equals(Color32Key other)
+            {
+                return R == other.R && G == other.G && B == other.B && A == other.A;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Color32Key other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(R, G, B, A);
+            }
+
+            public override string ToString()
+            {
+                return $"#{R:X2}{G:X2}{B:X2}{A:X2}";
+            }
+        }
+
         private static string ResolvePath(string baseDirectory, string relativePath, string propertyName)
         {
             if (string.IsNullOrWhiteSpace(relativePath))
@@ -449,28 +539,16 @@ namespace DataDrivenGoap
             return path;
         }
 
-        private static Dictionary<Rgba32, string> LoadTileKey(string keyPath)
+        private static Dictionary<Color32Key, string> LoadTileKey(string keyPath)
         {
-            using var fs = File.OpenRead(keyPath);
-            using var doc = JsonDocument.Parse(fs);
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in doc.RootElement.EnumerateObject())
-            {
-                var colorText = prop.Value.GetString();
-                if (string.IsNullOrWhiteSpace(colorText))
-                {
-                    continue;
-                }
-
-                map[prop.Name] = colorText.Trim();
-            }
-
-            return LoadTileKey(map);
+            var json = File.ReadAllText(keyPath);
+            var entries = JsonUtilities.ParseStringDictionary(json);
+            return LoadTileKey(entries);
         }
 
-        private static Dictionary<Rgba32, string> LoadTileKey(IDictionary<string, string> entries)
+        private static Dictionary<Color32Key, string> LoadTileKey(IDictionary<string, string> entries)
         {
-            var map = new Dictionary<Rgba32, string>();
+            var map = new Dictionary<Color32Key, string>();
             if (entries == null)
             {
                 return map;
@@ -676,24 +754,20 @@ namespace DataDrivenGoap
 
         private static IReadOnlyList<VillageBuildingAnnotation> LoadAnnotations(string path)
         {
-            using var stream = File.OpenRead(path);
-            using var doc = JsonDocument.Parse(stream);
-            if (!doc.RootElement.TryGetProperty("buildings", out var buildingsElement) || buildingsElement.ValueKind != JsonValueKind.Array)
+            var json = File.ReadAllText(path);
+            var wrapper = JsonUtilities.Deserialize<AnnotationWrapper>(json) ?? new AnnotationWrapper();
+            var result = new List<VillageBuildingAnnotation>();
+            foreach (var annotation in wrapper.buildings ?? Array.Empty<VillageBuildingAnnotation>())
             {
-                return Array.Empty<VillageBuildingAnnotation>();
-            }
+                if (annotation == null)
+                {
+                    continue;
+                }
 
-            var list = new List<VillageBuildingAnnotation>();
-            foreach (var element in buildingsElement.EnumerateArray())
-            {
                 try
                 {
-                    var annotation = JsonSerializer.Deserialize<VillageBuildingAnnotation>(element.GetRawText());
-                    if (annotation != null)
-                    {
-                        annotation.ApplyDefaults();
-                        list.Add(annotation);
-                    }
+                    annotation.ApplyDefaults();
+                    result.Add(annotation);
                 }
                 catch
                 {
@@ -701,24 +775,18 @@ namespace DataDrivenGoap
                 }
             }
 
-            return list;
+            return result;
         }
 
         private static VillageConfig LoadVillageConfig(string path)
         {
             using var stream = File.OpenRead(path);
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            var cfg = JsonSerializer.Deserialize<VillageConfig>(stream, options);
-            cfg ??= new VillageConfig();
+            var cfg = JsonUtilities.Deserialize<VillageConfig>(stream) ?? new VillageConfig();
             cfg.ApplyDefaults();
             return cfg;
         }
 
-        private static Rgba32 ParseColor(string hex)
+        private static Color32Key ParseColor(string hex)
         {
             if (string.IsNullOrWhiteSpace(hex))
             {
@@ -743,12 +811,18 @@ namespace DataDrivenGoap
                 throw new InvalidOperationException($"Color '{hex}' contains invalid hex characters.");
             }
 
-            return new Rgba32((byte)r, (byte)g, (byte)b, 255);
+            return new Color32Key((byte)r, (byte)g, (byte)b, 255);
         }
 
         private sealed class WorldMapDefinitionWrapper
         {
             public WorldMapConfig world { get; set; }
+        }
+
+        [Serializable]
+        private sealed class AnnotationWrapper
+        {
+            public VillageBuildingAnnotation[] buildings = Array.Empty<VillageBuildingAnnotation>();
         }
     }
 
