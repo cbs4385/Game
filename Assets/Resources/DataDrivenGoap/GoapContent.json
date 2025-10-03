@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "id": "apple", "displayName": "Apple", "spriteId": "Item_Apple" },
+    { "id": "bread", "displayName": "Bread", "spriteId": "Item_Bread" },
+    { "id": "gem", "displayName": "Gem", "spriteId": "Item_Gem" }
+  ]
+}
