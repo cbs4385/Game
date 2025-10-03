@@ -72,40 +72,22 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Start()
     {
-        _simulation.TileGenerated -= HandleTileGenerated;
-        _simulation.PawnSpawned -= HandlePawnSpawned;
-        _simulation.PawnUpdated -= HandlePawnUpdated;
-        _simulation.ItemSpawned -= HandleItemSpawned;
+        var previousSimulation = _simulation;
 
         ResetSceneState();
 
-        if (!TryLoadMapDefinition(out var mapDefinition))
+        if (!TryCreateSimulation(out var newSimulation, out var newConfig))
         {
+            TearDownSimulation(previousSimulation);
+            _simulation = null;
+            _config = null;
             return;
         }
 
-        if (pawnDefinitionAsset == null)
-        {
-            Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
-            return;
-        }
+        TearDownSimulation(previousSimulation);
 
-        try
-        {
-            var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
-            var itemDefinitions = itemDefinitionAsset != null
-                ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
-                : ItemDefinitionsDto.Empty;
-
-            _simulation = SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
-            _config = _simulation.Config;
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
-            Debug.LogException(ex);
-            return;
-        }
+        _simulation = newSimulation;
+        _config = newConfig;
 
         BuildItemSpriteLookup();
         _simulation.TileGenerated += HandleTileGenerated;
@@ -129,14 +111,56 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (_simulation != null)
+        TearDownSimulation(_simulation);
+        SimulationInitialized = null;
+    }
+
+    private bool TryCreateSimulation(out Simulation simulation, out SimulationConfig config)
+    {
+        simulation = null;
+        config = null;
+
+        if (!TryLoadMapDefinition(out var mapDefinition))
         {
-            _simulation.TileGenerated -= HandleTileGenerated;
-            _simulation.PawnSpawned -= HandlePawnSpawned;
-            _simulation.PawnUpdated -= HandlePawnUpdated;
-            _simulation.ItemSpawned -= HandleItemSpawned;
-            SimulationInitialized = null;
+            return false;
         }
+
+        if (pawnDefinitionAsset == null)
+        {
+            Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
+            return false;
+        }
+
+        try
+        {
+            var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
+            var itemDefinitions = itemDefinitionAsset != null
+                ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
+                : ItemDefinitionsDto.Empty;
+
+            simulation = SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
+            config = simulation.Config;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
+            Debug.LogException(ex);
+            return false;
+        }
+    }
+
+    private void TearDownSimulation(Simulation simulation)
+    {
+        if (simulation == null)
+        {
+            return;
+        }
+
+        simulation.TileGenerated -= HandleTileGenerated;
+        simulation.PawnSpawned -= HandlePawnSpawned;
+        simulation.PawnUpdated -= HandlePawnUpdated;
+        simulation.ItemSpawned -= HandleItemSpawned;
     }
 
     private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
