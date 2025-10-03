@@ -63,6 +63,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Awake()
     {
+        if (!ValidateVisualAssets())
+        {
+            enabled = false;
+            throw new InvalidOperationException(
+                "Cannot bootstrap GOAP simulation without required visual assets assigned.");
+        }
+
         _mapRoot = new GameObject("Generated Map").transform;
         _mapRoot.SetParent(transform, false);
         _pawnRoot = new GameObject("Pawns").transform;
@@ -158,6 +165,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _simulation = null;
             _config = null;
         }
+
     }
 
     private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
@@ -698,6 +706,37 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private static Vector3 ProjectTo2D(Vector3 worldPosition)
     {
         return new Vector3(worldPosition.x, worldPosition.z, 0f);
+    }
+
+    private bool ValidateVisualAssets()
+    {
+        var valid = true;
+
+        if (tileSprite == null)
+        {
+            Debug.LogError(
+                "GoapSimulationBootstrapper requires a tile sprite to be assigned before play.",
+                this);
+            valid = false;
+        }
+
+        if (pawnSprite == null)
+        {
+            Debug.LogError(
+                "GoapSimulationBootstrapper requires a pawn sprite to be assigned before play.",
+                this);
+            valid = false;
+        }
+
+        if (defaultItemSprite == null)
+        {
+            Debug.LogError(
+                "GoapSimulationBootstrapper requires a default item sprite to be assigned before play.",
+                this);
+            valid = false;
+        }
+
+        return valid;
     }
 
     private void ResetSceneState()
