@@ -271,9 +271,13 @@ namespace DataDrivenGoap.Execution
                 {
                     string errorWorldTime = "<unknown>", errorWorldDay = "<unknown>";
                     RefreshWorldTime(ref errorWorldTime, ref errorWorldDay);
-                    _log.Write($"ERROR actor_loop {ex.GetType().Name}:{ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
-                    _worldLogger?.LogInfo($"actor_error actor={_self.Value ?? "<unknown>"} type={ex.GetType().Name} message={ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
-                    WaitWithStopCheck(25);
+                    string actorId = _self.Value ?? "<unknown>";
+                    string exceptionType = ex.GetType().Name ?? "Exception";
+                    string fatalMessage =
+                        $"Actor '{actorId}' encountered fatal {exceptionType} at world_time={errorWorldTime} world_day={errorWorldDay}.";
+                    _log.Write($"ERROR actor_loop {exceptionType}:{ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
+                    _worldLogger?.LogInfo($"actor_error actor={actorId} type={exceptionType} message={ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
+                    throw new InvalidOperationException(fatalMessage, ex);
                 }
                 finally
                 {
