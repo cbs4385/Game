@@ -1,4 +1,4 @@
-#if UNITY_5_3_OR_NEWER
+#if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -240,4 +240,4 @@ public class ReadmeEditor : Editor
         return GUI.Button(position, label, LinkStyle);
     }
 }
-#endif // UNITY_5_3_OR_NEWER
+#endif // UNITY_EDITOR
