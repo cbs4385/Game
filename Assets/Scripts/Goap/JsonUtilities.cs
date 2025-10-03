@@ -20,6 +20,16 @@ namespace DataDrivenGoap
             return (T)ConvertValue(typeof(T), data);
         }
 
+        public static T ConvertTo<T>(object data)
+        {
+            if (data == null)
+            {
+                return default;
+            }
+
+            return (T)ConvertValue(typeof(T), data);
+        }
+
         public static T Deserialize<T>(Stream stream)
         {
             if (stream == null)
