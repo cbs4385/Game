@@ -8,6 +8,7 @@ using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
 using DataDrivenGoap.Items;
 using DataDrivenGoap.Persistence;
+using DataDrivenGoap.Simulation;
 using DataDrivenGoap.Social;
 using GoapExecutionContext = DataDrivenGoap.Core.ExecutionContext;
 
@@ -335,7 +336,7 @@ namespace DataDrivenGoap.Execution
                 var actorThing = snap.GetThing(_self);
                 if (actorThing != null)
                 {
-                    int distance = GridPos.Manhattan(actorThing.Position, targetThing.Position);
+                    int distance = DataDrivenGoap.Core.GridPos.Manhattan(actorThing.Position, targetThing.Position);
                     if (!_loggedLateWarning && distance > 2 && evaluation.MinutesIntoBlock > 10.0)
                     {
                         _log.Write($"SCHEDULE late role={block.RoleId} task={evaluation.EffectiveTask} target={target.Value} minutes={evaluation.MinutesIntoBlock.ToString("0.0", CultureInfo.InvariantCulture)} world_time={worldTime} world_day={worldDay}");
@@ -909,13 +910,13 @@ namespace DataDrivenGoap.Execution
             var target = snap.GetThing(step.Target);
             if (actor == null || target == null) return;
 
-            int currentDist = GridPos.Manhattan(actor.Position, target.Position);
+            int currentDist = DataDrivenGoap.Core.GridPos.Manhattan(actor.Position, target.Position);
             bool hasPath = snap.TryFindNextStep(actor.Position, target.Position, out var next);
             bool blocked = !hasPath;
             bool detour = false;
             if (hasPath)
             {
-                int nextDist = GridPos.Manhattan(next, target.Position);
+                int nextDist = DataDrivenGoap.Core.GridPos.Manhattan(next, target.Position);
                 detour = nextDist >= currentDist;
             }
 

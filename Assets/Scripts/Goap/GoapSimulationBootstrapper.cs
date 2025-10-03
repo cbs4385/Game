@@ -39,15 +39,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private readonly Dictionary<int, PawnSnapshot> _pawnSnapshots = new();
     private readonly Dictionary<int, ItemSnapshot> _itemSnapshots = new();
     private readonly Dictionary<string, Sprite> _itemSpritesById = new(StringComparer.OrdinalIgnoreCase);
-    private Simulation _simulation;
+    private UnitySimulation _simulation;
     private SimulationConfig _config;
     private Transform _mapRoot;
     private Transform _pawnRoot;
     private Transform _itemRoot;
 
-    public event Action<Simulation> SimulationInitialized;
+    public event Action<UnitySimulation> SimulationInitialized;
 
-    public Simulation Simulation => _simulation;
+    public UnitySimulation Simulation => _simulation;
 
     public SimulationConfig Config => _config;
 
@@ -109,7 +109,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
     }
 
-    private Simulation CreateSimulation(MapDefinitionDto mapDefinition)
+    private UnitySimulation CreateSimulation(MapDefinitionDto mapDefinition)
     {
         if (pawnDefinitionAsset == null)
         {
@@ -134,7 +134,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
     }
 
-    private void InitializeSimulation(Simulation simulation)
+    private void InitializeSimulation(UnitySimulation simulation)
     {
         _simulation = simulation;
         _config = _simulation.Config;
