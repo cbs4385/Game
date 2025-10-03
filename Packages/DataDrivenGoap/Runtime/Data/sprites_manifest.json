@@ -3,360 +3,360 @@
     "name": "Iris Ingram",
     "role": "HeadTeacher",
     "sprites": {
-      "north": "/sprites/pawn/P_0001_Iris_Ingram_north.png",
-      "south": "/sprites/pawn/P_0001_Iris_Ingram_south.png",
-      "east": "/sprites/pawn/P_0001_Iris_Ingram_east.png",
-      "west": "/sprites/pawn/P_0001_Iris_Ingram_west.png"
+      "north": "sprites/pawn/P_0001_Iris_Ingram_north.png",
+      "south": "sprites/pawn/P_0001_Iris_Ingram_south.png",
+      "east": "sprites/pawn/P_0001_Iris_Ingram_east.png",
+      "west": "sprites/pawn/P_0001_Iris_Ingram_west.png"
     }
   },
   "P-0002": {
     "name": "Quentin Frost",
     "role": "Teacher",
     "sprites": {
-      "north": "/sprites/pawn/P_0002_Quentin_Frost_north.png",
-      "south": "/sprites/pawn/P_0002_Quentin_Frost_south.png",
-      "east": "/sprites/pawn/P_0002_Quentin_Frost_east.png",
-      "west": "/sprites/pawn/P_0002_Quentin_Frost_west.png"
+      "north": "sprites/pawn/P_0002_Quentin_Frost_north.png",
+      "south": "sprites/pawn/P_0002_Quentin_Frost_south.png",
+      "east": "sprites/pawn/P_0002_Quentin_Frost_east.png",
+      "west": "sprites/pawn/P_0002_Quentin_Frost_west.png"
     }
   },
   "P-0003": {
     "name": "Ulric Clarke",
     "role": "Librarian",
     "sprites": {
-      "north": "/sprites/pawn/P_0003_Ulric_Clarke_north.png",
-      "south": "/sprites/pawn/P_0003_Ulric_Clarke_south.png",
-      "east": "/sprites/pawn/P_0003_Ulric_Clarke_east.png",
-      "west": "/sprites/pawn/P_0003_Ulric_Clarke_west.png"
+      "north": "sprites/pawn/P_0003_Ulric_Clarke_north.png",
+      "south": "sprites/pawn/P_0003_Ulric_Clarke_south.png",
+      "east": "sprites/pawn/P_0003_Ulric_Clarke_east.png",
+      "west": "sprites/pawn/P_0003_Ulric_Clarke_west.png"
     }
   },
   "P-0004": {
     "name": "Miles Lowell",
     "role": "Priest",
     "sprites": {
-      "north": "/sprites/pawn/P_0004_Miles_Lowell_north.png",
-      "south": "/sprites/pawn/P_0004_Miles_Lowell_south.png",
-      "east": "/sprites/pawn/P_0004_Miles_Lowell_east.png",
-      "west": "/sprites/pawn/P_0004_Miles_Lowell_west.png"
+      "north": "sprites/pawn/P_0004_Miles_Lowell_north.png",
+      "south": "sprites/pawn/P_0004_Miles_Lowell_south.png",
+      "east": "sprites/pawn/P_0004_Miles_Lowell_east.png",
+      "west": "sprites/pawn/P_0004_Miles_Lowell_west.png"
     }
   },
   "P-0005": {
     "name": "Charles Yardley",
     "role": "Baker",
     "sprites": {
-      "north": "/sprites/pawn/P_0005_Charles_Yardley_north.png",
-      "south": "/sprites/pawn/P_0005_Charles_Yardley_south.png",
-      "east": "/sprites/pawn/P_0005_Charles_Yardley_east.png",
-      "west": "/sprites/pawn/P_0005_Charles_Yardley_west.png"
+      "north": "sprites/pawn/P_0005_Charles_Yardley_north.png",
+      "south": "sprites/pawn/P_0005_Charles_Yardley_south.png",
+      "east": "sprites/pawn/P_0005_Charles_Yardley_east.png",
+      "west": "sprites/pawn/P_0005_Charles_Yardley_west.png"
     }
   },
   "P-0006": {
     "name": "Quentin Yardley",
     "role": "Apprentice",
     "sprites": {
-      "north": "/sprites/pawn/P_0006_Quentin_Yardley_north.png",
-      "south": "/sprites/pawn/P_0006_Quentin_Yardley_south.png",
-      "east": "/sprites/pawn/P_0006_Quentin_Yardley_east.png",
-      "west": "/sprites/pawn/P_0006_Quentin_Yardley_west.png"
+      "north": "sprites/pawn/P_0006_Quentin_Yardley_north.png",
+      "south": "sprites/pawn/P_0006_Quentin_Yardley_south.png",
+      "east": "sprites/pawn/P_0006_Quentin_Yardley_east.png",
+      "west": "sprites/pawn/P_0006_Quentin_Yardley_west.png"
     }
   },
   "P-0007": {
     "name": "Yara North",
     "role": "Mayor",
     "sprites": {
-      "north": "/sprites/pawn/P_0007_Yara_North_north.png",
-      "south": "/sprites/pawn/P_0007_Yara_North_south.png",
-      "east": "/sprites/pawn/P_0007_Yara_North_east.png",
-      "west": "/sprites/pawn/P_0007_Yara_North_west.png"
+      "north": "sprites/pawn/P_0007_Yara_North_north.png",
+      "south": "sprites/pawn/P_0007_Yara_North_south.png",
+      "east": "sprites/pawn/P_0007_Yara_North_east.png",
+      "west": "sprites/pawn/P_0007_Yara_North_west.png"
     }
   },
   "P-0008": {
     "name": "Thalia Grafton",
     "role": "Clerk",
     "sprites": {
-      "north": "/sprites/pawn/P_0008_Thalia_Grafton_north.png",
-      "south": "/sprites/pawn/P_0008_Thalia_Grafton_south.png",
-      "east": "/sprites/pawn/P_0008_Thalia_Grafton_east.png",
-      "west": "/sprites/pawn/P_0008_Thalia_Grafton_west.png"
+      "north": "sprites/pawn/P_0008_Thalia_Grafton_north.png",
+      "south": "sprites/pawn/P_0008_Thalia_Grafton_south.png",
+      "east": "sprites/pawn/P_0008_Thalia_Grafton_east.png",
+      "west": "sprites/pawn/P_0008_Thalia_Grafton_west.png"
     }
   },
   "P-0009": {
     "name": "Vera Davies",
     "role": "Shopkeeper",
     "sprites": {
-      "north": "/sprites/pawn/P_0009_Vera_Davies_north.png",
-      "south": "/sprites/pawn/P_0009_Vera_Davies_south.png",
-      "east": "/sprites/pawn/P_0009_Vera_Davies_east.png",
-      "west": "/sprites/pawn/P_0009_Vera_Davies_west.png"
+      "north": "sprites/pawn/P_0009_Vera_Davies_north.png",
+      "south": "sprites/pawn/P_0009_Vera_Davies_south.png",
+      "east": "sprites/pawn/P_0009_Vera_Davies_east.png",
+      "west": "sprites/pawn/P_0009_Vera_Davies_west.png"
     }
   },
   "P-0010": {
     "name": "Beatrix Yardley",
     "role": "Clerk",
     "sprites": {
-      "north": "/sprites/pawn/P_0010_Beatrix_Yardley_north.png",
-      "south": "/sprites/pawn/P_0010_Beatrix_Yardley_south.png",
-      "east": "/sprites/pawn/P_0010_Beatrix_Yardley_east.png",
-      "west": "/sprites/pawn/P_0010_Beatrix_Yardley_west.png"
+      "north": "sprites/pawn/P_0010_Beatrix_Yardley_north.png",
+      "south": "sprites/pawn/P_0010_Beatrix_Yardley_south.png",
+      "east": "sprites/pawn/P_0010_Beatrix_Yardley_east.png",
+      "west": "sprites/pawn/P_0010_Beatrix_Yardley_west.png"
     }
   },
   "P-0011": {
     "name": "Beatrix Quimby",
     "role": "Townsperson",
     "sprites": {
-      "north": "/sprites/pawn/P_0011_Beatrix_Quimby_north.png",
-      "south": "/sprites/pawn/P_0011_Beatrix_Quimby_south.png",
-      "east": "/sprites/pawn/P_0011_Beatrix_Quimby_east.png",
-      "west": "/sprites/pawn/P_0011_Beatrix_Quimby_west.png"
+      "north": "sprites/pawn/P_0011_Beatrix_Quimby_north.png",
+      "south": "sprites/pawn/P_0011_Beatrix_Quimby_south.png",
+      "east": "sprites/pawn/P_0011_Beatrix_Quimby_east.png",
+      "west": "sprites/pawn/P_0011_Beatrix_Quimby_west.png"
     }
   },
   "P-0012": {
     "name": "Felicity Whitlow",
     "role": "Townsperson",
     "sprites": {
-      "north": "/sprites/pawn/P_0012_Felicity_Whitlow_north.png",
-      "south": "/sprites/pawn/P_0012_Felicity_Whitlow_south.png",
-      "east": "/sprites/pawn/P_0012_Felicity_Whitlow_east.png",
-      "west": "/sprites/pawn/P_0012_Felicity_Whitlow_west.png"
+      "north": "sprites/pawn/P_0012_Felicity_Whitlow_north.png",
+      "south": "sprites/pawn/P_0012_Felicity_Whitlow_south.png",
+      "east": "sprites/pawn/P_0012_Felicity_Whitlow_east.png",
+      "west": "sprites/pawn/P_0012_Felicity_Whitlow_west.png"
     }
   },
   "P-0013": {
     "name": "Miles Keen",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0013_Miles_Keen_north.png",
-      "south": "/sprites/pawn/P_0013_Miles_Keen_south.png",
-      "east": "/sprites/pawn/P_0013_Miles_Keen_east.png",
-      "west": "/sprites/pawn/P_0013_Miles_Keen_west.png"
+      "north": "sprites/pawn/P_0013_Miles_Keen_north.png",
+      "south": "sprites/pawn/P_0013_Miles_Keen_south.png",
+      "east": "sprites/pawn/P_0013_Miles_Keen_east.png",
+      "west": "sprites/pawn/P_0013_Miles_Keen_west.png"
     }
   },
   "P-0014": {
     "name": "Edith Underhill",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0014_Edith_Underhill_north.png",
-      "south": "/sprites/pawn/P_0014_Edith_Underhill_south.png",
-      "east": "/sprites/pawn/P_0014_Edith_Underhill_east.png",
-      "west": "/sprites/pawn/P_0014_Edith_Underhill_west.png"
+      "north": "sprites/pawn/P_0014_Edith_Underhill_north.png",
+      "south": "sprites/pawn/P_0014_Edith_Underhill_south.png",
+      "east": "sprites/pawn/P_0014_Edith_Underhill_east.png",
+      "west": "sprites/pawn/P_0014_Edith_Underhill_west.png"
     }
   },
   "P-0015": {
     "name": "Wes Merton",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0015_Wes_Merton_north.png",
-      "south": "/sprites/pawn/P_0015_Wes_Merton_south.png",
-      "east": "/sprites/pawn/P_0015_Wes_Merton_east.png",
-      "west": "/sprites/pawn/P_0015_Wes_Merton_west.png"
+      "north": "sprites/pawn/P_0015_Wes_Merton_north.png",
+      "south": "sprites/pawn/P_0015_Wes_Merton_south.png",
+      "east": "sprites/pawn/P_0015_Wes_Merton_east.png",
+      "west": "sprites/pawn/P_0015_Wes_Merton_west.png"
     }
   },
   "P-0016": {
     "name": "Miles Davies",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0016_Miles_Davies_north.png",
-      "south": "/sprites/pawn/P_0016_Miles_Davies_south.png",
-      "east": "/sprites/pawn/P_0016_Miles_Davies_east.png",
-      "west": "/sprites/pawn/P_0016_Miles_Davies_west.png"
+      "north": "sprites/pawn/P_0016_Miles_Davies_north.png",
+      "south": "sprites/pawn/P_0016_Miles_Davies_south.png",
+      "east": "sprites/pawn/P_0016_Miles_Davies_east.png",
+      "west": "sprites/pawn/P_0016_Miles_Davies_west.png"
     }
   },
   "P-0017": {
     "name": "Beatrix Osborne",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0017_Beatrix_Osborne_north.png",
-      "south": "/sprites/pawn/P_0017_Beatrix_Osborne_south.png",
-      "east": "/sprites/pawn/P_0017_Beatrix_Osborne_east.png",
-      "west": "/sprites/pawn/P_0017_Beatrix_Osborne_west.png"
+      "north": "sprites/pawn/P_0017_Beatrix_Osborne_north.png",
+      "south": "sprites/pawn/P_0017_Beatrix_Osborne_south.png",
+      "east": "sprites/pawn/P_0017_Beatrix_Osborne_east.png",
+      "west": "sprites/pawn/P_0017_Beatrix_Osborne_west.png"
     }
   },
   "P-0018": {
     "name": "Yara Vane",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0018_Yara_Vane_north.png",
-      "south": "/sprites/pawn/P_0018_Yara_Vane_south.png",
-      "east": "/sprites/pawn/P_0018_Yara_Vane_east.png",
-      "west": "/sprites/pawn/P_0018_Yara_Vane_west.png"
+      "north": "sprites/pawn/P_0018_Yara_Vane_north.png",
+      "south": "sprites/pawn/P_0018_Yara_Vane_south.png",
+      "east": "sprites/pawn/P_0018_Yara_Vane_east.png",
+      "west": "sprites/pawn/P_0018_Yara_Vane_west.png"
     }
   },
   "P-0019": {
     "name": "Hugo Davies",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0019_Hugo_Davies_north.png",
-      "south": "/sprites/pawn/P_0019_Hugo_Davies_south.png",
-      "east": "/sprites/pawn/P_0019_Hugo_Davies_east.png",
-      "west": "/sprites/pawn/P_0019_Hugo_Davies_west.png"
+      "north": "sprites/pawn/P_0019_Hugo_Davies_north.png",
+      "south": "sprites/pawn/P_0019_Hugo_Davies_south.png",
+      "east": "sprites/pawn/P_0019_Hugo_Davies_east.png",
+      "west": "sprites/pawn/P_0019_Hugo_Davies_west.png"
     }
   },
   "P-0020": {
     "name": "Silas Lark",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0020_Silas_Lark_north.png",
-      "south": "/sprites/pawn/P_0020_Silas_Lark_south.png",
-      "east": "/sprites/pawn/P_0020_Silas_Lark_east.png",
-      "west": "/sprites/pawn/P_0020_Silas_Lark_west.png"
+      "north": "sprites/pawn/P_0020_Silas_Lark_north.png",
+      "south": "sprites/pawn/P_0020_Silas_Lark_south.png",
+      "east": "sprites/pawn/P_0020_Silas_Lark_east.png",
+      "west": "sprites/pawn/P_0020_Silas_Lark_west.png"
     }
   },
   "P-0021": {
     "name": "Penny Merton",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0021_Penny_Merton_north.png",
-      "south": "/sprites/pawn/P_0021_Penny_Merton_south.png",
-      "east": "/sprites/pawn/P_0021_Penny_Merton_east.png",
-      "west": "/sprites/pawn/P_0021_Penny_Merton_west.png"
+      "north": "sprites/pawn/P_0021_Penny_Merton_north.png",
+      "south": "sprites/pawn/P_0021_Penny_Merton_south.png",
+      "east": "sprites/pawn/P_0021_Penny_Merton_east.png",
+      "west": "sprites/pawn/P_0021_Penny_Merton_west.png"
     }
   },
   "P-0022": {
     "name": "Charles Frost",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0022_Charles_Frost_north.png",
-      "south": "/sprites/pawn/P_0022_Charles_Frost_south.png",
-      "east": "/sprites/pawn/P_0022_Charles_Frost_east.png",
-      "west": "/sprites/pawn/P_0022_Charles_Frost_west.png"
+      "north": "sprites/pawn/P_0022_Charles_Frost_north.png",
+      "south": "sprites/pawn/P_0022_Charles_Frost_south.png",
+      "east": "sprites/pawn/P_0022_Charles_Frost_east.png",
+      "west": "sprites/pawn/P_0022_Charles_Frost_west.png"
     }
   },
   "P-0023": {
     "name": "Vera Lark",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0023_Vera_Lark_north.png",
-      "south": "/sprites/pawn/P_0023_Vera_Lark_south.png",
-      "east": "/sprites/pawn/P_0023_Vera_Lark_east.png",
-      "west": "/sprites/pawn/P_0023_Vera_Lark_west.png"
+      "north": "sprites/pawn/P_0023_Vera_Lark_north.png",
+      "south": "sprites/pawn/P_0023_Vera_Lark_south.png",
+      "east": "sprites/pawn/P_0023_Vera_Lark_east.png",
+      "west": "sprites/pawn/P_0023_Vera_Lark_west.png"
     }
   },
   "P-0024": {
     "name": "Ulric Kensley",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0024_Ulric_Kensley_north.png",
-      "south": "/sprites/pawn/P_0024_Ulric_Kensley_south.png",
-      "east": "/sprites/pawn/P_0024_Ulric_Kensley_east.png",
-      "west": "/sprites/pawn/P_0024_Ulric_Kensley_west.png"
+      "north": "sprites/pawn/P_0024_Ulric_Kensley_north.png",
+      "south": "sprites/pawn/P_0024_Ulric_Kensley_south.png",
+      "east": "sprites/pawn/P_0024_Ulric_Kensley_east.png",
+      "west": "sprites/pawn/P_0024_Ulric_Kensley_west.png"
     }
   },
   "P-0025": {
     "name": "Felicity Lowell",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0025_Felicity_Lowell_north.png",
-      "south": "/sprites/pawn/P_0025_Felicity_Lowell_south.png",
-      "east": "/sprites/pawn/P_0025_Felicity_Lowell_east.png",
-      "west": "/sprites/pawn/P_0025_Felicity_Lowell_west.png"
+      "north": "sprites/pawn/P_0025_Felicity_Lowell_north.png",
+      "south": "sprites/pawn/P_0025_Felicity_Lowell_south.png",
+      "east": "sprites/pawn/P_0025_Felicity_Lowell_east.png",
+      "west": "sprites/pawn/P_0025_Felicity_Lowell_west.png"
     }
   },
   "P-0026": {
     "name": "Thalia Pritchard",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0026_Thalia_Pritchard_north.png",
-      "south": "/sprites/pawn/P_0026_Thalia_Pritchard_south.png",
-      "east": "/sprites/pawn/P_0026_Thalia_Pritchard_east.png",
-      "west": "/sprites/pawn/P_0026_Thalia_Pritchard_west.png"
+      "north": "sprites/pawn/P_0026_Thalia_Pritchard_north.png",
+      "south": "sprites/pawn/P_0026_Thalia_Pritchard_south.png",
+      "east": "sprites/pawn/P_0026_Thalia_Pritchard_east.png",
+      "west": "sprites/pawn/P_0026_Thalia_Pritchard_west.png"
     }
   },
   "P-0027": {
     "name": "Jonas Vane",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0027_Jonas_Vane_north.png",
-      "south": "/sprites/pawn/P_0027_Jonas_Vane_south.png",
-      "east": "/sprites/pawn/P_0027_Jonas_Vane_east.png",
-      "west": "/sprites/pawn/P_0027_Jonas_Vane_west.png"
+      "north": "sprites/pawn/P_0027_Jonas_Vane_north.png",
+      "south": "sprites/pawn/P_0027_Jonas_Vane_south.png",
+      "east": "sprites/pawn/P_0027_Jonas_Vane_east.png",
+      "west": "sprites/pawn/P_0027_Jonas_Vane_west.png"
     }
   },
   "P-0028": {
     "name": "Zeke Jarvis",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0028_Zeke_Jarvis_north.png",
-      "south": "/sprites/pawn/P_0028_Zeke_Jarvis_south.png",
-      "east": "/sprites/pawn/P_0028_Zeke_Jarvis_east.png",
-      "west": "/sprites/pawn/P_0028_Zeke_Jarvis_west.png"
+      "north": "sprites/pawn/P_0028_Zeke_Jarvis_north.png",
+      "south": "sprites/pawn/P_0028_Zeke_Jarvis_south.png",
+      "east": "sprites/pawn/P_0028_Zeke_Jarvis_east.png",
+      "west": "sprites/pawn/P_0028_Zeke_Jarvis_west.png"
     }
   },
   "P-0029": {
     "name": "Beatrix Lowell",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0029_Beatrix_Lowell_north.png",
-      "south": "/sprites/pawn/P_0029_Beatrix_Lowell_south.png",
-      "east": "/sprites/pawn/P_0029_Beatrix_Lowell_east.png",
-      "west": "/sprites/pawn/P_0029_Beatrix_Lowell_west.png"
+      "north": "sprites/pawn/P_0029_Beatrix_Lowell_north.png",
+      "south": "sprites/pawn/P_0029_Beatrix_Lowell_south.png",
+      "east": "sprites/pawn/P_0029_Beatrix_Lowell_east.png",
+      "west": "sprites/pawn/P_0029_Beatrix_Lowell_west.png"
     }
   },
   "P-0030": {
     "name": "Quentin Marlow",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0030_Quentin_Marlow_north.png",
-      "south": "/sprites/pawn/P_0030_Quentin_Marlow_south.png",
-      "east": "/sprites/pawn/P_0030_Quentin_Marlow_east.png",
-      "west": "/sprites/pawn/P_0030_Quentin_Marlow_west.png"
+      "north": "sprites/pawn/P_0030_Quentin_Marlow_north.png",
+      "south": "sprites/pawn/P_0030_Quentin_Marlow_south.png",
+      "east": "sprites/pawn/P_0030_Quentin_Marlow_east.png",
+      "west": "sprites/pawn/P_0030_Quentin_Marlow_west.png"
     }
   },
   "P-0031": {
     "name": "Edith Ingram",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0031_Edith_Ingram_north.png",
-      "south": "/sprites/pawn/P_0031_Edith_Ingram_south.png",
-      "east": "/sprites/pawn/P_0031_Edith_Ingram_east.png",
-      "west": "/sprites/pawn/P_0031_Edith_Ingram_west.png"
+      "north": "sprites/pawn/P_0031_Edith_Ingram_north.png",
+      "south": "sprites/pawn/P_0031_Edith_Ingram_south.png",
+      "east": "sprites/pawn/P_0031_Edith_Ingram_east.png",
+      "west": "sprites/pawn/P_0031_Edith_Ingram_west.png"
     }
   },
   "P-0032": {
     "name": "Jonas Ashford",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0032_Jonas_Ashford_north.png",
-      "south": "/sprites/pawn/P_0032_Jonas_Ashford_south.png",
-      "east": "/sprites/pawn/P_0032_Jonas_Ashford_east.png",
-      "west": "/sprites/pawn/P_0032_Jonas_Ashford_west.png"
+      "north": "sprites/pawn/P_0032_Jonas_Ashford_north.png",
+      "south": "sprites/pawn/P_0032_Jonas_Ashford_south.png",
+      "east": "sprites/pawn/P_0032_Jonas_Ashford_east.png",
+      "west": "sprites/pawn/P_0032_Jonas_Ashford_west.png"
     }
   },
   "P-0033": {
     "name": "Yara Merton",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0033_Yara_Merton_north.png",
-      "south": "/sprites/pawn/P_0033_Yara_Merton_south.png",
-      "east": "/sprites/pawn/P_0033_Yara_Merton_east.png",
-      "west": "/sprites/pawn/P_0033_Yara_Merton_west.png"
+      "north": "sprites/pawn/P_0033_Yara_Merton_north.png",
+      "south": "sprites/pawn/P_0033_Yara_Merton_south.png",
+      "east": "sprites/pawn/P_0033_Yara_Merton_east.png",
+      "west": "sprites/pawn/P_0033_Yara_Merton_west.png"
     }
   },
   "P-0034": {
     "name": "Oscar Porter",
     "role": "Farmer",
     "sprites": {
-      "north": "/sprites/pawn/P_0034_Oscar_Porter_north.png",
-      "south": "/sprites/pawn/P_0034_Oscar_Porter_south.png",
-      "east": "/sprites/pawn/P_0034_Oscar_Porter_east.png",
-      "west": "/sprites/pawn/P_0034_Oscar_Porter_west.png"
+      "north": "sprites/pawn/P_0034_Oscar_Porter_north.png",
+      "south": "sprites/pawn/P_0034_Oscar_Porter_south.png",
+      "east": "sprites/pawn/P_0034_Oscar_Porter_east.png",
+      "west": "sprites/pawn/P_0034_Oscar_Porter_west.png"
     }
   },
   "P-0035": {
     "name": "Oscar Marlow",
     "role": "Spouse",
     "sprites": {
-      "north": "/sprites/pawn/P_0035_Oscar_Marlow_north.png",
-      "south": "/sprites/pawn/P_0035_Oscar_Marlow_south.png",
-      "east": "/sprites/pawn/P_0035_Oscar_Marlow_east.png",
-      "west": "/sprites/pawn/P_0035_Oscar_Marlow_west.png"
+      "north": "sprites/pawn/P_0035_Oscar_Marlow_north.png",
+      "south": "sprites/pawn/P_0035_Oscar_Marlow_south.png",
+      "east": "sprites/pawn/P_0035_Oscar_Marlow_east.png",
+      "west": "sprites/pawn/P_0035_Oscar_Marlow_west.png"
     }
   },
   "P-0036": {
     "name": "Rosa Rowe",
     "role": "Farmhand",
     "sprites": {
-      "north": "/sprites/pawn/P_0036_Rosa_Rowe_north.png",
-      "south": "/sprites/pawn/P_0036_Rosa_Rowe_south.png",
-      "east": "/sprites/pawn/P_0036_Rosa_Rowe_east.png",
-      "west": "/sprites/pawn/P_0036_Rosa_Rowe_west.png"
+      "north": "sprites/pawn/P_0036_Rosa_Rowe_north.png",
+      "south": "sprites/pawn/P_0036_Rosa_Rowe_south.png",
+      "east": "sprites/pawn/P_0036_Rosa_Rowe_east.png",
+      "west": "sprites/pawn/P_0036_Rosa_Rowe_west.png"
     }
   }
 }
