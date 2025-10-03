@@ -88,9 +88,32 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         ResetSceneState();
 
-        var mapDefinition = LoadMapDefinition();
-        var simulation = CreateSimulation(mapDefinition);
-        InitializeSimulation(simulation);
+        if (!TryLoadMapDefinition(out var mapDefinition))
+        {
+            return;
+        }
+
+        var initializationCompleted = false;
+        try
+        {
+            var simulation = CreateSimulation(mapDefinition);
+            InitializeSimulation(simulation);
+            initializationCompleted = true;
+        }
+        finally
+        {
+            if (!initializationCompleted)
+            {
+                if (_simulation != null)
+                {
+                    UnsubscribeFromSimulationEvents();
+                    _simulation = null;
+                    _config = null;
+                }
+
+                ResetSceneState();
+            }
+        }
     }
 
     private void OnValidate()
@@ -105,7 +128,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         if (pawnDefinitionAsset == null)
         {
-            throw new InvalidOperationException("Cannot start GOAP simulation without a pawn definition asset.");
+            throw new InvalidOperationException(
+                "Cannot start GOAP simulation without a pawn definition asset.");
         }
 
         var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);

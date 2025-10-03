@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DataDrivenGoap.Unity;
 using UnityEngine;
@@ -96,14 +97,14 @@ public sealed class GoapSimulationSceneModel : MonoBehaviour
 
     private void HandleSimulationInitialized(UnitySimulation simulation)
     {
-        if (simulation == null)
-        {
-            return;
-        }
-
         if (Simulation != null)
         {
             UnsubscribeFromSimulation(Simulation);
+        }
+
+        if (simulation == null)
+        {
+            throw new ArgumentNullException(nameof(simulation));
         }
 
         Simulation = simulation;
