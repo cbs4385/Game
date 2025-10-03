@@ -1,0 +1,663 @@
+fileFormatVersion: 2
+guid: ed574634c306cb544904876e96e3b193
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -8139888337076525147
+    second: crops_32x32_spritesheet_0
+  - first:
+      213: -792058954617678769
+    second: crops_32x32_spritesheet_1
+  - first:
+      213: 7382458797007046081
+    second: crops_32x32_spritesheet_2
+  - first:
+      213: 1425405418613034358
+    second: crops_32x32_spritesheet_3
+  - first:
+      213: 2620681874312389759
+    second: crops_32x32_spritesheet_4
+  - first:
+      213: 2701515655055019917
+    second: crops_32x32_spritesheet_5
+  - first:
+      213: 1591285079910250968
+    second: crops_32x32_spritesheet_6
+  - first:
+      213: 3747142319772870470
+    second: crops_32x32_spritesheet_7
+  - first:
+      213: -6884719497079789644
+    second: crops_32x32_spritesheet_8
+  - first:
+      213: 3347613880579604924
+    second: crops_32x32_spritesheet_9
+  - first:
+      213: -6868573111764700085
+    second: crops_32x32_spritesheet_10
+  - first:
+      213: -204997552273214766
+    second: crops_32x32_spritesheet_11
+  - first:
+      213: 2147617287224086754
+    second: crops_32x32_spritesheet_12
+  - first:
+      213: -4851916016438379309
+    second: crops_32x32_spritesheet_13
+  - first:
+      213: 115462601661898635
+    second: crops_32x32_spritesheet_14
+  - first:
+      213: -5935343000002281254
+    second: crops_32x32_spritesheet_15
+  - first:
+      213: -1789647186471340255
+    second: crops_32x32_spritesheet_16
+  - first:
+      213: 81013595723379572
+    second: crops_32x32_spritesheet_17
+  - first:
+      213: 2168254156326300861
+    second: crops_32x32_spritesheet_18
+  - first:
+      213: -3689436312779601554
+    second: crops_32x32_spritesheet_19
+  - first:
+      213: -1574132160283998538
+    second: crops_32x32_spritesheet_20
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_0
+      rect:
+        serializedVersion: 2
+        x: 11
+        y: 76
+        width: 11
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5a765353fae490f80800000000000000
+      internalID: -8139888337076525147
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_1
+      rect:
+        serializedVersion: 2
+        x: 40
+        y: 76
+        width: 17
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f4498d8c39a0205f0800000000000000
+      internalID: -792058954617678769
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_2
+      rect:
+        serializedVersion: 2
+        x: 69
+        y: 80
+        width: 23
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c500947923c37660800000000000000
+      internalID: 7382458797007046081
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_3
+      rect:
+        serializedVersion: 2
+        x: 71
+        y: 66
+        width: 19
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 67dc8551dae08c310800000000000000
+      internalID: 1425405418613034358
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_4
+      rect:
+        serializedVersion: 2
+        x: 103
+        y: 66
+        width: 19
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f74e1bb97488e5420800000000000000
+      internalID: 2620681874312389759
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_5
+      rect:
+        serializedVersion: 2
+        x: 135
+        y: 66
+        width: 19
+        height: 20
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d8f06becc26bd7520800000000000000
+      internalID: 2701515655055019917
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_6
+      rect:
+        serializedVersion: 2
+        x: 165
+        y: 66
+        width: 23
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8d9fd646951651610800000000000000
+      internalID: 1591285079910250968
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_7
+      rect:
+        serializedVersion: 2
+        x: 195
+        y: 66
+        width: 27
+        height: 22
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 64725ec2616800430800000000000000
+      internalID: 3747142319772870470
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_8
+      rect:
+        serializedVersion: 2
+        x: 225
+        y: 66
+        width: 31
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4b76a5e18109470a0800000000000000
+      internalID: -6884719497079789644
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_9
+      rect:
+        serializedVersion: 2
+        x: 7
+        y: 66
+        width: 19
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cb14d15861d157e20800000000000000
+      internalID: 3347613880579604924
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_10
+      rect:
+        serializedVersion: 2
+        x: 39
+        y: 66
+        width: 19
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b443777652deda0a0800000000000000
+      internalID: -6868573111764700085
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_11
+      rect:
+        serializedVersion: 2
+        x: 7
+        y: 34
+        width: 19
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2d23ee4ffc3b72df0800000000000000
+      internalID: -204997552273214766
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_12
+      rect:
+        serializedVersion: 2
+        x: 39
+        y: 34
+        width: 19
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e0da7e4b8eddcd10800000000000000
+      internalID: 2147617287224086754
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_13
+      rect:
+        serializedVersion: 2
+        x: 71
+        y: 34
+        width: 19
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3dc7920f6188aacb0800000000000000
+      internalID: -4851916016438379309
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_14
+      rect:
+        serializedVersion: 2
+        x: 103
+        y: 34
+        width: 19
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b8f56ecdf943a9100800000000000000
+      internalID: 115462601661898635
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_15
+      rect:
+        serializedVersion: 2
+        x: 135
+        y: 34
+        width: 19
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ad043c00dfc61ada0800000000000000
+      internalID: -5935343000002281254
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_16
+      rect:
+        serializedVersion: 2
+        x: 167
+        y: 34
+        width: 19
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1273919ad55e927e0800000000000000
+      internalID: -1789647186471340255
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_17
+      rect:
+        serializedVersion: 2
+        x: 199
+        y: 34
+        width: 19
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 473b113af61df1100800000000000000
+      internalID: 81013595723379572
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_18
+      rect:
+        serializedVersion: 2
+        x: 231
+        y: 34
+        width: 19
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dbce792daaf271e10800000000000000
+      internalID: 2168254156326300861
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_19
+      rect:
+        serializedVersion: 2
+        x: 7
+        y: 2
+        width: 19
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e694853983d7cccc0800000000000000
+      internalID: -3689436312779601554
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crops_32x32_spritesheet_20
+      rect:
+        serializedVersion: 2
+        x: 39
+        y: 2
+        width: 19
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6b601cce32f872ae0800000000000000
+      internalID: -1574132160283998538
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      crops_32x32_spritesheet_0: -8139888337076525147
+      crops_32x32_spritesheet_1: -792058954617678769
+      crops_32x32_spritesheet_10: -6868573111764700085
+      crops_32x32_spritesheet_11: -204997552273214766
+      crops_32x32_spritesheet_12: 2147617287224086754
+      crops_32x32_spritesheet_13: -4851916016438379309
+      crops_32x32_spritesheet_14: 115462601661898635
+      crops_32x32_spritesheet_15: -5935343000002281254
+      crops_32x32_spritesheet_16: -1789647186471340255
+      crops_32x32_spritesheet_17: 81013595723379572
+      crops_32x32_spritesheet_18: 2168254156326300861
+      crops_32x32_spritesheet_19: -3689436312779601554
+      crops_32x32_spritesheet_2: 7382458797007046081
+      crops_32x32_spritesheet_20: -1574132160283998538
+      crops_32x32_spritesheet_3: 1425405418613034358
+      crops_32x32_spritesheet_4: 2620681874312389759
+      crops_32x32_spritesheet_5: 2701515655055019917
+      crops_32x32_spritesheet_6: 1591285079910250968
+      crops_32x32_spritesheet_7: 3747142319772870470
+      crops_32x32_spritesheet_8: -6884719497079789644
+      crops_32x32_spritesheet_9: 3347613880579604924
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
