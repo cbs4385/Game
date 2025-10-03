@@ -9,7 +9,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>10.0.20506</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <RootNamespace></RootNamespace>
+    <RootNamespace>
+    </RootNamespace>
     <ProjectGuid>{DDFBC18F-9396-3137-9CFE-DEB2CDB74636}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
@@ -61,9 +62,79 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\Tools\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\GoapDemoBootstrap.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="DataDrivenGoap\Concurrency.Reservations.cs" />
+    <Compile Include="DataDrivenGoap\Config.Loader.cs" />
+    <Compile Include="DataDrivenGoap\Core.Buildings.cs" />
+    <Compile Include="DataDrivenGoap\Core.Interfaces.cs" />
+    <Compile Include="DataDrivenGoap\Core.WorldTime.cs" />
+    <Compile Include="DataDrivenGoap\Effects.cs" />
+    <Compile Include="DataDrivenGoap\Execution.ExecutorsAndActorHost.cs" />
+    <Compile Include="DataDrivenGoap\Execution.RollingLogWriter.cs" />
+    <Compile Include="DataDrivenGoap\Execution.WorldLogger.cs" />
+    <Compile Include="DataDrivenGoap\Expressions.SafeExpr.cs" />
+    <Compile Include="DataDrivenGoap\Items.CraftingSystem.cs" />
+    <Compile Include="DataDrivenGoap\Items.InventorySystem.cs" />
+    <Compile Include="DataDrivenGoap\Items.ItemCatalog.cs" />
+    <Compile Include="DataDrivenGoap\Items.ShopSystem.cs" />
+    <Compile Include="DataDrivenGoap\Pathfinding.AStar.cs" />
+    <Compile Include="DataDrivenGoap\Persistence\RandomStateSerializer.cs" />
+    <Compile Include="DataDrivenGoap\Persistence\SnapshotApplier.cs" />
+    <Compile Include="DataDrivenGoap\Persistence\SnapshotBuilder.cs" />
+    <Compile Include="DataDrivenGoap\Persistence\WorldSnapshot.cs" />
+    <Compile Include="DataDrivenGoap\Planning.JsonDrivenPlanner.cs" />
+    <Compile Include="DataDrivenGoap\Properties\AssemblyInfo.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.AnimalSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.CalendarEventSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.CropSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.FishingSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.ForagingSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.MiningSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.NeedScheduler.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.QuestSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.RoleScheduleSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.SkillProgressionSystem.cs" />
+    <Compile Include="DataDrivenGoap\Simulation.WeatherSystem.cs" />
+    <Compile Include="DataDrivenGoap\Social.DialogueSystem.cs" />
+    <Compile Include="DataDrivenGoap\Social.RelationshipSystem.cs" />
+    <Compile Include="DataDrivenGoap\World.Clock.cs" />
+    <Compile Include="DataDrivenGoap\World.Sharded.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=9.0.0.9, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Bcl.AsyncInterfaces.9.0.9\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Collections.Immutable, Version=9.0.0.9, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Collections.Immutable.9.0.9\lib\net462\System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Pipelines, Version=9.0.0.9, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.IO.Pipelines.9.0.9\lib\net462\System.IO.Pipelines.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Encodings.Web, Version=9.0.0.9, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Text.Encodings.Web.9.0.9\lib\net462\System.Text.Encodings.Web.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Json, Version=9.0.0.9, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Text.Json.9.0.9\lib\net462\System.Text.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
       <Private>False</Private>
@@ -556,10 +627,6 @@
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.AppContext.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Buffers.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="System.Collections.Concurrent">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Collections.Concurrent.dll</HintPath>
       <Private>False</Private>
@@ -716,10 +783,6 @@
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Linq.Queryable.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Memory.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="System.Net.Http">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Net.Http.dll</HintPath>
       <Private>False</Private>
@@ -762,10 +825,6 @@
     </Reference>
     <Reference Include="System.Net.WebSockets">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Net.WebSockets.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Numerics.Vectors.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System.ObjectModel">
@@ -912,10 +971,6 @@
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Threading.Tasks.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System.Threading.Tasks.Extensions">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Threading.Tasks.Extensions.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="System.Threading.Tasks.Parallel">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Threading.Tasks.Parallel.dll</HintPath>
       <Private>False</Private>
@@ -930,10 +985,6 @@
     </Reference>
     <Reference Include="System.Threading.Timer">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.Threading.Timer.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System.ValueTuple">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.0.56f1\Editor\Data\NetStandard\compat\2.1.0\shims\netstandard\System.ValueTuple.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System.Xml.ReaderWriter">
@@ -1230,7 +1281,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
+    <None Include="DataDrivenGoap\DataDrivenGoap.csproj" />
+    <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
