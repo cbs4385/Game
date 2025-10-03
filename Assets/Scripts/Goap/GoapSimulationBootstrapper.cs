@@ -182,24 +182,30 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private MapDefinitionDto LoadMapDefinition()
     {
+        VillageConfig inlineVillage = null;
+
         if (mapDefinitionAsset != null)
         {
-            try
+            var assetText = mapDefinitionAsset.text ?? string.Empty;
+            if (ContainsJsonProperty(assetText, "tiles"))
             {
-                return DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
+                var definition = LoadMapDefinitionAsset(mapDefinitionAsset);
+                if (definition.tiles == null || definition.tiles.Length == 0)
+                {
+                    throw new InvalidDataException(
+                        $"Map definition asset '{mapDefinitionAsset.name}' does not define any tiles.");
+                }
+
+                return definition;
             }
-            catch (Exception ex)
-            {
-                throw new InvalidDataException(
-                    $"Failed to load GOAP map definition asset '{mapDefinitionAsset.name}'.",
-                    ex);
-            }
+
+            inlineVillage = LoadVillageConfig(mapDefinitionAsset);
         }
 
-        return LoadMapDefinitionFromMapLoader();
+        return LoadMapDefinitionFromMapLoader(inlineVillage);
     }
 
-    private MapDefinitionDto LoadMapDefinitionFromMapLoader()
+    private MapDefinitionDto LoadMapDefinitionFromMapLoader(VillageConfig inlineVillage)
     {
         if (mapLoaderSettings == null)
         {
@@ -236,25 +242,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException("Map loader configuration is missing the map texture asset.");
         }
 
-        if (mapLoaderSettings.villageDataAsset == null)
-        {
-            throw new InvalidOperationException("Map loader configuration is missing the village data asset.");
-        }
-
-        VillageConfig villageConfig;
-        try
-        {
-            villageConfig = JsonUtilities.Deserialize<VillageConfig>(mapLoaderSettings.villageDataAsset.text)
-                ?? throw new InvalidDataException(
-                    $"Village data asset '{mapLoaderSettings.villageDataAsset.name}' did not contain a valid configuration.");
-            villageConfig.ApplyDefaults();
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidDataException(
-                $"Failed to parse village data asset '{mapLoaderSettings.villageDataAsset.name}'.",
-                ex);
-        }
+        var villageConfig = inlineVillage ?? LoadVillageConfig(mapLoaderSettings.villageDataAsset);
 
         try
         {
@@ -267,6 +255,53 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             throw new InvalidDataException("Failed to convert loaded map data into a GOAP map definition.", ex);
         }
+    }
+
+    private static MapDefinitionDto LoadMapDefinitionAsset(TextAsset asset)
+    {
+        try
+        {
+            return DataDrivenGoapJsonLoader.LoadMapDefinition(asset);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException(
+                $"Failed to load GOAP map definition asset '{asset.name}'.",
+                ex);
+        }
+    }
+
+    private static VillageConfig LoadVillageConfig(TextAsset asset)
+    {
+        if (asset == null)
+        {
+            throw new InvalidOperationException("Map loader configuration is missing the village data asset.");
+        }
+
+        try
+        {
+            var config = JsonUtilities.Deserialize<VillageConfig>(asset.text)
+                ?? throw new InvalidDataException(
+                    $"Village data asset '{asset.name}' did not contain a valid configuration.");
+            config.ApplyDefaults();
+            return config;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException(
+                $"Failed to parse village data asset '{asset.name}'.",
+                ex);
+        }
+    }
+
+    private static bool ContainsJsonProperty(string json, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.IsNullOrWhiteSpace(propertyName))
+        {
+            return false;
+        }
+
+        return json.IndexOf("\"" + propertyName + "\"", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static MapDefinitionDto ConvertToMapDefinition(MapLoaderResult mapResult)
