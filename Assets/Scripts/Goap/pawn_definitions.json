@@ -1,0 +1,14 @@
+{
+  "defaultSpeed": 2.25,
+  "defaultHeightOffset": 0.75,
+  "pawns": [
+    {"id": 0, "name": "Iris Ingram", "color": "#FF9A3BFF", "spawnTile": {"x": 5, "y": 5}, "speed": -1, "heightOffset": -1},
+    {"id": 1, "name": "Quentin Frost", "color": "#4FB0FFFF", "spawnTile": {"x": 10, "y": 6}, "speed": -1, "heightOffset": -1},
+    {"id": 2, "name": "Ulric Clarke", "color": "#A05CFFFF", "spawnTile": {"x": 8, "y": 9}, "speed": -1, "heightOffset": -1},
+    {"id": 3, "name": "Miles Lowell", "color": "#FF4F6AFF", "spawnTile": {"x": 15, "y": 12}, "speed": -1, "heightOffset": -1},
+    {"id": 4, "name": "Charles Yardley", "color": "#4CE58FFF", "spawnTile": {"x": 12, "y": 18}, "speed": -1, "heightOffset": -1},
+    {"id": 5, "name": "Yara North", "color": "#FFD64BFF", "spawnTile": {"x": 20, "y": 20}, "speed": -1, "heightOffset": -1},
+    {"id": 6, "name": "Thalia Grafton", "color": "#7F5CFFFF", "spawnTile": {"x": 24, "y": 10}, "speed": -1, "heightOffset": -1},
+    {"id": 7, "name": "Vera Davies", "color": "#FF8BCBFF", "spawnTile": {"x": 6, "y": 22}, "speed": -1, "heightOffset": -1}
+  ]
+}
