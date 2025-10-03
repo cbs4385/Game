@@ -8,13 +8,12 @@ using UnityEngine;
 /// </summary>
 public sealed class GoapSimulationBootstrapper : MonoBehaviour
 {
+    [Header("Data Sources")]
+    [SerializeField] private TextAsset mapDefinitionAsset;
+    [SerializeField] private TextAsset pawnDefinitionAsset;
+    [SerializeField] private TextAsset itemDefinitionAsset;
+
     [Header("Simulation Setup")]
-    [SerializeField] private Vector2Int mapSize = new Vector2Int(12, 12);
-    [SerializeField, Min(0)] private int pawnCount = 6;
-    [SerializeField, Min(0.1f)] private float tileSpacing = 1.5f;
-    [SerializeField] private Vector2 elevationRange = new Vector2(0.3f, 1.5f);
-    [SerializeField, Min(0.1f)] private float pawnSpeed = 2f;
-    [SerializeField, Min(0f)] private float pawnHeightOffset = 0.75f;
     [SerializeField] private int randomSeed = 1337;
 
     [Header("Visual Styling")]
@@ -68,9 +67,36 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         ResetSceneState();
+        if (mapDefinitionAsset == null)
+        {
+            Debug.LogError("Cannot start GOAP simulation without a map definition asset.");
+            return;
+        }
 
-        _config = new SimulationConfig(mapSize, pawnCount, tileSpacing, elevationRange, pawnSpeed, pawnHeightOffset, randomSeed);
-        _simulation = SimulationFactory.Create(_config);
+        if (pawnDefinitionAsset == null)
+        {
+            Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
+            return;
+        }
+
+        try
+        {
+            var mapDefinition = DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
+            var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
+            var itemDefinitions = itemDefinitionAsset != null
+                ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
+                : ItemDefinitionsDto.Empty;
+
+            _simulation = SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
+            _config = _simulation.Config;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
+            Debug.LogException(ex);
+            return;
+        }
+
         _simulation.TileGenerated += HandleTileGenerated;
         _simulation.PawnSpawned += HandlePawnSpawned;
         _simulation.PawnUpdated += HandlePawnUpdated;
@@ -79,7 +105,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         SimulationInitialized?.Invoke(_simulation);
 
         Debug.Log(
-            $"GOAP simulation started with world {mapSize.x}x{mapSize.y}, {pawnCount} pawns, tile spacing {tileSpacing:F2}, elevation range {elevationRange.x:F2}-{elevationRange.y:F2}, pawn speed {pawnSpeed:F2}, height offset {pawnHeightOffset:F2} (seed {randomSeed}).");
+            $"GOAP simulation started with world {_config.MapSize.x}x{_config.MapSize.y}, {_config.PawnCount} pawns, {_simulation.Items.Count} items, tile spacing {_config.TileSpacing:F2}, elevation range {_config.ElevationRange.x:F2}-{_config.ElevationRange.y:F2}, pawn speed {_config.PawnSpeed:F2}, height offset {_config.PawnHeightOffset:F2} (seed {_config.RandomSeed}).");
 
         ConfigureCamera();
     }
