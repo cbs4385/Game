@@ -192,8 +192,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 var definition = LoadMapDefinitionAsset(mapDefinitionAsset);
                 if (definition.tiles == null || definition.tiles.Length == 0)
                 {
+                    if (mapLoaderSettings != null && mapLoaderSettings.IsConfigured)
+                    {
+                        return LoadMapDefinitionFromMapLoader(inlineVillage);
+                    }
+
                     throw new InvalidDataException(
-                        $"Map definition asset '{mapDefinitionAsset.name}' does not define any tiles.");
+                        $"Map definition asset '{mapDefinitionAsset.name}' does not define any tiles, and no map loader configuration is available.");
                 }
 
                 return definition;

@@ -447,13 +447,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e3d8a842d94a4e9bcf836b1bcdcc0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapDefinitionAsset: {fileID: 4900000, guid: 8ec00b17c5e04c16a8f566f86a1a2358, type: 3}
+  mapDefinitionAsset: {fileID: 0}
   pawnDefinitionAsset: {fileID: 4900000, guid: 3f73f64b8fbc4a3c9a1820e72ef7e250, type: 3}
   itemDefinitionAsset: {fileID: 0}
   mapLoaderSettings:
-    worldSettingsAsset: {fileID: 0}
-    villageDataAsset: {fileID: 0}
-    mapTexture: {fileID: 0}
+    worldSettingsAsset: {fileID: 4900000, guid: 278b5f123d332134eaa3748ace326f4a, type: 3}
+    villageDataAsset: {fileID: 4900000, guid: 785792aedc2fade4991478d9b65842b8, type: 3}
+    mapTexture: {fileID: 2800000, guid: 7107b5145f8fc794680863ef3f1a9d0e, type: 3}
   randomSeed: 1337
   tileScaleFactor: 0.9
   lowElevationColor: {r: 0.16, g: 0.42, b: 0.23, a: 1}
