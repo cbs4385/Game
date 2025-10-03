@@ -632,7 +632,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                     Id = id,
                     Type = prototype.type ?? kv.Key,
                     Position = position,
-                    Building = BuildBuildingInfo(prototype.building, prototype.servicePoints, null)
+                    Building = BuildBuildingInfo(prototype.building, ConvertServicePoints(prototype.servicePoints), null)
                 };
 
                 foreach (var tag in prototype.tags ?? Array.Empty<string>())
@@ -726,6 +726,62 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         return value;
+    }
+
+    private ServicePointConfig[] ConvertServicePoints(MapServicePointConfig[] mapServicePoints)
+    {
+        if (mapServicePoints == null)
+        {
+            return null;
+        }
+
+        var converted = new ServicePointConfig[mapServicePoints.Length];
+        for (int i = 0; i < mapServicePoints.Length; i++)
+        {
+            var point = mapServicePoints[i];
+            if (point == null)
+            {
+                converted[i] = null;
+                continue;
+            }
+
+            int? x = null;
+            int? y = null;
+
+            if (point.x.HasValue)
+            {
+                x = ConvertCoordinate(point.x.Value, "service point x");
+            }
+
+            if (point.y.HasValue)
+            {
+                y = ConvertCoordinate(point.y.Value, "service point y");
+            }
+
+            converted[i] = new ServicePointConfig
+            {
+                x = x,
+                y = y
+            };
+        }
+
+        return converted;
+    }
+
+    private int ConvertCoordinate(double value, string label)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            throw new InvalidDataException($"Invalid {label} coordinate: {value}");
+        }
+
+        var rounded = Math.Round(value);
+        if (Math.Abs(value - rounded) > 1e-6)
+        {
+            throw new InvalidDataException($"{label} coordinate must be an integer value but was {value}");
+        }
+
+        return (int)rounded;
     }
 
     private BuildingInfo BuildBuildingInfo(BuildingConfig config, ServicePointConfig[] servicePoints, BuildingAreaConfig areaConfig)
