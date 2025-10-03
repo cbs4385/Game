@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace DataDrivenGoap
+namespace DataDrivenGoap.Unity
 {
     /// <summary>
     /// Utility responsible for converting JSON payloads into strongly typed GOAP definitions.

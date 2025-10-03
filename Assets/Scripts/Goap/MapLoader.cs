@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 
-namespace DataDrivenGoap
+namespace DataDrivenGoap.Unity
 {
     /// <summary>
     /// Immutable description of an object that should be spawned on the generated map.
