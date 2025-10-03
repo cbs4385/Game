@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 namespace DataDrivenGoap.Unity
@@ -284,7 +285,7 @@ namespace DataDrivenGoap.Unity
 
             var random = new System.Random(config.RandomSeed);
             var content = GoapContentLoader.Load();
-            var map = MapGenerator.Generate(mapDefinition, config, random);
+            var map = MapGenerator.Generate(mapDefinition, config);
             var pawns = PawnFactory.Create(map, config, random);
             var items = ItemFactory.Create(map, config, content, random);
             return new UnitySimulation(config, map, pawns, items, content, random);
@@ -530,25 +531,39 @@ namespace DataDrivenGoap.Unity
 
     internal static class MapGenerator
     {
-        public static GoapMap Generate(MapDefinitionDto mapDefinition, SimulationConfig config, System.Random random)
+        public static GoapMap Generate(MapDefinitionDto mapDefinition, SimulationConfig config)
         {
-            var tiles = new List<MapTile>(config.MapSize.x * config.MapSize.y);
+            if (mapDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(mapDefinition));
+            }
+
+            if (mapDefinition.tiles == null || mapDefinition.tiles.Length == 0)
+            {
+                throw new InvalidDataException("Map definition does not contain any tile definitions.");
+            }
+
+            var expectedTileCount = config.MapSize.x * config.MapSize.y;
+            var tiles = new List<MapTile>(expectedTileCount);
             var halfWidth = (config.MapSize.x - 1) * 0.5f;
             var halfHeight = (config.MapSize.y - 1) * 0.5f;
 
-            var definitionLookup = new Dictionary<Vector2Int, MapTileDefinitionDto>(config.MapSize.x * config.MapSize.y);
-            if (mapDefinition?.tiles != null)
+            var definitionLookup = new Dictionary<Vector2Int, MapTileDefinitionDto>(expectedTileCount);
+            foreach (var tile in mapDefinition.tiles)
             {
-                foreach (var tile in mapDefinition.tiles)
+                if (tile == null)
                 {
-                    if (tile == null)
-                    {
-                        continue;
-                    }
-
-                    var coordinates = tile.coordinates.ToVector2Int();
-                    definitionLookup[coordinates] = tile;
+                    continue;
                 }
+
+                var coordinates = tile.coordinates.ToVector2Int();
+                if (coordinates.x < 0 || coordinates.x >= config.MapSize.x || coordinates.y < 0 || coordinates.y >= config.MapSize.y)
+                {
+                    throw new InvalidDataException(
+                        $"Map definition contains tile {coordinates} outside the configured bounds {config.MapSize.x}x{config.MapSize.y}.");
+                }
+
+                definitionLookup[coordinates] = tile;
             }
 
             for (var y = 0; y < config.MapSize.y; y++)
@@ -556,27 +571,25 @@ namespace DataDrivenGoap.Unity
                 for (var x = 0; x < config.MapSize.x; x++)
                 {
                     var coordinates = new Vector2Int(x, y);
-                    float elevation;
-                    float traversalCost;
-
-                    if (definitionLookup.TryGetValue(coordinates, out var definition))
+                    if (!definitionLookup.TryGetValue(coordinates, out var definition))
                     {
-                        elevation = Mathf.Clamp(definition.elevation, config.ElevationRange.x, config.ElevationRange.y);
-                        traversalCost = Mathf.Max(0f, definition.traversalCost);
-                    }
-                    else
-                    {
-                        var sample = (float)random.NextDouble();
-                        elevation = Mathf.Lerp(config.ElevationRange.x, config.ElevationRange.y, sample);
-                        traversalCost = Mathf.Lerp(1f, 5f, (float)random.NextDouble());
+                        throw new InvalidDataException($"Map definition is missing tile data for coordinate {coordinates}.");
                     }
 
+                    var elevation = Mathf.Clamp(definition.elevation, config.ElevationRange.x, config.ElevationRange.y);
+                    var traversalCost = Mathf.Max(0f, definition.traversalCost);
                     var normalized = Mathf.Approximately(config.ElevationRange.x, config.ElevationRange.y)
                         ? 0f
                         : Mathf.InverseLerp(config.ElevationRange.x, config.ElevationRange.y, elevation);
                     var worldCenter = new Vector3((x - halfWidth) * config.TileSpacing, 0f, (y - halfHeight) * config.TileSpacing);
                     tiles.Add(new MapTile(coordinates, elevation, normalized, traversalCost, worldCenter));
                 }
+            }
+
+            if (tiles.Count != expectedTileCount)
+            {
+                throw new InvalidDataException(
+                    $"Map generation produced an unexpected tile count ({tiles.Count} of {expectedTileCount}).");
             }
 
             return new GoapMap(config.MapSize, tiles);
