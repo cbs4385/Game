@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DataDrivenGoap;
 using UnityEngine;
@@ -34,6 +35,18 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private Sprite _pawnSprite;
     private Texture2D _pawnTexture;
 
+    public event Action<Simulation> SimulationInitialized;
+
+    public Simulation Simulation => _simulation;
+
+    public SimulationConfig Config => _config;
+
+    public IReadOnlyDictionary<Vector2Int, GameObject> TileObjects => _tiles;
+
+    public IReadOnlyDictionary<int, GameObject> PawnObjects => _pawns;
+
+    public IReadOnlyDictionary<int, PawnSnapshot> CurrentPawnSnapshots => _pawnSnapshots;
+
     private void Awake()
     {
         _mapRoot = new GameObject("Generated Map").transform;
@@ -54,6 +67,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _simulation.PawnUpdated += HandlePawnUpdated;
         _simulation.Start();
 
+        SimulationInitialized?.Invoke(_simulation);
+
         Debug.Log(
             $"GOAP simulation started with world {mapSize.x}x{mapSize.y}, {pawnCount} pawns, tile spacing {tileSpacing:F2}, elevation range {elevationRange.x:F2}-{elevationRange.y:F2}, pawn speed {pawnSpeed:F2}, height offset {pawnHeightOffset:F2} (seed {randomSeed}).");
 
@@ -72,6 +87,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _simulation.TileGenerated -= HandleTileGenerated;
             _simulation.PawnSpawned -= HandlePawnSpawned;
             _simulation.PawnUpdated -= HandlePawnUpdated;
+            SimulationInitialized = null;
         }
 
         if (_pawnTexture != null)
@@ -246,3 +262,4 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return Sprite.Create(_pawnTexture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
     }
 }
+

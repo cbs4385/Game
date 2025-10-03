@@ -194,6 +194,10 @@ namespace DataDrivenGoap
 
         public event Action<PawnSnapshot> PawnUpdated;
 
+        public SimulationConfig Config => _config;
+
+        public GoapMap Map => _map;
+
         public void Start()
         {
             foreach (var tile in _map.Tiles)
@@ -259,6 +263,29 @@ namespace DataDrivenGoap
             while (candidate == pawn.CurrentTile);
 
             pawn.TargetTile = candidate;
+        }
+
+        public IEnumerable<PawnSnapshot> GetPawnSnapshots()
+        {
+            foreach (var pawn in _pawns)
+            {
+                yield return pawn.CreateSnapshot();
+            }
+        }
+
+        public bool TryGetPawnSnapshot(int id, out PawnSnapshot snapshot)
+        {
+            foreach (var pawn in _pawns)
+            {
+                if (pawn.Id == id)
+                {
+                    snapshot = pawn.CreateSnapshot();
+                    return true;
+                }
+            }
+
+            snapshot = default;
+            return false;
         }
     }
 

@@ -412,6 +412,7 @@ GameObject:
   m_Component:
   - component: {fileID: 100021}
   - component: {fileID: 100022}
+  - component: {fileID: 100023}
   m_Layer: 0
   m_Name: Goap Simulation
   m_TagString: Untagged
@@ -458,6 +459,19 @@ MonoBehaviour:
   midElevationColor: {r: 0.88, g: 0.79, b: 0.29, a: 1}
   highElevationColor: {r: 1, g: 1, b: 1, a: 1}
   pawnVisualScale: 0.6
+--- !u!114 &100023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94ae767f64b544fd8a74a2c484d2b7bc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bootstrapper: {fileID: 100022}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
