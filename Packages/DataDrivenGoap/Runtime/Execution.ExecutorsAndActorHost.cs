@@ -8,7 +8,6 @@ using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
 using DataDrivenGoap.Items;
 using DataDrivenGoap.Persistence;
-using DataDrivenGoap.Simulation;
 using DataDrivenGoap.Social;
 using GoapExecutionContext = DataDrivenGoap.Core.ExecutionContext;
 
