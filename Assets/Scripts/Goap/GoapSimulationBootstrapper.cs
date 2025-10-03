@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DataDrivenGoap;
+using DataDrivenGoap.Unity;
 using UnityEngine;
 using UnityEditor;
 
