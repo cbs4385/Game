@@ -213,7 +213,7 @@ namespace DataDrivenGoap.World
                     attrs.ToImmutableDictionary(),
                     building
                 );
-                sh.Things = sh.Things.Add(t.id, tr);
+                sh.Things = sh.Things.SetItem(t.id, tr);
             }
 
             if (seedFacts == null)
