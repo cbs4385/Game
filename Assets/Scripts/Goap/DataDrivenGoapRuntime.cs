@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DataDrivenGoap
+namespace DataDrivenGoap.Unity
 {
     /// <summary>
     /// Configuration payload used to bootstrap the GOAP simulation.

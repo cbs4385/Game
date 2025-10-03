@@ -146,7 +146,13 @@ namespace DataDrivenGoap.Execution
                 return false;
             }
 
-            var remaining = candidate.AsSpan(baseName.Length);
+            if (candidate.Length < baseName.Length)
+            {
+                return false;
+            }
+
+            var remaining = candidate.AsSpan();
+            remaining = remaining.Slice(baseName.Length);
             if (remaining.Length == 0 || remaining[0] != '.')
             {
                 return false;
