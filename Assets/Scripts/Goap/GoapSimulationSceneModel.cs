@@ -16,7 +16,7 @@ public sealed class GoapSimulationSceneModel : MonoBehaviour
 
     public SimulationConfig Config { get; private set; }
 
-    public Simulation Simulation { get; private set; }
+    public UnitySimulation Simulation { get; private set; }
 
     public IReadOnlyList<MapTile> MapTiles => _mapTiles;
 
@@ -94,7 +94,7 @@ public sealed class GoapSimulationSceneModel : MonoBehaviour
         return false;
     }
 
-    private void HandleSimulationInitialized(Simulation simulation)
+    private void HandleSimulationInitialized(UnitySimulation simulation)
     {
         if (simulation == null)
         {
@@ -124,14 +124,14 @@ public sealed class GoapSimulationSceneModel : MonoBehaviour
         SubscribeToSimulation(simulation);
     }
 
-    private void SubscribeToSimulation(Simulation simulation)
+    private void SubscribeToSimulation(UnitySimulation simulation)
     {
         simulation.TileGenerated += HandleTileGenerated;
         simulation.PawnSpawned += HandlePawnChanged;
         simulation.PawnUpdated += HandlePawnChanged;
     }
 
-    private void UnsubscribeFromSimulation(Simulation simulation)
+    private void UnsubscribeFromSimulation(UnitySimulation simulation)
     {
         simulation.TileGenerated -= HandleTileGenerated;
         simulation.PawnSpawned -= HandlePawnChanged;

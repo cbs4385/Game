@@ -101,7 +101,7 @@ namespace DataDrivenGoap.World
         {
             var ta = GetThing(a); var tb = GetThing(b);
             if (ta == null || tb == null) return int.MaxValue/4;
-            return GridPos.Manhattan(ta.Position, tb.Position);
+            return DataDrivenGoap.Core.GridPos.Manhattan(ta.Position, tb.Position);
         }
 
         public int Width => _w;

@@ -462,7 +462,7 @@ namespace DataDrivenGoap.Planning
                 foreach (var candidate in snap.QueryByTag(_tag))
                 {
                     if (candidate == null) continue;
-                    int dist = GridPos.Manhattan(candidate.Position, anchor.Position);
+                    int dist = DataDrivenGoap.Core.GridPos.Manhattan(candidate.Position, anchor.Position);
                     if (dist > _maxDistance + 1e-6) continue;
 
                     double consumedValue = candidate.AttrOrDefault(_consumedAttr, 0.0);
@@ -1281,7 +1281,7 @@ namespace DataDrivenGoap.Planning
                 return (chosenId, tier);
             }
 
-            private static int ExtractTier(ItemDefinition item, string requiredFlag)
+            private static int ExtractTier(DataDrivenGoap.Items.ItemDefinition item, string requiredFlag)
             {
                 if (item == null)
                     return 0;

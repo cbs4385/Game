@@ -126,9 +126,9 @@ namespace DataDrivenGoap.Unity
     /// <summary>
     /// Immutable description of an item that can appear in the simulation.
     /// </summary>
-    public sealed class ItemDefinition
+    public sealed class UnityItemDefinition
     {
-        public ItemDefinition(string id, string displayName, string spriteId)
+        public UnityItemDefinition(string id, string displayName, string spriteId)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -152,12 +152,12 @@ namespace DataDrivenGoap.Unity
     /// </summary>
     public sealed class GoapContent
     {
-        private readonly Dictionary<string, ItemDefinition> _itemLookup;
+        private readonly Dictionary<string, UnityItemDefinition> _itemLookup;
 
-        public GoapContent(IReadOnlyList<ItemDefinition> itemDefinitions)
+        public GoapContent(IReadOnlyList<UnityItemDefinition> itemDefinitions)
         {
-            ItemDefinitions = itemDefinitions ?? Array.Empty<ItemDefinition>();
-            _itemLookup = new Dictionary<string, ItemDefinition>(ItemDefinitions.Count, StringComparer.OrdinalIgnoreCase);
+            ItemDefinitions = itemDefinitions ?? Array.Empty<UnityItemDefinition>();
+            _itemLookup = new Dictionary<string, UnityItemDefinition>(ItemDefinitions.Count, StringComparer.OrdinalIgnoreCase);
 
             foreach (var definition in ItemDefinitions)
             {
@@ -170,9 +170,9 @@ namespace DataDrivenGoap.Unity
             }
         }
 
-        public IReadOnlyList<ItemDefinition> ItemDefinitions { get; }
+        public IReadOnlyList<UnityItemDefinition> ItemDefinitions { get; }
 
-        public bool TryGetItemDefinition(string id, out ItemDefinition definition)
+        public bool TryGetItemDefinition(string id, out UnityItemDefinition definition)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -239,7 +239,7 @@ namespace DataDrivenGoap.Unity
     /// </summary>
     public static class SimulationFactory
     {
-        public static Simulation Create(
+        public static UnitySimulation Create(
             MapDefinitionDto mapDefinition,
             PawnDefinitionsDto pawnDefinitions,
             ItemDefinitionsDto itemDefinitions,
@@ -287,14 +287,14 @@ namespace DataDrivenGoap.Unity
             var map = MapGenerator.Generate(mapDefinition, config, random);
             var pawns = PawnFactory.Create(map, config, random);
             var items = ItemFactory.Create(map, config, content, random);
-            return new Simulation(config, map, pawns, items, content, random);
+            return new UnitySimulation(config, map, pawns, items, content, random);
         }
     }
 
     /// <summary>
     /// Main runtime simulation loop.
     /// </summary>
-    public sealed class Simulation
+    public sealed class UnitySimulation
     {
         private readonly SimulationConfig _config;
         private readonly GoapMap _map;
@@ -304,7 +304,7 @@ namespace DataDrivenGoap.Unity
         private readonly GoapContent _content;
         private readonly System.Random _random;
 
-        public Simulation(
+        public UnitySimulation(
             SimulationConfig config,
             GoapMap map,
             List<PawnInternal> pawns,
@@ -316,7 +316,7 @@ namespace DataDrivenGoap.Unity
             _map = map;
             _pawns = pawns;
             _items = items ?? new List<ItemInternal>();
-            _content = content ?? new GoapContent(Array.Empty<ItemDefinition>());
+            _content = content ?? new GoapContent(Array.Empty<UnityItemDefinition>());
             _itemsById = new Dictionary<int, ItemInternal>(_items.Count);
             foreach (var item in _items)
             {
@@ -342,7 +342,7 @@ namespace DataDrivenGoap.Unity
 
         public GoapContent Content => _content;
 
-        public IReadOnlyList<ItemDefinition> ItemDefinitions => _content.ItemDefinitions;
+        public IReadOnlyList<UnityItemDefinition> ItemDefinitions => _content.ItemDefinitions;
 
         public void Start()
         {
@@ -459,7 +459,7 @@ namespace DataDrivenGoap.Unity
             return false;
         }
 
-        public bool TryGetItemDefinition(string id, out ItemDefinition definition)
+        public bool TryGetItemDefinition(string id, out UnityItemDefinition definition)
         {
             if (_content == null)
             {
@@ -480,7 +480,7 @@ namespace DataDrivenGoap.Unity
             var asset = Resources.Load<TextAsset>(ResourcePath);
             if (asset == null || string.IsNullOrWhiteSpace(asset.text))
             {
-                return new GoapContent(Array.Empty<ItemDefinition>());
+                return new GoapContent(Array.Empty<UnityItemDefinition>());
             }
 
             try
@@ -488,10 +488,10 @@ namespace DataDrivenGoap.Unity
                 var payload = JsonUtility.FromJson<GoapContentPayload>(asset.text);
                 if (payload?.items == null || payload.items.Length == 0)
                 {
-                    return new GoapContent(Array.Empty<ItemDefinition>());
+                    return new GoapContent(Array.Empty<UnityItemDefinition>());
                 }
 
-                var definitions = new List<ItemDefinition>(payload.items.Length);
+                var definitions = new List<UnityItemDefinition>(payload.items.Length);
                 foreach (var item in payload.items)
                 {
                     if (item == null || string.IsNullOrWhiteSpace(item.id))
@@ -501,7 +501,7 @@ namespace DataDrivenGoap.Unity
 
                     var displayName = string.IsNullOrWhiteSpace(item.displayName) ? item.id : item.displayName;
                     var spriteId = item.spriteId ?? string.Empty;
-                    definitions.Add(new ItemDefinition(item.id, displayName, spriteId));
+                    definitions.Add(new UnityItemDefinition(item.id, displayName, spriteId));
                 }
 
                 return new GoapContent(definitions);
@@ -509,7 +509,7 @@ namespace DataDrivenGoap.Unity
             catch (Exception exception)
             {
                 Debug.LogError($"Failed to parse GOAP content at Resources/{ResourcePath}: {exception}");
-                return new GoapContent(Array.Empty<ItemDefinition>());
+                return new GoapContent(Array.Empty<UnityItemDefinition>());
             }
         }
 
@@ -708,7 +708,7 @@ namespace DataDrivenGoap.Unity
     /// </summary>
     public sealed class ItemInternal
     {
-        public ItemInternal(int id, ItemDefinition definition, Vector2Int tile, Vector3 worldPosition)
+        public ItemInternal(int id, UnityItemDefinition definition, Vector2Int tile, Vector3 worldPosition)
         {
             Id = id;
             Definition = definition;
@@ -718,7 +718,7 @@ namespace DataDrivenGoap.Unity
 
         public int Id { get; }
 
-        public ItemDefinition Definition { get; }
+        public UnityItemDefinition Definition { get; }
 
         public Vector2Int Tile { get; }
 

@@ -151,14 +151,18 @@ namespace DataDrivenGoap.Execution
                 return false;
             }
 
-            var remaining = candidate.AsSpan();
-            remaining = remaining.Slice(baseName.Length);
-            if (remaining.Length == 0 || remaining[0] != '.')
+            if (candidate.Length == baseName.Length)
             {
                 return false;
             }
 
-            remaining = remaining.Slice(1);
+            string remaining = candidate.Substring(baseName.Length);
+            if (string.IsNullOrEmpty(remaining) || remaining[0] != '.')
+            {
+                return false;
+            }
+
+            remaining = remaining.Substring(1);
             return int.TryParse(remaining, NumberStyles.None, CultureInfo.InvariantCulture, out suffix);
         }
 

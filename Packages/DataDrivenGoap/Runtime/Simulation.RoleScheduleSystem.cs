@@ -421,7 +421,7 @@ namespace DataDrivenGoap.Simulation
                     continue;
                 if (!predicate(candidate))
                     continue;
-                int dist = GridPos.Manhattan(actorView.Position, candidate.Position);
+                int dist = DataDrivenGoap.Core.GridPos.Manhattan(actorView.Position, candidate.Position);
                 if (dist < bestDist)
                 {
                     bestDist = dist;

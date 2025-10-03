@@ -707,7 +707,7 @@ namespace DataDrivenGoap.Expressions
                     if (food == null) continue;
                     if (food.AttrOrDefault("consumed", 1.0) > 0.5) continue;
                     if (food.AttrOrDefault("held", 0.0) > 0.5) continue;
-                    if (GridPos.Manhattan(food.Position, anchorThing.Position) <= 1)
+                    if (DataDrivenGoap.Core.GridPos.Manhattan(food.Position, anchorThing.Position) <= 1)
                         count++;
                 }
                 return count;
