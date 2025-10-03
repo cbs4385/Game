@@ -27,6 +27,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private GameObject _mapObject;
     private Sprite _mapSprite;
     private Texture2D _mapTexture;
+    private bool _ownsMapTexture;
     private Transform _pawnRoot;
 
     private void Awake()
@@ -100,9 +101,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
 
-        var mapPath = Path.Combine(_datasetRoot, "village_map_1000x1000.png");
         var snapshot = _world.Snap();
-        LoadMap(mapPath, snapshot.Width, snapshot.Height);
+        LoadMap(args.MapTexture, snapshot.Width, snapshot.Height);
         CreatePawnVisuals(snapshot);
     }
 
@@ -163,32 +163,20 @@ public sealed class GoapSimulationView : MonoBehaviour
         visual.Root.localPosition = translated;
     }
 
-    private void LoadMap(string mapPath, int expectedWidth, int expectedHeight)
+    private void LoadMap(Texture2D mapTexture, int expectedWidth, int expectedHeight)
     {
-        if (string.IsNullOrWhiteSpace(mapPath))
+        if (mapTexture == null)
         {
-            throw new ArgumentException("Map path must be provided.", nameof(mapPath));
+            throw new ArgumentNullException(nameof(mapTexture));
         }
 
-        var absolutePath = Path.GetFullPath(mapPath);
-        if (!File.Exists(absolutePath))
+        if (mapTexture.width != expectedWidth || mapTexture.height != expectedHeight)
         {
-            throw new FileNotFoundException($"World map image '{absolutePath}' could not be found.", absolutePath);
+            throw new InvalidDataException($"Preloaded world map texture dimensions {mapTexture.width}x{mapTexture.height} do not match world {expectedWidth}x{expectedHeight}.");
         }
 
-        _mapTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        var data = File.ReadAllBytes(absolutePath);
-        if (!_mapTexture.LoadImage(data, false))
-        {
-            Destroy(_mapTexture);
-            _mapTexture = null;
-            throw new InvalidDataException($"World map image '{absolutePath}' is not a valid RGBA texture.");
-        }
-
-        if (_mapTexture.width != expectedWidth || _mapTexture.height != expectedHeight)
-        {
-            throw new InvalidDataException($"World map image '{absolutePath}' dimensions {_mapTexture.width}x{_mapTexture.height} do not match world {expectedWidth}x{expectedHeight}.");
-        }
+        _mapTexture = mapTexture;
+        _ownsMapTexture = false;
 
         _mapTexture.filterMode = FilterMode.Point;
         _mapTexture.wrapMode = TextureWrapMode.Clamp;
@@ -399,9 +387,15 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (_mapTexture != null)
         {
-            Destroy(_mapTexture);
+            if (_ownsMapTexture)
+            {
+                Destroy(_mapTexture);
+            }
+
             _mapTexture = null;
         }
+
+        _ownsMapTexture = false;
 
         _pawnSpritePaths.Clear();
         _actors = null;
