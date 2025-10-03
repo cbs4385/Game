@@ -92,13 +92,27 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return;
         }
 
-        var simulation = CreateSimulation(mapDefinition);
-        if (simulation == null)
+        var initializationCompleted = false;
+        try
         {
-            return;
+            var simulation = CreateSimulation(mapDefinition);
+            InitializeSimulation(simulation);
+            initializationCompleted = true;
         }
+        finally
+        {
+            if (!initializationCompleted)
+            {
+                if (_simulation != null)
+                {
+                    UnsubscribeFromSimulationEvents();
+                    _simulation = null;
+                    _config = null;
+                }
 
-        InitializeSimulation(simulation);
+                ResetSceneState();
+            }
+        }
     }
 
     private void OnValidate()
@@ -113,25 +127,16 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         if (pawnDefinitionAsset == null)
         {
-            Debug.LogError("Cannot start GOAP simulation without a pawn definition asset.");
-            return null;
+            throw new InvalidOperationException(
+                "Cannot start GOAP simulation without a pawn definition asset.");
         }
 
-        try
-        {
-            var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
-            var itemDefinitions = itemDefinitionAsset != null
-                ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
-                : ItemDefinitionsDto.Empty;
+        var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
+        var itemDefinitions = itemDefinitionAsset != null
+            ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
+            : ItemDefinitionsDto.Empty;
 
-            return SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Failed to create GOAP simulation: {ex.Message}");
-            Debug.LogException(ex);
-            return null;
-        }
+        return SimulationFactory.Create(mapDefinition, pawnDefinitions, itemDefinitions, randomSeed);
     }
 
     private void InitializeSimulation(UnitySimulation simulation)
