@@ -1,4 +1,5 @@
-﻿using System;
+#if UNITY_5_3_OR_NEWER
+using System;
 using UnityEngine;
 
 public class Readme : ScriptableObject
@@ -14,3 +15,4 @@ public class Readme : ScriptableObject
         public string heading, text, linkText, url;
     }
 }
+#endif // UNITY_5_3_OR_NEWER
