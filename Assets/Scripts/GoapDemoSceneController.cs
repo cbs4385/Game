@@ -74,7 +74,7 @@ public class GoapDemoSceneController : MonoBehaviour
         var walkable = GenerateWalkableMask(width, height, worldSeed);
         var pawnPositions = ChoosePawnPositions(walkable, pawnCount, worldSeed);
 
-        var seedThings = new List<(ThingId id, string type, IEnumerable<string> tags, GridPos pos, IDictionary<string, double> attrs, BuildingInfo building)>();
+        var seedThings = new List<SeedThing>();
         var random = new System.Random(worldSeed);
 
         for (int i = 0; i < pawnPositions.Count; i++)
@@ -87,7 +87,7 @@ public class GoapDemoSceneController : MonoBehaviour
                 ["energy"] = 0.5 + (random.NextDouble() * 0.5),
                 ["colorIndex"] = i
             };
-            seedThings.Add((id, "villager", tags, pawnPositions[i], attributes, null));
+            seedThings.Add(new SeedThing(id, "villager", tags, pawnPositions[i], attributes, null));
         }
 
         var seedFacts = new List<Fact>();

@@ -119,6 +119,20 @@ namespace DataDrivenGoap.World
         private readonly int _width, _height;
         private readonly bool[,] _walkable;
 
+        private struct ShardBuilders
+        {
+            public ShardBuilders(
+                ImmutableDictionary<ThingId, ThingRecord>.Builder things,
+                ImmutableHashSet<Fact>.Builder facts)
+            {
+                Things = things;
+                Facts = facts;
+            }
+
+            public ImmutableDictionary<ThingId, ThingRecord>.Builder Things;
+            public ImmutableHashSet<Fact>.Builder Facts;
+        }
+
         private static int HashIdx(ThingId id, int mod) => (id.GetHashCode() & 0x7fffffff) % mod;
 
         private readonly WorldClock _clock;
@@ -129,7 +143,7 @@ namespace DataDrivenGoap.World
             double blockedChance,
             int shardCount,
             int rngSeed,
-            IEnumerable<(ThingId id, string type, IEnumerable<string> tags, GridPos pos, IDictionary<string,double> attrs, BuildingInfo building)> seedThings,
+            IEnumerable<SeedThing> seedThings,
             IEnumerable<Fact> seedFacts,
             WorldClock clock,
             bool[,] walkableOverride = null)
@@ -180,13 +194,13 @@ namespace DataDrivenGoap.World
 
             foreach (var t in seedThings)
             {
-                if (t.tags == null)
+                if (t.Tags == null)
                     throw new ArgumentException("Seed thing tags must not be null", nameof(seedThings));
-                if (t.attrs == null)
+                if (t.Attributes == null)
                     throw new ArgumentException("Seed thing attributes must not be null", nameof(seedThings));
 
-                int x = Math.Max(0, Math.Min(_width-1, t.pos.X));
-                int y = Math.Max(0, Math.Min(_height-1, t.pos.Y));
+                int x = Math.Max(0, Math.Min(_width-1, t.Position.X));
+                int y = Math.Max(0, Math.Min(_height-1, t.Position.Y));
                 if (!_walkable[x,y])
                 {
                     for (int tries=0; tries<200; tries++)
@@ -195,25 +209,25 @@ namespace DataDrivenGoap.World
                         if (_walkable[rx,ry]) { x=rx; y=ry; break; }
                     }
                 }
-                int idx = HashIdx(t.id, _shards.Length);
+                int idx = HashIdx(t.Id, _shards.Length);
                 var sh = _shards[idx];
-                var attrs = new Dictionary<string, double>(t.attrs, StringComparer.OrdinalIgnoreCase);
-                bool openFlag = t.building?.IsOpenFlag ?? true;
+                var attrs = new Dictionary<string, double>(t.Attributes, StringComparer.OrdinalIgnoreCase);
+                bool openFlag = t.Building?.IsOpenFlag ?? true;
                 if (attrs.TryGetValue("open", out var openAttr))
                     openFlag = openAttr > 0.5;
                 else
                     attrs["open"] = openFlag ? 1.0 : 0.0;
 
-                var building = t.building?.WithOpenFlag(openFlag);
+                var building = t.Building?.WithOpenFlag(openFlag);
 
                 var tr = new ThingRecord(
-                    t.id, t.type,
-                    t.tags.ToImmutableHashSet(),
+                    t.Id, t.Type,
+                    t.Tags.ToImmutableHashSet(),
                     new GridPos(x,y),
                     attrs.ToImmutableDictionary(),
                     building
                 );
-                sh.Things = sh.Things.Add(t.id, tr);
+                sh.Things = sh.Things.Add(t.Id, tr);
             }
 
             if (seedFacts == null)
@@ -264,15 +278,20 @@ namespace DataDrivenGoap.World
                     }
                 }
 
-                var builders = new System.Collections.Generic.Dictionary<int,(ImmutableDictionary<ThingId,ThingRecord>.Builder tb, ImmutableHashSet<Fact>.Builder fb)>();
-                foreach (var idx in touched) builders[idx] = (_shards[idx].Things.ToBuilder(), _shards[idx].Facts.ToBuilder());
+                var builders = new Dictionary<int, ShardBuilders>();
+                foreach (var idx in touched)
+                {
+                    builders[idx] = new ShardBuilders(
+                        _shards[idx].Things.ToBuilder(),
+                        _shards[idx].Facts.ToBuilder());
+                }
 
                 foreach (var sp in batch.Spawns ?? Array.Empty<ThingSpawnRequest>())
                 {
                     if (string.IsNullOrWhiteSpace(sp.Id.Value)) return CommitResult.Conflict;
                     int idx = HashIdx(sp.Id, _shards.Length);
-                    var b = builders[idx];
-                    if (b.tb.ContainsKey(sp.Id)) return CommitResult.Conflict;
+                    var builder = builders[idx];
+                    if (builder.Things.ContainsKey(sp.Id)) return CommitResult.Conflict;
 
                     int x = Math.Max(0, Math.Min(_width - 1, sp.Position.X));
                     int y = Math.Max(0, Math.Min(_height - 1, sp.Position.Y));
@@ -294,43 +313,47 @@ namespace DataDrivenGoap.World
 
                     var attrMap = attrBuilder.ToImmutable();
                     var record = new ThingRecord(sp.Id, sp.Type ?? string.Empty, tagSet, pos, attrMap, null);
-                    b.tb[sp.Id] = record; builders[idx] = b;
+                    builder.Things[sp.Id] = record;
+                    builders[idx] = builder;
                 }
 
                 foreach (var w in batch.Writes ?? Array.Empty<WriteSetEntry>())
                 {
                     int idx = HashIdx(w.Thing, _shards.Length);
-                    var b = builders[idx];
-                    ThingRecord tr; if (!b.tb.TryGetValue(w.Thing, out tr)) return CommitResult.Conflict;
+                    var builder = builders[idx];
+                    ThingRecord tr; if (!builder.Things.TryGetValue(w.Thing, out tr)) return CommitResult.Conflict;
                     if (w.Attribute == "@move.x") tr = tr.WithPos(new GridPos((int)w.Value, tr.Pos.Y));
                     else if (w.Attribute == "@move.y") tr = tr.WithPos(new GridPos(tr.Pos.X, (int)w.Value));
                     else tr = tr.WithAttr(w.Attribute, w.Value);
-                    b.tb[w.Thing] = tr; builders[idx] = b;
+                    builder.Things[w.Thing] = tr;
+                    builders[idx] = builder;
                 }
 
                 foreach (var fd in batch.FactDeltas ?? Array.Empty<FactDelta>())
                 {
                     int idx = HashIdx(fd.A, _shards.Length);
-                    var b = builders[idx];
-                    if (fd.Add) b.fb.Add(new Fact(fd.Pred, fd.A, fd.B));
-                    else b.fb.Remove(new Fact(fd.Pred, fd.A, fd.B));
-                    builders[idx] = b;
+                    var builder = builders[idx];
+                    if (fd.Add)
+                        builder.Facts.Add(new Fact(fd.Pred, fd.A, fd.B));
+                    else
+                        builder.Facts.Remove(new Fact(fd.Pred, fd.A, fd.B));
+                    builders[idx] = builder;
                 }
 
                 foreach (var ds in batch.Despawns ?? Array.Empty<ThingId>())
                 {
                     if (string.IsNullOrWhiteSpace(ds.Value)) return CommitResult.Conflict;
                     int idx = HashIdx(ds, _shards.Length);
-                    var b = builders[idx];
-                    if (!b.tb.Remove(ds)) return CommitResult.Conflict;
-                    RemoveFactsFor(ds, b.fb);
-                    builders[idx] = b;
+                    var builder = builders[idx];
+                    if (!builder.Things.Remove(ds)) return CommitResult.Conflict;
+                    RemoveFactsFor(ds, builder.Facts);
+                    builders[idx] = builder;
                 }
 
                 foreach (var shardIdx in builders.Keys.ToArray())
                 {
                     var builder = builders[shardIdx];
-                    var consumed = CollectConsumedItems(builder.tb);
+                    var consumed = CollectConsumedItems(builder.Things);
                     if (consumed.Count == 0)
                     {
                         builders[shardIdx] = builder;
@@ -339,8 +362,8 @@ namespace DataDrivenGoap.World
 
                     foreach (var id in consumed)
                     {
-                        builder.tb.Remove(id);
-                        RemoveFactsFor(id, builder.fb);
+                        builder.Things.Remove(id);
+                        RemoveFactsFor(id, builder.Facts);
                     }
 
                     builders[shardIdx] = builder;
@@ -349,8 +372,8 @@ namespace DataDrivenGoap.World
                 foreach (var kv in builders)
                 {
                     int idx = kv.Key;
-                    _shards[idx].Things = kv.Value.tb.ToImmutable();
-                    _shards[idx].Facts = kv.Value.fb.ToImmutable();
+                    _shards[idx].Things = kv.Value.Things.ToImmutable();
+                    _shards[idx].Facts = kv.Value.Facts.ToImmutable();
                     _shards[idx].Version++;
                 }
                 Interlocked.Increment(ref _globalVersion);
