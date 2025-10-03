@@ -459,6 +459,16 @@ MonoBehaviour:
   midElevationColor: {r: 0.88, g: 0.79, b: 0.29, a: 1}
   highElevationColor: {r: 1, g: 1, b: 1, a: 1}
   pawnVisualScale: 0.6
+  tileSprite: {fileID: 21300000, guid: 80bc2c6932d8427a81d8abe04103c8ea, type: 3}
+  pawnSprite: {fileID: 21300000, guid: e4ec2274121d4a34ba176689b34ff580, type: 3}
+  defaultItemSprite: {fileID: 21300000, guid: 53f2f4aa2f2c4c3b91dae164e657d9ed, type: 3}
+  itemSpriteMappings:
+  - spriteId: Item_Apple
+    sprite: {fileID: 21300000, guid: e2719967390b4968a91a093034127933, type: 3}
+  - spriteId: Item_Bread
+    sprite: {fileID: 21300000, guid: 0689e041db7c4214ac641b9e82826771, type: 3}
+  - spriteId: Item_Gem
+    sprite: {fileID: 21300000, guid: 53f2f4aa2f2c4c3b91dae164e657d9ed, type: 3}
 --- !u!114 &100023
 MonoBehaviour:
   m_ObjectHideFlags: 0

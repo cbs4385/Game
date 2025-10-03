@@ -124,25 +124,86 @@ namespace DataDrivenGoap
     }
 
     /// <summary>
-    /// Immutable description of an item defined in the map.
+    /// Immutable description of an item that can appear in the simulation.
     /// </summary>
-    public sealed class GoapItem
+    public sealed class ItemDefinition
     {
-        public GoapItem(string id, string name, Vector2Int tile, Vector3 worldPosition)
+        public ItemDefinition(string id, string displayName, string spriteId)
         {
-            Id = string.IsNullOrEmpty(id) ? name ?? string.Empty : id;
-            Name = string.IsNullOrEmpty(name) ? Id : name;
-            Tile = tile;
-            WorldPosition = worldPosition;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new ArgumentException("An item definition must have a valid identifier.", nameof(id));
+            }
+
+            Id = id;
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? id : displayName;
+            SpriteId = spriteId ?? string.Empty;
         }
 
         public string Id { get; }
 
-        public string Name { get; }
+        public string DisplayName { get; }
 
-        public Vector2Int Tile { get; }
+        public string SpriteId { get; }
+    }
+
+    /// <summary>
+    /// Holds data-driven content used by the simulation (items, etc.).
+    /// </summary>
+    public sealed class GoapContent
+    {
+        private readonly Dictionary<string, ItemDefinition> _itemLookup;
+
+        public GoapContent(IReadOnlyList<ItemDefinition> itemDefinitions)
+        {
+            ItemDefinitions = itemDefinitions ?? Array.Empty<ItemDefinition>();
+            _itemLookup = new Dictionary<string, ItemDefinition>(ItemDefinitions.Count, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var definition in ItemDefinitions)
+            {
+                if (definition == null || string.IsNullOrEmpty(definition.Id) || _itemLookup.ContainsKey(definition.Id))
+                {
+                    continue;
+                }
+
+                _itemLookup[definition.Id] = definition;
+            }
+        }
+
+        public IReadOnlyList<ItemDefinition> ItemDefinitions { get; }
+
+        public bool TryGetItemDefinition(string id, out ItemDefinition definition)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                definition = null;
+                return false;
+            }
+
+            return _itemLookup.TryGetValue(id, out definition);
+        }
+    }
+
+    /// <summary>
+    /// Immutable snapshot of an item in the simulation.
+    /// </summary>
+    public readonly struct ItemSnapshot
+    {
+        public ItemSnapshot(int id, string definitionId, Vector3 worldPosition, Vector2Int tile)
+        {
+            Id = id;
+            DefinitionId = definitionId;
+            WorldPosition = worldPosition;
+            Tile = tile;
+        }
+
+        public int Id { get; }
+
+        public string DefinitionId { get; }
 
         public Vector3 WorldPosition { get; }
+
+        public Vector2Int Tile { get; }
     }
 
     /// <summary>
@@ -222,122 +283,11 @@ namespace DataDrivenGoap
                 randomSeed);
 
             var random = new System.Random(config.RandomSeed);
-            var map = BuildMap(config, mapDefinition);
-            var pawns = BuildPawns(map, config, pawnDefinitions);
-            var items = BuildItems(map, itemDefinitions);
-            return new Simulation(config, map, pawns, items, random);
-        }
-
-        private static GoapMap BuildMap(SimulationConfig config, MapDefinitionDto mapDefinition)
-        {
-            var tiles = new List<MapTile>(config.MapSize.x * config.MapSize.y);
-            var halfWidth = (config.MapSize.x - 1) * 0.5f;
-            var halfHeight = (config.MapSize.y - 1) * 0.5f;
-            var minElevation = config.ElevationRange.x;
-            var maxElevation = config.ElevationRange.y;
-            var elevationRange = Mathf.Approximately(minElevation, maxElevation)
-                ? 0f
-                : maxElevation - minElevation;
-
-            var definedTiles = new HashSet<Vector2Int>();
-            foreach (var tileDefinition in mapDefinition.tiles)
-            {
-                if (tileDefinition == null)
-                {
-                    continue;
-                }
-
-                var coordinates = tileDefinition.coordinates.ToVector2Int();
-                var elevation = tileDefinition.elevation;
-                var traversalCost = Mathf.Max(0f, tileDefinition.traversalCost);
-                var normalizedElevation = elevationRange <= Mathf.Epsilon
-                    ? 0f
-                    : Mathf.Clamp01((elevation - minElevation) / elevationRange);
-                var worldCenter = new Vector3(
-                    (coordinates.x - halfWidth) * config.TileSpacing,
-                    0f,
-                    (coordinates.y - halfHeight) * config.TileSpacing);
-
-                tiles.Add(new MapTile(coordinates, elevation, normalizedElevation, traversalCost, worldCenter));
-                definedTiles.Add(coordinates);
-            }
-
-            for (var y = 0; y < config.MapSize.y; y++)
-            {
-                for (var x = 0; x < config.MapSize.x; x++)
-                {
-                    var coordinates = new Vector2Int(x, y);
-                    if (definedTiles.Contains(coordinates))
-                    {
-                        continue;
-                    }
-
-                    var worldCenter = new Vector3(
-                        (coordinates.x - halfWidth) * config.TileSpacing,
-                        0f,
-                        (coordinates.y - halfHeight) * config.TileSpacing);
-                    tiles.Add(new MapTile(coordinates, minElevation, 0f, 1f, worldCenter));
-                }
-            }
-
-            return new GoapMap(config.MapSize, tiles);
-        }
-
-        private static List<PawnInternal> BuildPawns(GoapMap map, SimulationConfig config, PawnDefinitionsDto pawnDefinitions)
-        {
-            var pawns = new List<PawnInternal>(pawnDefinitions.pawns.Length);
-            for (var i = 0; i < pawnDefinitions.pawns.Length; i++)
-            {
-                var definition = pawnDefinitions.pawns[i];
-                if (definition == null)
-                {
-                    continue;
-                }
-
-                var id = definition.id >= 0 ? definition.id : i;
-                var name = string.IsNullOrWhiteSpace(definition.name) ? $"Pawn {i + 1}" : definition.name;
-                var color = ParseColor(definition.color, i);
-                var speed = definition.speed > 0f ? definition.speed : config.PawnSpeed;
-                var heightOffset = definition.heightOffset >= 0f ? definition.heightOffset : config.PawnHeightOffset;
-                var spawnTile = definition.spawnTile.ToVector2Int();
-
-                var pawn = new PawnInternal(id, name, color, speed, heightOffset);
-                var tile = map.GetTile(spawnTile);
-                pawn.TeleportTo(tile);
-                pawn.TargetTile = spawnTile;
-                pawns.Add(pawn);
-            }
-
-            return pawns;
-        }
-
-        private static List<GoapItem> BuildItems(GoapMap map, ItemDefinitionsDto itemDefinitions)
-        {
-            var items = new List<GoapItem>(itemDefinitions.items.Length);
-            foreach (var definition in itemDefinitions.items)
-            {
-                if (definition == null)
-                {
-                    continue;
-                }
-
-                var coordinates = definition.tile.ToVector2Int();
-                var tile = map.GetTile(coordinates);
-                items.Add(new GoapItem(definition.id, definition.name, coordinates, tile.WorldSurfacePosition));
-            }
-
-            return items;
-        }
-
-        private static Color ParseColor(string value, int index)
-        {
-            if (!string.IsNullOrWhiteSpace(value) && ColorUtility.TryParseHtmlString(value, out var parsed))
-            {
-                return parsed;
-            }
-
-            var hue = Mathf.Repeat(index * 0.3125f, 1f);
-            return Color.HSVToRGB(hue, 0.8f, 1f);
+            var content = GoapContentLoader.Load();
+            var map = MapGenerator.Generate(config, random);
+            var pawns = PawnFactory.Create(map, config, random);
+            var items = ItemFactory.Create(map, config, content, random);
+            return new Simulation(config, map, pawns, items, content, random);
         }
     }
 
@@ -349,21 +299,33 @@ namespace DataDrivenGoap
         private readonly SimulationConfig _config;
         private readonly GoapMap _map;
         private readonly List<PawnInternal> _pawns;
-        private readonly List<GoapItem> _items;
+        private readonly List<ItemInternal> _items;
+        private readonly Dictionary<int, ItemInternal> _itemsById;
+        private readonly GoapContent _content;
         private readonly System.Random _random;
 
         public Simulation(
             SimulationConfig config,
             GoapMap map,
             List<PawnInternal> pawns,
-            IReadOnlyList<GoapItem> items,
+            List<ItemInternal> items,
+            GoapContent content,
             System.Random random)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-            _map = map ?? throw new ArgumentNullException(nameof(map));
-            _pawns = pawns ?? throw new ArgumentNullException(nameof(pawns));
-            _items = items != null ? new List<GoapItem>(items) : new List<GoapItem>();
-            _random = random ?? throw new ArgumentNullException(nameof(random));
+            _config = config;
+            _map = map;
+            _pawns = pawns;
+            _items = items ?? new List<ItemInternal>();
+            _content = content ?? new GoapContent(Array.Empty<ItemDefinition>());
+            _itemsById = new Dictionary<int, ItemInternal>(_items.Count);
+            foreach (var item in _items)
+            {
+                if (item != null)
+                {
+                    _itemsById[item.Id] = item;
+                }
+            }
+            _random = random;
         }
 
         public event Action<MapTile> TileGenerated;
@@ -372,17 +334,26 @@ namespace DataDrivenGoap
 
         public event Action<PawnSnapshot> PawnUpdated;
 
+        public event Action<ItemSnapshot> ItemSpawned;
+
         public SimulationConfig Config => _config;
 
         public GoapMap Map => _map;
 
-        public IReadOnlyList<GoapItem> Items => _items;
+        public GoapContent Content => _content;
+
+        public IReadOnlyList<ItemDefinition> ItemDefinitions => _content.ItemDefinitions;
 
         public void Start()
         {
             foreach (var tile in _map.Tiles)
             {
                 TileGenerated?.Invoke(tile);
+            }
+
+            foreach (var item in _items)
+            {
+                ItemSpawned?.Invoke(item.CreateSnapshot());
             }
 
             foreach (var pawn in _pawns)
@@ -453,6 +424,14 @@ namespace DataDrivenGoap
             }
         }
 
+        public IEnumerable<ItemSnapshot> GetItemSnapshots()
+        {
+            foreach (var item in _items)
+            {
+                yield return item.CreateSnapshot();
+            }
+        }
+
         public bool TryGetPawnSnapshot(int id, out PawnSnapshot snapshot)
         {
             foreach (var pawn in _pawns)
@@ -466,6 +445,175 @@ namespace DataDrivenGoap
 
             snapshot = default;
             return false;
+        }
+
+        public bool TryGetItemSnapshot(int id, out ItemSnapshot snapshot)
+        {
+            if (_itemsById.TryGetValue(id, out var item))
+            {
+                snapshot = item.CreateSnapshot();
+                return true;
+            }
+
+            snapshot = default;
+            return false;
+        }
+
+        public bool TryGetItemDefinition(string id, out ItemDefinition definition)
+        {
+            if (_content == null)
+            {
+                definition = null;
+                return false;
+            }
+
+            return _content.TryGetItemDefinition(id, out definition);
+        }
+    }
+
+    internal static class GoapContentLoader
+    {
+        private const string ResourcePath = "DataDrivenGoap/GoapContent";
+
+        public static GoapContent Load()
+        {
+            var asset = Resources.Load<TextAsset>(ResourcePath);
+            if (asset == null || string.IsNullOrWhiteSpace(asset.text))
+            {
+                return new GoapContent(Array.Empty<ItemDefinition>());
+            }
+
+            try
+            {
+                var payload = JsonUtility.FromJson<GoapContentPayload>(asset.text);
+                if (payload?.items == null || payload.items.Length == 0)
+                {
+                    return new GoapContent(Array.Empty<ItemDefinition>());
+                }
+
+                var definitions = new List<ItemDefinition>(payload.items.Length);
+                foreach (var item in payload.items)
+                {
+                    if (item == null || string.IsNullOrWhiteSpace(item.id))
+                    {
+                        continue;
+                    }
+
+                    var displayName = string.IsNullOrWhiteSpace(item.displayName) ? item.id : item.displayName;
+                    var spriteId = item.spriteId ?? string.Empty;
+                    definitions.Add(new ItemDefinition(item.id, displayName, spriteId));
+                }
+
+                return new GoapContent(definitions);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"Failed to parse GOAP content at Resources/{ResourcePath}: {exception}");
+                return new GoapContent(Array.Empty<ItemDefinition>());
+            }
+        }
+
+        [Serializable]
+        private sealed class GoapContentPayload
+        {
+            public ItemDefinitionPayload[] items;
+        }
+
+        [Serializable]
+        private sealed class ItemDefinitionPayload
+        {
+            public string id;
+            public string displayName;
+            public string spriteId;
+        }
+    }
+
+    internal static class MapGenerator
+    {
+        public static GoapMap Generate(SimulationConfig config, System.Random random)
+        {
+            var tiles = new List<MapTile>(config.MapSize.x * config.MapSize.y);
+            var halfWidth = (config.MapSize.x - 1) * 0.5f;
+            var halfHeight = (config.MapSize.y - 1) * 0.5f;
+
+            for (var y = 0; y < config.MapSize.y; y++)
+            {
+                for (var x = 0; x < config.MapSize.x; x++)
+                {
+                    var sample = (float)random.NextDouble();
+                    var elevation = Mathf.Lerp(config.ElevationRange.x, config.ElevationRange.y, sample);
+                    var normalized = Mathf.InverseLerp(config.ElevationRange.x, config.ElevationRange.y, elevation);
+                    var traversalCost = Mathf.Lerp(1f, 5f, (float)random.NextDouble());
+                    var worldCenter = new Vector3((x - halfWidth) * config.TileSpacing, 0f, (y - halfHeight) * config.TileSpacing);
+                    tiles.Add(new MapTile(new Vector2Int(x, y), elevation, normalized, traversalCost, worldCenter));
+                }
+            }
+
+            return new GoapMap(config.MapSize, tiles);
+        }
+    }
+
+    internal static class ItemFactory
+    {
+        public static List<ItemInternal> Create(GoapMap map, SimulationConfig config, GoapContent content, System.Random random)
+        {
+            var items = new List<ItemInternal>();
+            if (map == null || content == null)
+            {
+                return items;
+            }
+
+            var definitions = content.ItemDefinitions;
+            if (definitions.Count == 0)
+            {
+                return items;
+            }
+
+            var tiles = new List<MapTile>(map.Tiles);
+            if (tiles.Count == 0)
+            {
+                return items;
+            }
+
+            var targetCount = Mathf.Clamp(tiles.Count / 4, 1, tiles.Count);
+            var heightOffset = Mathf.Max(0.05f, config.PawnHeightOffset * 0.3f);
+
+            for (var i = 0; i < targetCount; i++)
+            {
+                var definition = definitions[random.Next(0, definitions.Count)];
+                var tileIndex = random.Next(0, tiles.Count);
+                var tile = tiles[tileIndex];
+                tiles.RemoveAt(tileIndex);
+                var worldPosition = tile.WorldSurfacePosition + Vector3.up * heightOffset;
+                items.Add(new ItemInternal(i, definition, tile.Coordinates, worldPosition));
+
+                if (tiles.Count == 0)
+                {
+                    break;
+                }
+            }
+
+            return items;
+        }
+    }
+
+    internal static class PawnFactory
+    {
+        public static List<PawnInternal> Create(GoapMap map, SimulationConfig config, System.Random random)
+        {
+            var pawns = new List<PawnInternal>(config.PawnCount);
+            for (var i = 0; i < config.PawnCount; i++)
+            {
+                var spawnCoordinates = new Vector2Int(random.Next(0, map.Size.x), random.Next(0, map.Size.y));
+                var color = Color.HSVToRGB((float)random.NextDouble(), 0.8f, 1f);
+                var pawn = new PawnInternal(i, $"Pawn {i + 1}", color, config.PawnSpeed, config.PawnHeightOffset);
+                var spawnTile = map.GetTile(spawnCoordinates);
+                pawn.TeleportTo(spawnTile);
+                pawn.TargetTile = spawnCoordinates;
+                pawns.Add(pawn);
+            }
+
+            return pawns;
         }
     }
 
@@ -508,6 +656,33 @@ namespace DataDrivenGoap
         public PawnSnapshot CreateSnapshot()
         {
             return new PawnSnapshot(Id, Name, Color, WorldPosition, CurrentTile, TargetTile);
+        }
+    }
+
+    /// <summary>
+    /// Internal mutable item state used to drive the simulation.
+    /// </summary>
+    public sealed class ItemInternal
+    {
+        public ItemInternal(int id, ItemDefinition definition, Vector2Int tile, Vector3 worldPosition)
+        {
+            Id = id;
+            Definition = definition;
+            Tile = tile;
+            WorldPosition = worldPosition;
+        }
+
+        public int Id { get; }
+
+        public ItemDefinition Definition { get; }
+
+        public Vector2Int Tile { get; }
+
+        public Vector3 WorldPosition { get; }
+
+        public ItemSnapshot CreateSnapshot()
+        {
+            return new ItemSnapshot(Id, Definition?.Id, WorldPosition, Tile);
         }
     }
 }
