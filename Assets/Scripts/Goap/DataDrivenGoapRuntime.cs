@@ -284,7 +284,7 @@ namespace DataDrivenGoap
 
             var random = new System.Random(config.RandomSeed);
             var content = GoapContentLoader.Load();
-            var map = MapGenerator.Generate(config, random);
+            var map = MapGenerator.Generate(mapDefinition, config, random);
             var pawns = PawnFactory.Create(map, config, random);
             var items = ItemFactory.Create(map, config, content, random);
             return new Simulation(config, map, pawns, items, content, random);
@@ -530,22 +530,52 @@ namespace DataDrivenGoap
 
     internal static class MapGenerator
     {
-        public static GoapMap Generate(SimulationConfig config, System.Random random)
+        public static GoapMap Generate(MapDefinitionDto mapDefinition, SimulationConfig config, System.Random random)
         {
             var tiles = new List<MapTile>(config.MapSize.x * config.MapSize.y);
             var halfWidth = (config.MapSize.x - 1) * 0.5f;
             var halfHeight = (config.MapSize.y - 1) * 0.5f;
 
+            var definitionLookup = new Dictionary<Vector2Int, MapTileDefinitionDto>(config.MapSize.x * config.MapSize.y);
+            if (mapDefinition?.tiles != null)
+            {
+                foreach (var tile in mapDefinition.tiles)
+                {
+                    if (tile == null)
+                    {
+                        continue;
+                    }
+
+                    var coordinates = tile.coordinates.ToVector2Int();
+                    definitionLookup[coordinates] = tile;
+                }
+            }
+
             for (var y = 0; y < config.MapSize.y; y++)
             {
                 for (var x = 0; x < config.MapSize.x; x++)
                 {
-                    var sample = (float)random.NextDouble();
-                    var elevation = Mathf.Lerp(config.ElevationRange.x, config.ElevationRange.y, sample);
-                    var normalized = Mathf.InverseLerp(config.ElevationRange.x, config.ElevationRange.y, elevation);
-                    var traversalCost = Mathf.Lerp(1f, 5f, (float)random.NextDouble());
+                    var coordinates = new Vector2Int(x, y);
+                    float elevation;
+                    float traversalCost;
+
+                    if (definitionLookup.TryGetValue(coordinates, out var definition))
+                    {
+                        elevation = Mathf.Clamp(definition.elevation, config.ElevationRange.x, config.ElevationRange.y);
+                        traversalCost = Mathf.Max(0f, definition.traversalCost);
+                    }
+                    else
+                    {
+                        var sample = (float)random.NextDouble();
+                        elevation = Mathf.Lerp(config.ElevationRange.x, config.ElevationRange.y, sample);
+                        traversalCost = Mathf.Lerp(1f, 5f, (float)random.NextDouble());
+                    }
+
+                    var normalized = Mathf.Approximately(config.ElevationRange.x, config.ElevationRange.y)
+                        ? 0f
+                        : Mathf.InverseLerp(config.ElevationRange.x, config.ElevationRange.y, elevation);
                     var worldCenter = new Vector3((x - halfWidth) * config.TileSpacing, 0f, (y - halfHeight) * config.TileSpacing);
-                    tiles.Add(new MapTile(new Vector2Int(x, y), elevation, normalized, traversalCost, worldCenter));
+                    tiles.Add(new MapTile(coordinates, elevation, normalized, traversalCost, worldCenter));
                 }
             }
 
@@ -602,12 +632,26 @@ namespace DataDrivenGoap
         public static List<PawnInternal> Create(GoapMap map, SimulationConfig config, System.Random random)
         {
             var pawns = new List<PawnInternal>(config.PawnCount);
+            var candidateTiles = new List<MapTile>();
+            foreach (var tile in map.Tiles)
+            {
+                if (tile.TraversalCost <= 5f)
+                {
+                    candidateTiles.Add(tile);
+                }
+            }
+
+            if (candidateTiles.Count == 0)
+            {
+                candidateTiles.AddRange(map.Tiles);
+            }
+
             for (var i = 0; i < config.PawnCount; i++)
             {
-                var spawnCoordinates = new Vector2Int(random.Next(0, map.Size.x), random.Next(0, map.Size.y));
+                var spawnTile = candidateTiles[random.Next(0, candidateTiles.Count)];
+                var spawnCoordinates = spawnTile.Coordinates;
                 var color = Color.HSVToRGB((float)random.NextDouble(), 0.8f, 1f);
                 var pawn = new PawnInternal(i, $"Pawn {i + 1}", color, config.PawnSpeed, config.PawnHeightOffset);
-                var spawnTile = map.GetTile(spawnCoordinates);
                 pawn.TeleportTo(spawnTile);
                 pawn.TargetTile = spawnCoordinates;
                 pawns.Add(pawn);

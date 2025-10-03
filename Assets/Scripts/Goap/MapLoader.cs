@@ -211,13 +211,15 @@ namespace DataDrivenGoap
 
             mapConfig.ApplyDefaults();
 
-            string imagePath = ResolvePath(baseDirectory, mapConfig.image, nameof(mapConfig.image));
-
             VillageConfig inlineVillage = village;
             if (inlineVillage == null && !string.IsNullOrWhiteSpace(mapConfig.data))
             {
                 string dataPath = ResolvePath(baseDirectory, mapConfig.data, nameof(mapConfig.data));
                 inlineVillage = LoadVillageConfig(dataPath);
+            }
+            else
+            {
+                inlineVillage?.ApplyDefaults();
             }
 
             VillageMapData inlineMapData = inlineVillage?.map;
@@ -241,166 +243,240 @@ namespace DataDrivenGoap
                 throw new InvalidOperationException("Tile key does not define any entries.");
             }
 
+            string imagePath = ResolvePath(baseDirectory, mapConfig.image, nameof(mapConfig.image));
             var texture = LoadTexture(imagePath);
             try
             {
-                if (texture.width % tileScale != 0 || texture.height % tileScale != 0)
+                return LoadFromTextureInternal(
+                    texture,
+                    mapConfig,
+                    inlineVillage,
+                    inlineMapData,
+                    tileScale,
+                    tileNameByColor,
+                    locationLookup,
+                    baseDirectory);
+            }
+            finally
+            {
+                DestroyTexture(texture);
+            }
+        }
+
+        public static MapLoaderResult Load(Texture2D texture, WorldMapConfig mapConfig, VillageConfig village = null)
+        {
+            if (texture == null)
+            {
+                throw new ArgumentNullException(nameof(texture));
+            }
+
+            if (mapConfig == null)
+            {
+                throw new ArgumentNullException(nameof(mapConfig));
+            }
+
+            mapConfig.ApplyDefaults();
+
+            VillageConfig inlineVillage = village;
+            inlineVillage?.ApplyDefaults();
+
+            VillageMapData inlineMapData = inlineVillage?.map;
+            var locationLookup = BuildLocationLookup(inlineVillage?.locations);
+            int tileScale = Math.Max(1, mapConfig.tileSize);
+
+            Dictionary<Color32Key, string> tileNameByColor;
+            if (inlineMapData?.key != null && inlineMapData.key.Count > 0)
+            {
+                tileNameByColor = LoadTileKey(inlineMapData.key);
+            }
+            else
+            {
+                throw new InvalidOperationException("Tile key must be provided via the supplied village configuration when loading from a texture asset.");
+            }
+
+            if (tileNameByColor.Count == 0)
+            {
+                throw new InvalidOperationException("Tile key does not define any entries.");
+            }
+
+            return LoadFromTextureInternal(
+                texture,
+                mapConfig,
+                inlineVillage,
+                inlineMapData,
+                tileScale,
+                tileNameByColor,
+                locationLookup,
+                baseDirectory: null);
+        }
+
+        private static MapLoaderResult LoadFromTextureInternal(
+            Texture2D texture,
+            WorldMapConfig mapConfig,
+            VillageConfig inlineVillage,
+            VillageMapData inlineMapData,
+            int tileScale,
+            Dictionary<Color32Key, string> tileNameByColor,
+            IReadOnlyDictionary<string, VillageLocation> locationLookup,
+            string baseDirectory)
+        {
+            if (texture.width % tileScale != 0 || texture.height % tileScale != 0)
+            {
+                throw new InvalidOperationException($"Image dimensions {texture.width}x{texture.height} are not divisible by tile size {tileScale}.");
+            }
+
+            int width = texture.width / tileScale;
+            int height = texture.height / tileScale;
+
+            var pixels = texture.GetPixels32();
+
+            var tileConfig = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
                 {
-                    throw new InvalidOperationException($"Image dimensions {texture.width}x{texture.height} are not divisible by tile size {tileScale}.");
+                    continue;
                 }
 
-                int width = texture.width / tileScale;
-                int height = texture.height / tileScale;
+                tileConfig[kvp.Key.Trim()] = kvp.Value;
+            }
 
-                var pixels = texture.GetPixels32();
+            var walkable = new bool[width, height];
+            var farmlandTiles = new List<GridPos>();
+            var waterTiles = new List<GridPos>();
+            var shallowWaterTiles = new List<GridPos>();
+            var forestTiles = new List<GridPos>();
+            var coastalTiles = new List<GridPos>();
+            bool anyWalkable = false;
 
-                var tileConfig = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
-                foreach (var kvp in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    var pixel = GetPixel(pixels, texture.width, x * tileScale, y * tileScale);
+                    if (tileScale > 1)
+                    {
+                        for (int oy = 0; oy < tileScale; oy++)
+                        {
+                            for (int ox = 0; ox < tileScale; ox++)
+                            {
+                                var sample = GetPixel(pixels, texture.width, (x * tileScale) + ox, (y * tileScale) + oy);
+                                if (!ApproximatelyEqual(sample, pixel, 0))
+                                {
+                                    throw new InvalidOperationException($"Tile at ({x},{y}) contains multiple colors and cannot be processed with the configured tile size.");
+                                }
+                            }
+                        }
+                    }
+
+                    var pixelKey = new Color32Key(pixel);
+                    if (!tileNameByColor.TryGetValue(pixelKey, out var tileName))
+                    {
+                        throw new InvalidOperationException($"Color {ColorToString(pixel)} at {x},{y} not found in tile key.");
+                    }
+
+                    MapTileConfig cfg = null;
+                    tileConfig.TryGetValue(tileName, out cfg);
+
+                    bool isWalkable = cfg?.walkable ?? false;
+                    bool isFarmland = cfg?.farmland ?? false;
+                    bool isWater = cfg?.water ?? false;
+                    bool isShallow = cfg?.shallowWater ?? false;
+                    bool isForest = cfg?.forest ?? false;
+                    bool isCoastal = cfg?.coastal ?? false;
+
+                    walkable[x, y] = isWalkable;
+                    if (isWalkable)
+                    {
+                        anyWalkable = true;
+                    }
+
+                    if (isFarmland)
+                    {
+                        farmlandTiles.Add(new GridPos(x, y));
+                    }
+
+                    if (isWater)
+                    {
+                        waterTiles.Add(new GridPos(x, y));
+                    }
+
+                    if (isShallow)
+                    {
+                        shallowWaterTiles.Add(new GridPos(x, y));
+                    }
+
+                    if (isForest)
+                    {
+                        forestTiles.Add(new GridPos(x, y));
+                    }
+
+                    if (isCoastal)
+                    {
+                        coastalTiles.Add(new GridPos(x, y));
+                    }
+                }
+            }
+
+            if (!anyWalkable)
+            {
+                throw new InvalidOperationException("Loaded map does not contain any walkable tiles.");
+            }
+
+            var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
+            if (mapConfig.buildingPrototypes != null)
+            {
+                foreach (var kvp in mapConfig.buildingPrototypes)
                 {
                     if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
                     {
                         continue;
                     }
 
-                    tileConfig[kvp.Key.Trim()] = kvp.Value;
+                    kvp.Value.ApplyDefaults();
+                    buildingPrototypes[kvp.Key.Trim()] = kvp.Value;
                 }
-
-                var walkable = new bool[width, height];
-                var farmlandTiles = new List<GridPos>();
-                var waterTiles = new List<GridPos>();
-                var shallowWaterTiles = new List<GridPos>();
-                var forestTiles = new List<GridPos>();
-                var coastalTiles = new List<GridPos>();
-                bool anyWalkable = false;
-
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        var pixel = GetPixel(pixels, texture.width, x * tileScale, y * tileScale);
-                        if (tileScale > 1)
-                        {
-                            for (int oy = 0; oy < tileScale; oy++)
-                            {
-                                for (int ox = 0; ox < tileScale; ox++)
-                                {
-                                    var sample = GetPixel(pixels, texture.width, (x * tileScale) + ox, (y * tileScale) + oy);
-                                    if (!ApproximatelyEqual(sample, pixel, 0))
-                                    {
-                                        throw new InvalidOperationException($"Tile at ({x},{y}) contains multiple colors and cannot be processed with the configured tile size.");
-                                    }
-                                }
-                            }
-                        }
-
-                        var pixelKey = new Color32Key(pixel);
-                        if (!tileNameByColor.TryGetValue(pixelKey, out var tileName))
-                        {
-                            throw new InvalidOperationException($"Color {ColorToString(pixel)} at {x},{y} not found in tile key.");
-                        }
-
-                        MapTileConfig cfg = null;
-                        tileConfig.TryGetValue(tileName, out cfg);
-
-                        bool isWalkable = cfg?.walkable ?? false;
-                        bool isFarmland = cfg?.farmland ?? false;
-                        bool isWater = cfg?.water ?? false;
-                        bool isShallow = cfg?.shallowWater ?? false;
-                        bool isForest = cfg?.forest ?? false;
-                        bool isCoastal = cfg?.coastal ?? false;
-
-                        walkable[x, y] = isWalkable;
-                        if (isWalkable)
-                        {
-                            anyWalkable = true;
-                        }
-
-                        if (isFarmland)
-                        {
-                            farmlandTiles.Add(new GridPos(x, y));
-                        }
-
-                        if (isWater)
-                        {
-                            waterTiles.Add(new GridPos(x, y));
-                        }
-
-                        if (isShallow)
-                        {
-                            shallowWaterTiles.Add(new GridPos(x, y));
-                        }
-
-                        if (isForest)
-                        {
-                            forestTiles.Add(new GridPos(x, y));
-                        }
-
-                        if (isCoastal)
-                        {
-                            coastalTiles.Add(new GridPos(x, y));
-                        }
-                    }
-                }
-
-                if (!anyWalkable)
-                {
-                    throw new InvalidOperationException("Loaded map does not contain any walkable tiles.");
-                }
-
-                var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
-                if (mapConfig.buildingPrototypes != null)
-                {
-                    foreach (var kvp in mapConfig.buildingPrototypes)
-                    {
-                        if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
-                        {
-                            continue;
-                        }
-
-                        kvp.Value.ApplyDefaults();
-                        buildingPrototypes[kvp.Key.Trim()] = kvp.Value;
-                    }
-                }
-
-                IReadOnlyList<VillageBuildingAnnotation> annotations;
-                if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
-                {
-                    annotations = inlineMapData.annotations.buildings;
-                }
-                else if (!string.IsNullOrWhiteSpace(mapConfig.annotations))
-                {
-                    string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
-                    annotations = LoadAnnotations(annotationsPath);
-                }
-                else
-                {
-                    annotations = Array.Empty<VillageBuildingAnnotation>();
-                }
-
-                var buildings = LoadBuildings(
-                    annotations,
-                    buildingPrototypes,
-                    tileScale,
-                    width,
-                    height,
-                    locationLookup).ToArray();
-
-                return new MapLoaderResult(
-                    width,
-                    height,
-                    tileScale,
-                    walkable,
-                    buildings,
-                    farmlandTiles,
-                    waterTiles,
-                    shallowWaterTiles,
-                    forestTiles,
-                    coastalTiles);
             }
-            finally
+
+            IReadOnlyList<VillageBuildingAnnotation> annotations;
+            if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
             {
-                DestroyTexture(texture);
+                annotations = inlineMapData.annotations.buildings;
             }
+            else if (!string.IsNullOrWhiteSpace(mapConfig.annotations))
+            {
+                if (string.IsNullOrWhiteSpace(baseDirectory))
+                {
+                    throw new InvalidOperationException("Map configuration references an annotations file but no base directory was provided.");
+                }
+
+                string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
+                annotations = LoadAnnotations(annotationsPath);
+            }
+            else
+            {
+                annotations = Array.Empty<VillageBuildingAnnotation>();
+            }
+
+            var buildings = LoadBuildings(
+                annotations,
+                buildingPrototypes,
+                tileScale,
+                width,
+                height,
+                locationLookup).ToArray();
+
+            return new MapLoaderResult(
+                width,
+                height,
+                tileScale,
+                walkable,
+                buildings,
+                farmlandTiles,
+                waterTiles,
+                shallowWaterTiles,
+                forestTiles,
+                coastalTiles);
         }
 
         public static IReadOnlyList<GridPos> CollectTilesMatchingColor(

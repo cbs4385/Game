@@ -13,6 +13,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     [SerializeField] private TextAsset pawnDefinitionAsset;
     [SerializeField] private TextAsset itemDefinitionAsset;
 
+    [Header("Map Loader Integration")]
+    [SerializeField] private MapLoaderSettings mapLoaderSettings = new();
+
     [Header("Simulation Setup")]
     [SerializeField] private int randomSeed = 1337;
 
@@ -78,9 +81,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         ResetSceneState();
-        if (mapDefinitionAsset == null)
+
+        if (!TryLoadMapDefinition(out var mapDefinition))
         {
-            Debug.LogError("Cannot start GOAP simulation without a map definition asset.");
             return;
         }
 
@@ -92,7 +95,6 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         try
         {
-            var mapDefinition = DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
             var pawnDefinitions = DataDrivenGoapJsonLoader.LoadPawnDefinitions(pawnDefinitionAsset);
             var itemDefinitions = itemDefinitionAsset != null
                 ? DataDrivenGoapJsonLoader.LoadItemDefinitions(itemDefinitionAsset)
@@ -138,6 +140,240 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _simulation.ItemSpawned -= HandleItemSpawned;
             SimulationInitialized = null;
         }
+    }
+
+    private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
+    {
+        if (mapDefinitionAsset != null)
+        {
+            try
+            {
+                mapDefinition = DataDrivenGoapJsonLoader.LoadMapDefinition(mapDefinitionAsset);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to load GOAP map definition asset '{mapDefinitionAsset.name}': {ex.Message}");
+                Debug.LogException(ex);
+            }
+        }
+
+        if (TryLoadMapDefinitionFromMapLoader(out mapDefinition))
+        {
+            return true;
+        }
+
+        mapDefinition = null;
+        Debug.LogError("Cannot start GOAP simulation without a map definition asset or a configured map loader source.");
+        return false;
+    }
+
+    private bool TryLoadMapDefinitionFromMapLoader(out MapDefinitionDto mapDefinition)
+    {
+        mapDefinition = null;
+
+        if (mapLoaderSettings == null || !mapLoaderSettings.IsConfigured)
+        {
+            return false;
+        }
+
+        if (!MapLoader.TryLoadWorldMap(mapLoaderSettings.worldSettingsAsset, out var worldMapConfig, out var errorMessage))
+        {
+            Debug.LogError($"Failed to load world map configuration from '{mapLoaderSettings.worldSettingsAsset.name}': {errorMessage}");
+            return false;
+        }
+
+        if (mapLoaderSettings.mapTexture == null)
+        {
+            Debug.LogError("Map loader configuration is missing the map texture asset.");
+            return false;
+        }
+
+        if (mapLoaderSettings.villageDataAsset == null)
+        {
+            Debug.LogError("Map loader configuration is missing the village data asset.");
+            return false;
+        }
+
+        VillageConfig villageConfig;
+        try
+        {
+            villageConfig = JsonUtilities.Deserialize<VillageConfig>(mapLoaderSettings.villageDataAsset.text) ?? new VillageConfig();
+            villageConfig.ApplyDefaults();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to parse village data asset '{mapLoaderSettings.villageDataAsset.name}': {ex.Message}");
+            Debug.LogException(ex);
+            return false;
+        }
+
+        try
+        {
+            var mapResult = MapLoader.Load(mapLoaderSettings.mapTexture, worldMapConfig, villageConfig);
+            mapDefinition = ConvertToMapDefinition(mapResult);
+            mapDefinition.ApplyDefaults();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to convert loaded map data into a GOAP map definition: {ex.Message}");
+            Debug.LogException(ex);
+            return false;
+        }
+    }
+
+    private static MapDefinitionDto ConvertToMapDefinition(MapLoaderResult mapResult)
+    {
+        if (mapResult == null)
+        {
+            throw new ArgumentNullException(nameof(mapResult));
+        }
+
+        var farmland = BuildLookup(mapResult.FarmlandTiles);
+        var water = BuildLookup(mapResult.WaterTiles);
+        var shallowWater = BuildLookup(mapResult.ShallowWaterTiles);
+        var forest = BuildLookup(mapResult.ForestTiles);
+        var coastal = BuildLookup(mapResult.CoastalTiles);
+
+        var tiles = new List<MapTileDefinitionDto>(mapResult.Width * mapResult.Height);
+        for (var y = 0; y < mapResult.Height; y++)
+        {
+            for (var x = 0; x < mapResult.Width; x++)
+            {
+                var coordinates = new Vector2Int(x, y);
+                var walkable = mapResult.IsWalkable(x, y);
+                var elevation = EvaluateElevation(coordinates, walkable, farmland, water, shallowWater, forest, coastal);
+                var traversal = EvaluateTraversalCost(coordinates, walkable, farmland, water, shallowWater, forest, coastal);
+
+                tiles.Add(new MapTileDefinitionDto
+                {
+                    coordinates = new SerializableVector2Int(x, y),
+                    elevation = elevation,
+                    traversalCost = traversal
+                });
+            }
+        }
+
+        return new MapDefinitionDto
+        {
+            size = new SerializableVector2Int(mapResult.Width, mapResult.Height),
+            tileSpacing = 1f,
+            minElevation = 0f,
+            maxElevation = 1f,
+            tiles = tiles.ToArray()
+        };
+    }
+
+    private static HashSet<Vector2Int> BuildLookup(IReadOnlyList<GridPos> positions)
+    {
+        var set = new HashSet<Vector2Int>();
+        if (positions == null)
+        {
+            return set;
+        }
+
+        for (var i = 0; i < positions.Count; i++)
+        {
+            var pos = positions[i];
+            set.Add(new Vector2Int(pos.x, pos.y));
+        }
+
+        return set;
+    }
+
+    private static float EvaluateElevation(
+        Vector2Int coordinates,
+        bool isWalkable,
+        HashSet<Vector2Int> farmland,
+        HashSet<Vector2Int> water,
+        HashSet<Vector2Int> shallowWater,
+        HashSet<Vector2Int> forest,
+        HashSet<Vector2Int> coastal)
+    {
+        if (water.Contains(coordinates))
+        {
+            return 1f;
+        }
+
+        if (shallowWater.Contains(coordinates))
+        {
+            return 0.85f;
+        }
+
+        if (coastal.Contains(coordinates))
+        {
+            return 0.75f;
+        }
+
+        if (forest.Contains(coordinates))
+        {
+            return 0.65f;
+        }
+
+        if (farmland.Contains(coordinates))
+        {
+            return 0.45f;
+        }
+
+        if (!isWalkable)
+        {
+            return 0.55f;
+        }
+
+        return 0.35f;
+    }
+
+    private static float EvaluateTraversalCost(
+        Vector2Int coordinates,
+        bool isWalkable,
+        HashSet<Vector2Int> farmland,
+        HashSet<Vector2Int> water,
+        HashSet<Vector2Int> shallowWater,
+        HashSet<Vector2Int> forest,
+        HashSet<Vector2Int> coastal)
+    {
+        if (water.Contains(coordinates))
+        {
+            return 10f;
+        }
+
+        if (shallowWater.Contains(coordinates))
+        {
+            return 7f;
+        }
+
+        if (!isWalkable)
+        {
+            return 6f;
+        }
+
+        if (forest.Contains(coordinates))
+        {
+            return 3.5f;
+        }
+
+        if (coastal.Contains(coordinates))
+        {
+            return 2.5f;
+        }
+
+        if (farmland.Contains(coordinates))
+        {
+            return 1.25f;
+        }
+
+        return 1f;
+    }
+
+    [Serializable]
+    private sealed class MapLoaderSettings
+    {
+        public TextAsset worldSettingsAsset;
+        public TextAsset villageDataAsset;
+        public Texture2D mapTexture;
+
+        public bool IsConfigured => worldSettingsAsset != null && villageDataAsset != null && mapTexture != null;
     }
 
     private void HandleTileGenerated(MapTile tile)
