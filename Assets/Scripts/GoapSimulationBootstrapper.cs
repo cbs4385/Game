@@ -924,7 +924,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return 0.0;
         }
 
-        if (TimeSpan.TryParseExact(text.Trim(), new[] { "hh:mm", "hh:mm", "HH:mm", "HH:mm" }, CultureInfo.InvariantCulture, out var span))
+        if (TimeSpan.TryParseExact(text.Trim(), new[] { @"h\:mm", @"hh\:mm" }, CultureInfo.InvariantCulture, out var span))
         {
             return Math.Clamp(span.TotalHours, 0.0, 24.0);
         }
