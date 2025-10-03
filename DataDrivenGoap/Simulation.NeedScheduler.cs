@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataDrivenGoap.Compatibility;
 using System.Threading;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
@@ -236,7 +237,7 @@ namespace DataDrivenGoap.Simulation
                     double nextValue = currentValue + delta;
                     if (need.Clamp01)
                     {
-                        nextValue = Math.Clamp(nextValue, 0.0, 1.0);
+                        nextValue = MathUtilities.Clamp(nextValue, 0.0, 1.0);
                     }
                     else
                     {
