@@ -49,6 +49,7 @@ namespace DataDrivenGoap.Config
     public sealed class ItemConfig
     {
         public string id { get; set; }
+        public string displayName { get; set; }
         public string[] tags { get; set; }
         public int stackSize { get; set; }
         public int quality { get; set; }

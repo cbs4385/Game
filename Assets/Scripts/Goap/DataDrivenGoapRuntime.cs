@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using DataDrivenGoap.Config;
 using UnityEngine;
 
 namespace DataDrivenGoap.Unity
@@ -269,23 +272,32 @@ namespace DataDrivenGoap.Unity
             var tileSpacing = Mathf.Max(0.01f, mapDefinition.tileSpacing);
             var minElevation = Mathf.Min(mapDefinition.minElevation, mapDefinition.maxElevation);
             var maxElevation = Mathf.Max(mapDefinition.minElevation, mapDefinition.maxElevation);
-            var pawnCount = pawnDefinitions.pawns.Length;
             var defaultSpeed = Mathf.Max(0.01f, pawnDefinitions.defaultSpeed);
             var defaultHeightOffset = pawnDefinitions.defaultHeightOffset;
 
-            var config = new SimulationConfig(
+            var initialConfig = new SimulationConfig(
                 mapSize,
-                pawnCount,
+                pawnDefinitions.pawns.Length,
                 tileSpacing,
                 new Vector2(minElevation, maxElevation),
                 defaultSpeed,
                 defaultHeightOffset,
                 randomSeed);
 
-            var random = new System.Random(config.RandomSeed);
+            var random = new System.Random(initialConfig.RandomSeed);
             var content = GoapContentLoader.Load();
-            var map = MapGenerator.Generate(mapDefinition, config, random);
-            var pawns = PawnFactory.Create(map, config, random);
+            var map = MapGenerator.Generate(mapDefinition, initialConfig, random);
+            var pawns = PawnFactory.Create(map, initialConfig, pawnDefinitions, random);
+            var config = pawns.Count == initialConfig.PawnCount
+                ? initialConfig
+                : new SimulationConfig(
+                    mapSize,
+                    pawns.Count,
+                    tileSpacing,
+                    new Vector2(minElevation, maxElevation),
+                    defaultSpeed,
+                    defaultHeightOffset,
+                    initialConfig.RandomSeed);
             var items = ItemFactory.Create(map, config, content, random);
             return new UnitySimulation(config, map, pawns, items, content, random);
         }
@@ -473,82 +485,131 @@ namespace DataDrivenGoap.Unity
 
     internal static class GoapContentLoader
     {
-        private const string ResourcePath = "DataDrivenGoap/GoapContent";
+        private const string ItemsRelativePath = "Packages/DataDrivenGoap/Runtime/Data/items.json";
 
         public static GoapContent Load()
         {
-            var asset = Resources.Load<TextAsset>(ResourcePath);
-            if (asset == null || string.IsNullOrWhiteSpace(asset.text))
-            {
-                return new GoapContent(Array.Empty<UnityItemDefinition>());
-            }
+            var fullPath = ResolveItemsPath();
 
+            List<ItemConfig> itemConfigs;
             try
             {
-                var payload = JsonUtility.FromJson<GoapContentPayload>(asset.text);
-                if (payload?.items == null || payload.items.Length == 0)
-                {
-                    return new GoapContent(Array.Empty<UnityItemDefinition>());
-                }
-
-                var definitions = new List<UnityItemDefinition>(payload.items.Length);
-                foreach (var item in payload.items)
-                {
-                    if (item == null || string.IsNullOrWhiteSpace(item.id))
-                    {
-                        continue;
-                    }
-
-                    var displayName = string.IsNullOrWhiteSpace(item.displayName) ? item.id : item.displayName;
-                    var spriteId = item.spriteId ?? string.Empty;
-                    definitions.Add(new UnityItemDefinition(item.id, displayName, spriteId));
-                }
-
-                return new GoapContent(definitions);
+                itemConfigs = ConfigLoader.LoadItems(fullPath);
+            }
+            catch (InvalidDataException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is FileNotFoundException || exception is DirectoryNotFoundException)
+            {
+                throw new InvalidDataException($"GOAP content items file was not found at '{fullPath}'.", exception);
             }
             catch (Exception exception)
             {
-                Debug.LogError($"Failed to parse GOAP content at Resources/{ResourcePath}: {exception}");
-                return new GoapContent(Array.Empty<UnityItemDefinition>());
+                throw new InvalidDataException($"Failed to load GOAP items from '{fullPath}'.", exception);
             }
+
+            if (itemConfigs == null || itemConfigs.Count == 0)
+            {
+                throw new InvalidDataException($"Item config at '{fullPath}' did not contain any entries.");
+            }
+
+            var definitions = new List<UnityItemDefinition>(itemConfigs.Count);
+
+            for (int i = 0; i < itemConfigs.Count; i++)
+            {
+                var config = itemConfigs[i];
+                if (config == null)
+                {
+                    throw new InvalidDataException($"Item config at '{fullPath}' contains a null entry at index {i}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(config.id))
+                {
+                    throw new InvalidDataException($"Item config at '{fullPath}' entry {i} is missing 'id'.");
+                }
+
+                var id = config.id.Trim();
+                var displayName = DeriveDisplayName(config, id);
+                var spriteSlug = (config.spriteSlug ?? string.Empty).Trim();
+
+                definitions.Add(new UnityItemDefinition(id, displayName, spriteSlug));
+            }
+
+            return new GoapContent(definitions);
         }
 
-        [Serializable]
-        private sealed class GoapContentPayload
+        private static string ResolveItemsPath()
         {
-            public ItemDefinitionPayload[] items;
+            if (string.IsNullOrWhiteSpace(Application.dataPath))
+            {
+                throw new InvalidOperationException("Unity Application.dataPath is not available.");
+            }
+
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var normalizedRelativePath = ItemsRelativePath.Replace('/', Path.DirectorySeparatorChar);
+            return Path.Combine(projectRoot, normalizedRelativePath);
         }
 
-        [Serializable]
-        private sealed class ItemDefinitionPayload
+        private static string DeriveDisplayName(ItemConfig config, string itemId)
         {
-            public string id;
-            public string displayName;
-            public string spriteId;
+            if (!string.IsNullOrWhiteSpace(config.displayName))
+            {
+                return config.displayName.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return string.Empty;
+            }
+
+            var normalized = itemId.Replace('_', ' ').Replace('-', ' ');
+            var collapsed = string.Join(" ", normalized.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+            if (collapsed.Length == 0)
+            {
+                return itemId;
+            }
+
+            var lower = collapsed.ToLowerInvariant();
+            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(lower);
         }
     }
 
     internal static class MapGenerator
     {
-        public static GoapMap Generate(MapDefinitionDto mapDefinition, SimulationConfig config, System.Random random)
+        public static GoapMap Generate(MapDefinitionDto mapDefinition, SimulationConfig config)
         {
-            var tiles = new List<MapTile>(config.MapSize.x * config.MapSize.y);
+            if (mapDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(mapDefinition));
+            }
+
+            if (mapDefinition.tiles == null || mapDefinition.tiles.Length == 0)
+            {
+                throw new InvalidDataException("Map definition does not contain any tile definitions.");
+            }
+
+            var expectedTileCount = config.MapSize.x * config.MapSize.y;
+            var tiles = new List<MapTile>(expectedTileCount);
             var halfWidth = (config.MapSize.x - 1) * 0.5f;
             var halfHeight = (config.MapSize.y - 1) * 0.5f;
 
-            var definitionLookup = new Dictionary<Vector2Int, MapTileDefinitionDto>(config.MapSize.x * config.MapSize.y);
-            if (mapDefinition?.tiles != null)
+            var definitionLookup = new Dictionary<Vector2Int, MapTileDefinitionDto>(expectedTileCount);
+            foreach (var tile in mapDefinition.tiles)
             {
-                foreach (var tile in mapDefinition.tiles)
+                if (tile == null)
                 {
-                    if (tile == null)
-                    {
-                        continue;
-                    }
-
-                    var coordinates = tile.coordinates.ToVector2Int();
-                    definitionLookup[coordinates] = tile;
+                    continue;
                 }
+
+                var coordinates = tile.coordinates.ToVector2Int();
+                if (coordinates.x < 0 || coordinates.x >= config.MapSize.x || coordinates.y < 0 || coordinates.y >= config.MapSize.y)
+                {
+                    throw new InvalidDataException(
+                        $"Map definition contains tile {coordinates} outside the configured bounds {config.MapSize.x}x{config.MapSize.y}.");
+                }
+
+                definitionLookup[coordinates] = tile;
             }
 
             for (var y = 0; y < config.MapSize.y; y++)
@@ -556,27 +617,25 @@ namespace DataDrivenGoap.Unity
                 for (var x = 0; x < config.MapSize.x; x++)
                 {
                     var coordinates = new Vector2Int(x, y);
-                    float elevation;
-                    float traversalCost;
-
-                    if (definitionLookup.TryGetValue(coordinates, out var definition))
+                    if (!definitionLookup.TryGetValue(coordinates, out var definition))
                     {
-                        elevation = Mathf.Clamp(definition.elevation, config.ElevationRange.x, config.ElevationRange.y);
-                        traversalCost = Mathf.Max(0f, definition.traversalCost);
-                    }
-                    else
-                    {
-                        var sample = (float)random.NextDouble();
-                        elevation = Mathf.Lerp(config.ElevationRange.x, config.ElevationRange.y, sample);
-                        traversalCost = Mathf.Lerp(1f, 5f, (float)random.NextDouble());
+                        throw new InvalidDataException($"Map definition is missing tile data for coordinate {coordinates}.");
                     }
 
+                    var elevation = Mathf.Clamp(definition.elevation, config.ElevationRange.x, config.ElevationRange.y);
+                    var traversalCost = Mathf.Max(0f, definition.traversalCost);
                     var normalized = Mathf.Approximately(config.ElevationRange.x, config.ElevationRange.y)
                         ? 0f
                         : Mathf.InverseLerp(config.ElevationRange.x, config.ElevationRange.y, elevation);
                     var worldCenter = new Vector3((x - halfWidth) * config.TileSpacing, 0f, (y - halfHeight) * config.TileSpacing);
                     tiles.Add(new MapTile(coordinates, elevation, normalized, traversalCost, worldCenter));
                 }
+            }
+
+            if (tiles.Count != expectedTileCount)
+            {
+                throw new InvalidDataException(
+                    $"Map generation produced an unexpected tile count ({tiles.Count} of {expectedTileCount}).");
             }
 
             return new GoapMap(config.MapSize, tiles);
@@ -629,30 +688,100 @@ namespace DataDrivenGoap.Unity
 
     internal static class PawnFactory
     {
-        public static List<PawnInternal> Create(GoapMap map, SimulationConfig config, System.Random random)
+        public static List<PawnInternal> Create(
+            GoapMap map,
+            SimulationConfig config,
+            PawnDefinitionsDto pawnDefinitions,
+            System.Random random)
         {
-            var pawns = new List<PawnInternal>(config.PawnCount);
-            var candidateTiles = new List<MapTile>();
-            foreach (var tile in map.Tiles)
+            if (map == null)
             {
-                if (tile.TraversalCost <= 5f)
+                throw new ArgumentNullException(nameof(map));
+            }
+
+            if (config == null)
+            {
+                throw new ArgumentNullException(nameof(config));
+            }
+
+            if (pawnDefinitions == null)
+            {
+                throw new ArgumentNullException(nameof(pawnDefinitions));
+            }
+
+            var definitions = pawnDefinitions.pawns ?? Array.Empty<PawnDefinitionDto>();
+            var pawns = new List<PawnInternal>(definitions.Length);
+            if (definitions.Length == 0)
+            {
+                return pawns;
+            }
+
+            var mapSize = map.Size;
+            var usedIds = new HashSet<int>();
+
+            for (var i = 0; i < definitions.Length; i++)
+            {
+                var definition = definitions[i];
+                if (definition == null)
                 {
-                    candidateTiles.Add(tile);
+                    throw new InvalidOperationException($"Pawn definition at index {i} is null.");
                 }
-            }
 
-            if (candidateTiles.Count == 0)
-            {
-                candidateTiles.AddRange(map.Tiles);
-            }
+                var id = definition.id;
+                if (id < 0)
+                {
+                    throw new InvalidOperationException($"Pawn definition at index {i} must specify a non-negative id.");
+                }
 
-            for (var i = 0; i < config.PawnCount; i++)
-            {
-                var spawnTile = candidateTiles[random.Next(0, candidateTiles.Count)];
-                var spawnCoordinates = spawnTile.Coordinates;
-                var color = Color.HSVToRGB((float)random.NextDouble(), 0.8f, 1f);
-                var pawn = new PawnInternal(i, $"Pawn {i + 1}", color, config.PawnSpeed, config.PawnHeightOffset);
-                pawn.TeleportTo(spawnTile);
+                if (!usedIds.Add(id))
+                {
+                    throw new InvalidOperationException($"Duplicate pawn id '{id}' detected.");
+                }
+
+                var spawnCoordinates = definition.spawnTile.ToVector2Int();
+                if (spawnCoordinates.x < 0 || spawnCoordinates.x >= mapSize.x ||
+                    spawnCoordinates.y < 0 || spawnCoordinates.y >= mapSize.y)
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' spawn tile {spawnCoordinates} is outside the map bounds {mapSize}.");
+                }
+
+                var colorString = definition.color?.Trim();
+                if (!ColorUtility.TryParseHtmlString(colorString, out var color))
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' has an invalid color value '{definition.color}'.");
+                }
+
+                var speed = config.PawnSpeed;
+                if (definition.speed > 0f)
+                {
+                    speed = definition.speed;
+                }
+                else if (definition.speed == 0f)
+                {
+                    throw new InvalidOperationException($"Pawn '{id}' speed override must be positive.");
+                }
+                else if (definition.speed < 0f && !Mathf.Approximately(definition.speed, -1f))
+                {
+                    throw new InvalidOperationException($"Pawn '{id}' speed override must be positive.");
+                }
+
+                var heightOffset = config.PawnHeightOffset;
+                if (definition.heightOffset >= 0f)
+                {
+                    heightOffset = definition.heightOffset;
+                }
+                else if (!Mathf.Approximately(definition.heightOffset, -1f))
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' height offset override must be non-negative.");
+                }
+
+                var tile = map.GetTile(spawnCoordinates);
+                var name = string.IsNullOrWhiteSpace(definition.name) ? $"Pawn {id}" : definition.name.Trim();
+                var pawn = new PawnInternal(id, name, color, speed, heightOffset);
+                pawn.TeleportTo(tile);
                 pawn.TargetTile = spawnCoordinates;
                 pawns.Add(pawn);
             }
