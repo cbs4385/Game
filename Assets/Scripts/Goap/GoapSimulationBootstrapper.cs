@@ -116,6 +116,22 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
     }
 
+    private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
+    {
+        try
+        {
+            mapDefinition = LoadMapDefinition();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            mapDefinition = null;
+            Debug.LogError($"Failed to load GOAP map definition: {ex.Message}", this);
+            Debug.LogException(ex, this);
+            throw;
+        }
+    }
+
     private void OnValidate()
     {
         if (!EditorApplication.isPlaying && mapLoaderSettings != null && mapLoaderSettings.TryAssignEditorDefaults())
