@@ -72,13 +72,10 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Start()
     {
-        if (_simulation != null)
-        {
-            _simulation.TileGenerated -= HandleTileGenerated;
-            _simulation.PawnSpawned -= HandlePawnSpawned;
-            _simulation.PawnUpdated -= HandlePawnUpdated;
-            _simulation.ItemSpawned -= HandleItemSpawned;
-        }
+        _simulation.TileGenerated -= HandleTileGenerated;
+        _simulation.PawnSpawned -= HandlePawnSpawned;
+        _simulation.PawnUpdated -= HandlePawnUpdated;
+        _simulation.ItemSpawned -= HandleItemSpawned;
 
         ResetSceneState();
 
