@@ -54,7 +54,7 @@ namespace DataDrivenGoap.Unity
                 return ItemDefinitionsDto.Empty;
             }
 
-            var definition = JsonUtility.FromJson<ItemDefinitionsDto>(asset.text);
+            var definition = DeserializeItemDefinitions(asset.text);
             if (definition == null)
             {
                 throw new InvalidOperationException("Failed to deserialize the item definition payload.");
@@ -62,6 +62,32 @@ namespace DataDrivenGoap.Unity
 
             definition.ApplyDefaults();
             return definition;
+        }
+
+        private static ItemDefinitionsDto DeserializeItemDefinitions(string json)
+        {
+            var trimmed = json.Trim();
+
+            if (trimmed.StartsWith("{"))
+            {
+                return JsonUtility.FromJson<ItemDefinitionsDto>(trimmed);
+            }
+
+            if (trimmed.StartsWith("["))
+            {
+                var wrapper = JsonUtility.FromJson<ItemDefinitionArrayWrapper>($"{{\"items\":{trimmed}}}");
+                if (wrapper == null)
+                {
+                    return null;
+                }
+
+                return new ItemDefinitionsDto
+                {
+                    items = wrapper.items ?? Array.Empty<ItemDefinitionDto>()
+                };
+            }
+
+            throw new InvalidOperationException("Item definition payload must be a JSON object or array.");
         }
     }
 
@@ -166,6 +192,12 @@ namespace DataDrivenGoap.Unity
         {
             // No-op, placeholder for future validation hooks.
         }
+    }
+
+    [Serializable]
+    internal sealed class ItemDefinitionArrayWrapper
+    {
+        public ItemDefinitionDto[] items = Array.Empty<ItemDefinitionDto>();
     }
 
     [Serializable]
