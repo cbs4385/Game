@@ -150,7 +150,7 @@ namespace DataDrivenGoap.Execution
                             _worldLogger?.LogStep("plan_none", _self, Guid.Empty, $"snapshot_version={snapshotVersion} world_time={worldTime} world_day={worldDay}");
                             _lastPlanSummary = NoPlanSummary;
                         }
-                        Thread.Sleep(20);
+                        WaitWithStopCheck(20);
                         continue;
                     }
 
@@ -167,7 +167,7 @@ namespace DataDrivenGoap.Execution
                     {
                         _log.Write($"PLAN waiting_preconditions goal={plan.GoalId ?? "<none>"} detail={planSummary} world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
                         _worldLogger?.LogStep("waiting_preconditions", _self, Guid.Empty, $"goal={plan.GoalId ?? "<none>"} detail={planSummary} snapshot_version={snapshotVersion} world_time={worldTime} world_day={worldDay}");
-                        Thread.Sleep(15);
+                        WaitWithStopCheck(15);
                         continue;
                     }
 
@@ -180,10 +180,9 @@ namespace DataDrivenGoap.Execution
                     if (TryGetCooldown(stepKey, out int waitMs))
                     {
                         var end = DateTime.UtcNow.AddMilliseconds(waitMs);
-                        double waited = 0.0;
                         _log.Write($"STEP wait_start plan={planId} wait_kind=cooldown expected_ms={waitMs.ToString("0.##", CultureInfo.InvariantCulture)} {stepDescription} world_time={worldTime} world_day={worldDay}");
                         _worldLogger?.LogStep("wait_cooldown_start", _self, planId, $"{stepDescription} expected_ms={waitMs.ToString("0.##", CultureInfo.InvariantCulture)} world_time={worldTime} world_day={worldDay}");
-                        while (!_stop && DateTime.UtcNow < end) { Thread.Sleep(5); waited += 5.0; }
+                        double waited = WaitUntil(end);
                         RefreshWorldTime(ref worldTime, ref worldDay);
                         _log.AddWait(waited);
                         _log.Write($"STEP wait_complete plan={planId} wait_kind=cooldown actual_ms={waited.ToString("0.##", CultureInfo.InvariantCulture)} {stepDescription} world_time={worldTime} world_day={worldDay}");
@@ -200,7 +199,7 @@ namespace DataDrivenGoap.Execution
                         _worldLogger?.LogStep("reservation_failed", _self, planId, $"{stepDescription} world_time={worldTime} world_day={worldDay}");
                         RegisterReservationFailure(stepKey, planId, stepDescription, ref worldTime, ref worldDay);
                         RefreshWorldTime(ref worldTime, ref worldDay);
-                        Thread.Sleep(_rng.Next(0, 3));
+                        WaitWithStopCheck(_rng.Next(0, 3));
                         RefreshWorldTime(ref worldTime, ref worldDay);
                         continue;
                     }
@@ -216,11 +215,10 @@ namespace DataDrivenGoap.Execution
                         if (durSec > 0)
                         {
                             var end = DateTime.UtcNow.AddMilliseconds(durSec * 1000.0);
-                            double waited = 0.0;
                             string expected = (durSec * 1000.0).ToString("0.##", CultureInfo.InvariantCulture);
                             _log.Write($"STEP wait_start plan={planId} wait_kind=duration expected_ms={expected} {stepDescription} world_time={worldTime} world_day={worldDay}");
                             _worldLogger?.LogStep("wait_duration_start", _self, planId, $"{stepDescription} expected_ms={expected} world_time={worldTime} world_day={worldDay}");
-                            while (!_stop && DateTime.UtcNow < end) { Thread.Sleep(5); waited += 5.0; }
+                            double waited = WaitUntil(end);
                             RefreshWorldTime(ref worldTime, ref worldDay);
                             _log.AddWait(waited);
                             string actual = waited.ToString("0.##", CultureInfo.InvariantCulture);
@@ -267,7 +265,7 @@ namespace DataDrivenGoap.Execution
                         _worldLogger?.LogStep("end", _self, planId, $"{stepDescription} world_time={worldTime} world_day={worldDay}");
                     }
 
-                    Thread.Sleep(5);
+                    WaitWithStopCheck(5);
                 }
                 catch (Exception ex)
                 {
@@ -275,7 +273,7 @@ namespace DataDrivenGoap.Execution
                     RefreshWorldTime(ref errorWorldTime, ref errorWorldDay);
                     _log.Write($"ERROR actor_loop {ex.GetType().Name}:{ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
                     _worldLogger?.LogInfo($"actor_error actor={_self.Value ?? "<unknown>"} type={ex.GetType().Name} message={ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
-                    Thread.Sleep(25);
+                    WaitWithStopCheck(25);
                 }
                 finally
                 {
@@ -456,7 +454,7 @@ namespace DataDrivenGoap.Execution
 
         private void RegisterReservationFailure(string stepKey, Guid planId, string stepDescription, ref string worldTime, ref string worldDay)
         {
-            Thread.Sleep(_rng.Next(5, 25));
+            WaitWithStopCheck(_rng.Next(5, 25));
             RefreshWorldTime(ref worldTime, ref worldDay);
 
             if (string.IsNullOrEmpty(stepKey))
@@ -489,10 +487,60 @@ namespace DataDrivenGoap.Execution
             {
                 _log.Write($"STEP reservation_backoff plan={planId} {stepDescription} cooldown_ms={cooldownMs} world_time={worldTime} world_day={worldDay}");
                 _worldLogger?.LogStep("reservation_backoff", _self, planId, $"{stepDescription} cooldown_ms={cooldownMs} world_time={worldTime} world_day={worldDay}");
-                Thread.Sleep(cooldownMs);
+                WaitWithStopCheck(cooldownMs);
                 RefreshWorldTime(ref worldTime, ref worldDay);
                 _lastPlanSummary = null;
             }
+        }
+
+        private double WaitUntil(DateTime endUtc, int sliceMilliseconds = 5)
+        {
+            double waited = 0.0;
+            while (!_stop)
+            {
+                var remaining = endUtc - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
+                int remainingMs = (int)Math.Ceiling(remaining.TotalMilliseconds);
+                int slice = Math.Min(remainingMs, sliceMilliseconds);
+                if (slice <= 0)
+                {
+                    slice = remainingMs;
+                }
+
+                Thread.Sleep(slice);
+                waited += slice;
+            }
+
+            return waited;
+        }
+
+        private double WaitWithStopCheck(int milliseconds, int sliceMilliseconds = 5)
+        {
+            if (milliseconds <= 0 || _stop)
+            {
+                return 0.0;
+            }
+
+            double waited = 0.0;
+            int remaining = milliseconds;
+            while (!_stop && remaining > 0)
+            {
+                int slice = Math.Min(remaining, sliceMilliseconds);
+                if (slice <= 0)
+                {
+                    slice = remaining;
+                }
+
+                Thread.Sleep(slice);
+                waited += slice;
+                remaining -= slice;
+            }
+
+            return waited;
         }
 
         private void RegisterPlanCooldowns(PlanStep step, Guid planId, string stepDescription, double durationSeconds, PlanCooldownRequest[] requests, string worldTime, string worldDay)
