@@ -152,8 +152,15 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            id ??= string.Empty;
-            prototypeId ??= string.Empty;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (prototypeId == null)
+            {
+                prototypeId = string.Empty;
+            }
         }
     }
 
@@ -168,9 +175,20 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            id ??= string.Empty;
-            displayName ??= id;
-            spriteId ??= string.Empty;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (spriteId == null)
+            {
+                spriteId = string.Empty;
+            }
         }
     }
 
@@ -184,8 +202,16 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            id ??= string.Empty;
-            displayName ??= id;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
             radius = Math.Max(0, radius);
         }
     }
@@ -199,8 +225,15 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            villageId ??= string.Empty;
-            buildingId ??= string.Empty;
+            if (villageId == null)
+            {
+                villageId = string.Empty;
+            }
+
+            if (buildingId == null)
+            {
+                buildingId = string.Empty;
+            }
         }
     }
 
@@ -214,9 +247,20 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            id ??= string.Empty;
-            displayName ??= id;
-            serviceType ??= string.Empty;
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (serviceType == null)
+            {
+                serviceType = string.Empty;
+            }
         }
     }
 
@@ -232,24 +276,45 @@ namespace DataDrivenGoap
 
         public void ApplyDefaults()
         {
-            id ??= string.Empty;
-            displayName ??= id;
-            location ??= new VillageLocation();
+            if (id == null)
+            {
+                id = string.Empty;
+            }
+
+            if (displayName == null)
+            {
+                displayName = id;
+            }
+
+            if (location == null)
+            {
+                location = new VillageLocation();
+            }
+
             location.ApplyDefaults();
 
-            buildings ??= Array.Empty<BuildingConfig>();
+            if (buildings == null)
+            {
+                buildings = Array.Empty<BuildingConfig>();
+            }
             foreach (var building in buildings)
             {
                 building?.ApplyDefaults();
             }
 
-            servicePoints ??= Array.Empty<MapServicePointConfig>();
+            if (servicePoints == null)
+            {
+                servicePoints = Array.Empty<MapServicePointConfig>();
+            }
             foreach (var servicePoint in servicePoints)
             {
                 servicePoint?.ApplyDefaults();
             }
 
-            annotations ??= Array.Empty<VillageBuildingAnnotation>();
+            if (annotations == null)
+            {
+                annotations = Array.Empty<VillageBuildingAnnotation>();
+            }
             foreach (var annotation in annotations)
             {
                 annotation?.ApplyDefaults();
@@ -274,13 +339,19 @@ namespace DataDrivenGoap
         {
             tileSpacing = Mathf.Max(0.01f, tileSpacing);
 
-            villages ??= Array.Empty<VillageConfig>();
+            if (villages == null)
+            {
+                villages = Array.Empty<VillageConfig>();
+            }
             foreach (var village in villages)
             {
                 village?.ApplyDefaults();
             }
 
-            buildingPrototypes ??= Array.Empty<MapBuildingPrototypeConfig>();
+            if (buildingPrototypes == null)
+            {
+                buildingPrototypes = Array.Empty<MapBuildingPrototypeConfig>();
+            }
             foreach (var prototype in buildingPrototypes)
             {
                 prototype?.ApplyDefaults();
