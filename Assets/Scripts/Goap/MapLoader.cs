@@ -1,35 +1,21 @@
+
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Globalization;
-using DataDrivenGoap.Config;
-using DataDrivenGoap.Core;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using UnityEngine;
 
-namespace DataDrivenGoap.Demo
 namespace DataDrivenGoap
 {
-    public sealed class MapThingSeed
     /// <summary>
-    /// Utility responsible for loading map configuration data without relying on
-    /// third-party packages that are not available inside the Unity runtime.
+    /// Immutable description of an object that should be spawned on the generated map.
     /// </summary>
-    public static class MapLoader
+    public sealed class MapThingSeed
     {
-        public string Id { get; }
-        public string Type { get; }
-        public IReadOnlyList<string> Tags { get; }
-        public GridPos Position { get; }
-        public IReadOnlyDictionary<string, double> Attributes { get; }
-        public BuildingConfig Building { get; }
-        public RectInt? Area { get; }
-        public IReadOnlyList<GridPos> ServicePoints { get; }
-        private const byte DefaultColorTolerance = 2;
-
         public MapThingSeed(
             string id,
             string type,
@@ -39,18 +25,13 @@ namespace DataDrivenGoap
             BuildingConfig building,
             RectInt? area,
             IEnumerable<GridPos> servicePoints)
-        /// <summary>
-        /// Attempts to load a <see cref="WorldMapConfig"/> instance from the provided JSON asset.
-        /// </summary>
-        /// <param name="asset">JSON asset that contains a serialized <see cref="WorldMapConfig"/> payload.</param>
-        /// <param name="config">The parsed configuration on success.</param>
-        /// <param name="errorMessage">Human readable error information when the operation fails.</param>
-        /// <returns>True when the configuration could be parsed, otherwise false.</returns>
-        public static bool TryLoadWorldMap(TextAsset asset, out WorldMapConfig config, out string errorMessage)
         {
             if (string.IsNullOrWhiteSpace(id))
+            {
                 throw new ArgumentException("Id is required", nameof(id));
-            Id = id;
+            }
+
+            Id = id.Trim();
             Type = type ?? string.Empty;
             Tags = (tags ?? Array.Empty<string>())
                 .Where(t => !string.IsNullOrWhiteSpace(t))
@@ -59,66 +40,34 @@ namespace DataDrivenGoap
                 .ToArray();
             Position = position;
             Attributes = new Dictionary<string, double>(attributes ?? new Dictionary<string, double>(), StringComparer.OrdinalIgnoreCase);
-            Building = CloneBuildingConfig(building);
+            Building = building == null ? null : BuildingConfig.Clone(building);
             Area = area;
             ServicePoints = (servicePoints ?? Array.Empty<GridPos>()).ToArray();
-            if (asset == null)
-            {
-                config = WorldMapConfig.CreateEmpty();
-                errorMessage = "The JSON asset is null.";
-                return false;
-            }
-
-        private static BuildingConfig CloneBuildingConfig(BuildingConfig cfg)
-        {
-            if (cfg == null)
-                return null;
-            return new BuildingConfig
-            {
-                area = cfg.area == null
-                    ? null
-                    : new BuildingAreaConfig { x = cfg.area.x, y = cfg.area.y, width = cfg.area.width, height = cfg.area.height },
-                open = cfg.open,
-                capacity = cfg.capacity,
-                service_points = cfg.service_points == null
-                    ? Array.Empty<ServicePointConfig>()
-                    : cfg.service_points.Select(sp => sp == null ? null : new ServicePointConfig { x = sp.x, y = sp.y }).ToArray(),
-                openHours = cfg.openHours == null
-                    ? Array.Empty<BuildingOpenHoursConfig>()
-                    : cfg.openHours.Select(oh => oh == null ? null : new BuildingOpenHoursConfig
-                    {
-                        days = oh.days == null ? Array.Empty<string>() : oh.days.ToArray(),
-                        seasons = oh.seasons == null ? Array.Empty<string>() : oh.seasons.ToArray(),
-                        open = oh.open,
-                        close = oh.close
-                    }).ToArray(),
-                shop = cfg.shop
-            };
-            return TryLoadWorldMap(asset.text, out config, out errorMessage);
         }
+
+        public string Id { get; }
+
+        public string Type { get; }
+
+        public IReadOnlyList<string> Tags { get; }
+
+        public GridPos Position { get; }
+
+        public IReadOnlyDictionary<string, double> Attributes { get; }
+
+        public BuildingConfig Building { get; }
+
+        public RectInt? Area { get; }
+
+        public IReadOnlyList<GridPos> ServicePoints { get; }
     }
 
+    /// <summary>
+    /// Result of loading a map from a texture.
+    /// </summary>
     public sealed class MapLoaderResult
-        /// <summary>
-        /// Attempts to load a <see cref="WorldMapConfig"/> instance from the provided JSON payload.
-        /// </summary>
-        /// <param name="json">JSON payload that describes the world map.</param>
-        /// <param name="config">The parsed configuration on success.</param>
-        /// <param name="errorMessage">Human readable error information when the operation fails.</param>
-        /// <returns>True when the configuration could be parsed, otherwise false.</returns>
-        public static bool TryLoadWorldMap(string json, out WorldMapConfig config, out string errorMessage)
-        {
+    {
         private readonly bool[,] _walkable;
-
-        public int Width { get; }
-        public int Height { get; }
-        public IReadOnlyList<MapThingSeed> Buildings { get; }
-        public IReadOnlyList<GridPos> FarmlandTiles { get; }
-        public IReadOnlyList<GridPos> WaterTiles { get; }
-        public IReadOnlyList<GridPos> ShallowWaterTiles { get; }
-        public IReadOnlyList<GridPos> ForestTiles { get; }
-        public IReadOnlyList<GridPos> CoastalTiles { get; }
-        public int TileScale { get; }
 
         public MapLoaderResult(
             int width,
@@ -126,54 +75,144 @@ namespace DataDrivenGoap
             int tileScale,
             bool[,] walkable,
             IEnumerable<MapThingSeed> buildings,
-            IEnumerable<GridPos> farmlandTiles,
-            IEnumerable<GridPos> waterTiles,
-            IEnumerable<GridPos> shallowWaterTiles,
-            IEnumerable<GridPos> forestTiles,
-            IEnumerable<GridPos> coastalTiles)
-            if (string.IsNullOrWhiteSpace(json))
+            IEnumerable<GridPos> farmland,
+            IEnumerable<GridPos> water,
+            IEnumerable<GridPos> shallowWater,
+            IEnumerable<GridPos> forest,
+            IEnumerable<GridPos> coastal)
+        {
+            if (width <= 0)
             {
-            if (walkable == null)
-                throw new ArgumentNullException(nameof(walkable));
-            if (walkable.GetLength(0) != width || walkable.GetLength(1) != height)
-                throw new ArgumentException("Walkable grid dimensions must match the provided width/height", nameof(walkable));
+                throw new ArgumentOutOfRangeException(nameof(width));
+            }
+
+            if (height <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(height));
+            }
+
             if (tileScale <= 0)
-                throw new ArgumentOutOfRangeException(nameof(tileScale), "Tile scale must be greater than zero.");
+            {
+                throw new ArgumentOutOfRangeException(nameof(tileScale));
+            }
+
+            if (walkable == null)
+            {
+                throw new ArgumentNullException(nameof(walkable));
+            }
+
+            if (walkable.GetLength(0) != width || walkable.GetLength(1) != height)
+            {
+                throw new ArgumentException("Walkable grid dimensions must match the provided width/height", nameof(walkable));
+            }
+
             Width = width;
             Height = height;
             TileScale = tileScale;
             _walkable = (bool[,])walkable.Clone();
             Buildings = (buildings ?? Array.Empty<MapThingSeed>()).ToArray();
-            FarmlandTiles = (farmlandTiles ?? Array.Empty<GridPos>()).ToArray();
-            WaterTiles = (waterTiles ?? Array.Empty<GridPos>()).ToArray();
-            ShallowWaterTiles = (shallowWaterTiles ?? Array.Empty<GridPos>()).ToArray();
-            ForestTiles = (forestTiles ?? Array.Empty<GridPos>()).ToArray();
-            CoastalTiles = (coastalTiles ?? Array.Empty<GridPos>()).ToArray();
+            FarmlandTiles = (farmland ?? Array.Empty<GridPos>()).ToArray();
+            WaterTiles = (water ?? Array.Empty<GridPos>()).ToArray();
+            ShallowWaterTiles = (shallowWater ?? Array.Empty<GridPos>()).ToArray();
+            ForestTiles = (forest ?? Array.Empty<GridPos>()).ToArray();
+            CoastalTiles = (coastal ?? Array.Empty<GridPos>()).ToArray();
         }
+
+        public int Width { get; }
+
+        public int Height { get; }
+
+        public int TileScale { get; }
+
+        public IReadOnlyList<MapThingSeed> Buildings { get; }
+
+        public IReadOnlyList<GridPos> FarmlandTiles { get; }
+
+        public IReadOnlyList<GridPos> WaterTiles { get; }
+
+        public IReadOnlyList<GridPos> ShallowWaterTiles { get; }
+
+        public IReadOnlyList<GridPos> ForestTiles { get; }
+
+        public IReadOnlyList<GridPos> CoastalTiles { get; }
 
         public bool IsWalkable(int x, int y)
         {
             if (x < 0 || y < 0 || x >= Width || y >= Height)
-                config = WorldMapConfig.CreateEmpty();
-                errorMessage = "The JSON payload is empty.";
+            {
                 return false;
-            return _walkable[x, y];
             }
+
+            return _walkable[x, y];
+        }
 
         public bool[,] CloneWalkable() => (bool[,])_walkable.Clone();
     }
 
+    /// <summary>
+    /// Utility responsible for loading map configuration data from JSON and texture files.
+    /// </summary>
     public static class MapLoader
+    {
+        private const byte DefaultColorTolerance = 2;
+
+        public static bool TryLoadWorldMap(TextAsset asset, out WorldMapConfig config, out string errorMessage)
+        {
+            if (asset == null)
+            {
+                config = WorldMapConfig.CreateEmpty();
+                errorMessage = "The JSON asset is null.";
+                return false;
+            }
+
+            return TryLoadWorldMap(asset.text, out config, out errorMessage);
+        }
+
+        public static bool TryLoadWorldMap(string json, out WorldMapConfig config, out string errorMessage)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                config = WorldMapConfig.CreateEmpty();
+                errorMessage = "The JSON payload is empty.";
+                return false;
+            }
+
             try
             {
-        public static MapLoaderResult Load(string baseDirectory, WorldMapConfig mapConfig, VillageConfig village = null)
-                var wrapper = JsonUtility.FromJson<WorldMapDefinitionWrapper>(json);
-                if (wrapper == null)
+                var wrapper = JsonSerializer.Deserialize<WorldMapDefinitionWrapper>(json);
+                if (wrapper?.world == null)
                 {
+                    config = WorldMapConfig.CreateEmpty();
+                    errorMessage = "Failed to deserialize the world map definition.";
+                    return false;
+                }
+
+                config = wrapper.world;
+                config.ApplyDefaults();
+                errorMessage = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                config = WorldMapConfig.CreateEmpty();
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public static MapLoaderResult Load(string baseDirectory, WorldMapConfig mapConfig, VillageConfig village = null)
+        {
             if (mapConfig == null)
+            {
                 throw new ArgumentNullException(nameof(mapConfig));
+            }
+
             if (string.IsNullOrWhiteSpace(baseDirectory))
+            {
                 baseDirectory = Environment.CurrentDirectory;
+            }
+
+            mapConfig.ApplyDefaults();
 
             string imagePath = ResolvePath(baseDirectory, mapConfig.image, nameof(mapConfig.image));
 
@@ -181,55 +220,50 @@ namespace DataDrivenGoap
             if (inlineVillage == null && !string.IsNullOrWhiteSpace(mapConfig.data))
             {
                 string dataPath = ResolvePath(baseDirectory, mapConfig.data, nameof(mapConfig.data));
-                inlineVillage = ConfigLoader.LoadVillageConfig(dataPath);
-                    config = WorldMapConfig.CreateEmpty();
-                    errorMessage = "Failed to deserialize the world map definition.";
-                    return false;
-                }
+                inlineVillage = LoadVillageConfig(dataPath);
+            }
 
             VillageMapData inlineMapData = inlineVillage?.map;
             var locationLookup = BuildLocationLookup(inlineVillage?.locations);
 
-            int tileScale = mapConfig.tileSize;
-            if (tileScale < 1)
-                throw new InvalidOperationException("Map configuration tileSize must be at least 1.");
+            int tileScale = Math.Max(1, mapConfig.tileSize);
 
             Dictionary<Rgba32, string> tileNameByColor;
             if (inlineMapData?.key != null && inlineMapData.key.Count > 0)
             {
                 tileNameByColor = LoadTileKey(inlineMapData.key);
-                config = wrapper.world ?? WorldMapConfig.CreateEmpty();
-                config.ApplyDefaults();
-                errorMessage = null;
-                return true;
             }
             else
-            catch (Exception ex)
             {
                 string keyPath = ResolvePath(baseDirectory, mapConfig.key, nameof(mapConfig.key));
                 tileNameByColor = LoadTileKey(keyPath);
-                config = WorldMapConfig.CreateEmpty();
-                errorMessage = ex.Message;
-                return false;
             }
+
             if (tileNameByColor.Count == 0)
+            {
                 throw new InvalidOperationException("Tile key does not define any entries.");
+            }
 
             using var image = Image.Load<Rgba32>(imagePath);
 
             if (image.Width % tileScale != 0 || image.Height % tileScale != 0)
+            {
                 throw new InvalidOperationException($"Image dimensions {image.Width}x{image.Height} are not divisible by tile size {tileScale}.");
+            }
 
             int width = image.Width / tileScale;
             int height = image.Height / tileScale;
 
             var tileConfig = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
+            foreach (var kvp in mapConfig.tiles ?? new Dictionary<string, MapTileConfig>())
             {
-                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null)
+                if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
+                {
                     continue;
-                tileConfig[kv.Key.Trim()] = kv.Value;
-        }
+                }
+
+                tileConfig[kvp.Key.Trim()] = kvp.Value;
+            }
 
             var walkable = new bool[width, height];
             var farmlandTiles = new List<GridPos>();
@@ -238,24 +272,11 @@ namespace DataDrivenGoap
             var forestTiles = new List<GridPos>();
             var coastalTiles = new List<GridPos>();
             bool anyWalkable = false;
+
             for (int y = 0; y < height; y++)
-        /// <summary>
-        /// Enumerates all coordinates inside <paramref name="texture"/> that approximately match
-        /// <paramref name="targetColor"/>.
-        /// </summary>
-        /// <param name="texture">Texture that contains encoded map data.</param>
-        /// <param name="targetColor">Color that should be matched.</param>
-        /// <param name="tolerance">Color tolerance (per channel) that is allowed while matching.</param>
-        /// <returns>List of all coordinates that matched the supplied color.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="texture"/> is null.</exception>
-        public static IReadOnlyList<GridPos> CollectTilesMatchingColor(
-            Texture2D texture,
-            Color32 targetColor,
-            byte tolerance = DefaultColorTolerance)
-        {
-                for (int x = 0; x < width; x++)
-            if (texture == null)
             {
+                for (int x = 0; x < width; x++)
+                {
                     var pixel = image[x * tileScale, y * tileScale];
                     if (tileScale > 1)
                     {
@@ -265,112 +286,170 @@ namespace DataDrivenGoap
                             {
                                 var sample = image[(x * tileScale) + ox, (y * tileScale) + oy];
                                 if (sample != pixel)
+                                {
                                     throw new InvalidOperationException($"Tile at ({x},{y}) contains multiple colors and cannot be processed with the configured tile size.");
-                throw new ArgumentNullException(nameof(texture));
-            }
+                                }
+                            }
                         }
                     }
+
                     if (!tileNameByColor.TryGetValue(pixel, out var tileName))
-                        throw new InvalidOperationException($"Color {pixel} at {x},{y} not found in tile key.");
-                    bool isWalkable = false;
-                    bool isFarmland = false;
-                    bool isWater = false;
-                    bool isShallow = false;
-                    bool isForest = false;
-                    bool isCoastal = false;
-                    if (tileConfig.TryGetValue(tileName, out var cfg))
                     {
-                        isWalkable = cfg?.walkable ?? false;
-                        isFarmland = cfg?.farmland ?? false;
-                        isWater = cfg?.water ?? false;
-                        isShallow = cfg?.shallowWater ?? false;
-                        isForest = cfg?.forest ?? false;
-                        isCoastal = cfg?.coastal ?? false;
+                        throw new InvalidOperationException($"Color {pixel} at {x},{y} not found in tile key.");
                     }
+
+                    MapTileConfig cfg = null;
+                    tileConfig.TryGetValue(tileName, out cfg);
+
+                    bool isWalkable = cfg?.walkable ?? false;
+                    bool isFarmland = cfg?.farmland ?? false;
+                    bool isWater = cfg?.water ?? false;
+                    bool isShallow = cfg?.shallowWater ?? false;
+                    bool isForest = cfg?.forest ?? false;
+                    bool isCoastal = cfg?.coastal ?? false;
+
                     walkable[x, y] = isWalkable;
                     if (isWalkable)
+                    {
                         anyWalkable = true;
+                    }
+
                     if (isFarmland)
+                    {
                         farmlandTiles.Add(new GridPos(x, y));
+                    }
+
                     if (isWater)
+                    {
                         waterTiles.Add(new GridPos(x, y));
+                    }
+
                     if (isShallow)
+                    {
                         shallowWaterTiles.Add(new GridPos(x, y));
+                    }
+
                     if (isForest)
+                    {
                         forestTiles.Add(new GridPos(x, y));
+                    }
+
                     if (isCoastal)
+                    {
                         coastalTiles.Add(new GridPos(x, y));
+                    }
                 }
             }
 
             if (!anyWalkable)
+            {
                 throw new InvalidOperationException("Loaded map does not contain any walkable tiles.");
+            }
+
+            var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
+            if (mapConfig.buildingPrototypes != null)
+            {
+                foreach (var kvp in mapConfig.buildingPrototypes)
+                {
+                    if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value == null)
+                    {
+                        continue;
+                    }
+
+                    kvp.Value.ApplyDefaults();
+                    buildingPrototypes[kvp.Key.Trim()] = kvp.Value;
+                }
+            }
+
+            IReadOnlyList<VillageBuildingAnnotation> annotations;
+            if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
+            {
+                annotations = inlineMapData.annotations.buildings;
+            }
+            else if (!string.IsNullOrWhiteSpace(mapConfig.annotations))
+            {
+                string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
+                annotations = LoadAnnotations(annotationsPath);
+            }
+            else
+            {
+                annotations = Array.Empty<VillageBuildingAnnotation>();
+            }
+
+            var buildings = LoadBuildings(
+                annotations,
+                buildingPrototypes,
+                tileScale,
+                width,
+                height,
+                locationLookup).ToArray();
+
+            return new MapLoaderResult(
+                width,
+                height,
+                tileScale,
+                walkable,
+                buildings,
+                farmlandTiles,
+                waterTiles,
+                shallowWaterTiles,
+                forestTiles,
+                coastalTiles);
+        }
+
+        public static IReadOnlyList<GridPos> CollectTilesMatchingColor(
+            Texture2D texture,
+            Color32 targetColor,
+            byte tolerance = DefaultColorTolerance)
+        {
+            if (texture == null)
+            {
+                throw new ArgumentNullException(nameof(texture));
+            }
+
             var result = new List<GridPos>();
             var pixels = texture.GetPixels32();
 
-            var buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in mapConfig.buildingPrototypes ?? new Dictionary<string, MapBuildingPrototypeConfig>())
             for (var y = 0; y < texture.height; y++)
             {
-                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null)
-                    continue;
-                buildingPrototypes[kv.Key.Trim()] = kv.Value;
-            }
-
-            IReadOnlyList<MapThingSeed> buildings;
-            if (inlineMapData?.annotations?.buildings != null && inlineMapData.annotations.buildings.Length > 0)
                 for (var x = 0; x < texture.width; x++)
                 {
-                buildings = LoadBuildings(inlineMapData.annotations.buildings, buildingPrototypes, tileScale, width, height, locationLookup).ToArray();
-            }
-            else
                     var pixel = pixels[y * texture.width + x];
                     if (ApproximatelyEqual(pixel, targetColor, tolerance))
                     {
-                string annotationsPath = ResolvePath(baseDirectory, mapConfig.annotations, nameof(mapConfig.annotations));
-                buildings = LoadBuildings(annotationsPath, buildingPrototypes, tileScale, width, height, locationLookup).ToArray();
                         result.Add(new GridPos(x, y));
                     }
-
-            foreach (var building in buildings)
-            {
-                if (building?.Area is RectInt area && !area.IsEmpty)
-                {
-                    var door = FindDoorLocation(area, building.ServicePoints, walkable);
-                    if (door.HasValue)
-                    {
-                        var pos = door.Value;
-                        if (pos.X >= 0 && pos.Y >= 0 && pos.X < width && pos.Y < height)
-                            walkable[pos.X, pos.Y] = true;
                 }
             }
-            }
 
-            return new MapLoaderResult(width, height, tileScale, walkable, buildings, farmlandTiles, waterTiles, shallowWaterTiles, forestTiles, coastalTiles);
             return result;
         }
 
-        private static string ResolvePath(string baseDirectory, string relativePath, string propertyName)
-        /// <summary>
-        /// Checks whether two colors are approximately equal by comparing their channels against a tolerance.
-        /// </summary>
         public static bool ApproximatelyEqual(Color32 lhs, Color32 rhs, byte tolerance = DefaultColorTolerance)
         {
-            if (string.IsNullOrWhiteSpace(relativePath))
-                throw new InvalidOperationException($"Map configuration must include a value for '{propertyName}'.");
-            var path = Path.IsPathRooted(relativePath) ? relativePath : Path.Combine(baseDirectory, relativePath);
-            if (!File.Exists(path))
-                throw new FileNotFoundException($"Unable to locate map resource for '{propertyName}'", path);
-            return path;
             return Math.Abs(lhs.r - rhs.r) <= tolerance
                 && Math.Abs(lhs.g - rhs.g) <= tolerance
                 && Math.Abs(lhs.b - rhs.b) <= tolerance
                 && Math.Abs(lhs.a - rhs.a) <= tolerance;
         }
 
+        private static string ResolvePath(string baseDirectory, string relativePath, string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                throw new InvalidOperationException($"Map configuration must include a value for '{propertyName}'.");
+            }
+
+            var path = Path.IsPathRooted(relativePath) ? relativePath : Path.Combine(baseDirectory, relativePath);
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException($"Unable to locate map resource for '{propertyName}'", path);
+            }
+
+            return path;
+        }
+
         private static Dictionary<Rgba32, string> LoadTileKey(string keyPath)
-        [Serializable]
-        private sealed class WorldMapDefinitionWrapper
         {
             using var fs = File.OpenRead(keyPath);
             using var doc = JsonDocument.Parse(fs);
@@ -379,25 +458,31 @@ namespace DataDrivenGoap
             {
                 var colorText = prop.Value.GetString();
                 if (string.IsNullOrWhiteSpace(colorText))
+                {
                     continue;
+                }
+
                 map[prop.Name] = colorText.Trim();
-            public WorldMapConfig world;
-        }
+            }
+
             return LoadTileKey(map);
-    }
+        }
 
         private static Dictionary<Rgba32, string> LoadTileKey(IDictionary<string, string> entries)
-    [Serializable]
-    public struct GridPos
-    {
+        {
             var map = new Dictionary<Rgba32, string>();
             if (entries == null)
+            {
                 return map;
+            }
 
             foreach (var kv in entries)
             {
                 if (string.IsNullOrWhiteSpace(kv.Key) || string.IsNullOrWhiteSpace(kv.Value))
+                {
                     continue;
+                }
+
                 var color = ParseColor(kv.Value.Trim());
                 map[color] = kv.Key.Trim();
             }
@@ -408,145 +493,35 @@ namespace DataDrivenGoap
         private static IReadOnlyDictionary<string, VillageLocation> BuildLocationLookup(IDictionary<string, VillageLocation> locations)
         {
             if (locations == null || locations.Count == 0)
-                throw new InvalidOperationException("Village data must define a non-empty set of locations.");
+            {
+                return new Dictionary<string, VillageLocation>(StringComparer.OrdinalIgnoreCase);
+            }
 
             var map = new Dictionary<string, VillageLocation>(StringComparer.OrdinalIgnoreCase);
             foreach (var kv in locations)
             {
-                if (string.IsNullOrWhiteSpace(kv.Key))
-                    throw new InvalidOperationException("Village location entries must use non-empty keys.");
-                if (kv.Value == null)
-                    throw new InvalidOperationException($"Village location '{kv.Key}' is missing its configuration block.");
+                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null)
+                {
+                    continue;
+                }
 
                 var normalized = kv.Key.Trim();
-                var clone = CloneLocation(kv.Value, normalized);
+                var clone = VillageLocation.Clone(kv.Value, normalized);
                 map[normalized] = clone;
-        public int x;
-        public int y;
 
                 if (!string.IsNullOrWhiteSpace(clone.id))
-        public GridPos(int x, int y)
-        {
-                    var idKey = clone.id.Trim();
-                    map[idKey] = clone;
-            this.x = x;
-            this.y = y;
-        }
-
-                if (!string.IsNullOrWhiteSpace(clone.name))
                 {
-                    var nameKey = clone.name.Trim();
-                    if (!map.ContainsKey(nameKey))
-                        map[nameKey] = clone;
+                    map[clone.id.Trim()] = clone;
+                }
+
+                if (!string.IsNullOrWhiteSpace(clone.name) && !map.ContainsKey(clone.name.Trim()))
+                {
+                    map[clone.name.Trim()] = clone;
                 }
             }
-        public Vector2Int ToVector2Int() => new Vector2Int(x, y);
 
             return map;
-        public override string ToString() => $"({x}, {y})";
-    }
-
-        private static VillageLocation CloneLocation(VillageLocation src, string fallbackId)
-    [Serializable]
-    public sealed class BuildingConfig
-    {
-            if (src == null)
-                throw new InvalidOperationException($"Village location '{fallbackId}' must not be null.");
-
-            if (string.IsNullOrWhiteSpace(src.id))
-                throw new InvalidOperationException($"Village location '{fallbackId}' must specify an 'id'.");
-
-            if (src.bbox == null || src.bbox.Length != 4)
-                throw new InvalidOperationException($"Village location '{src.id.Trim()}' must specify a 'bbox' with four coordinates.");
-
-            if (src.center == null || src.center.Length < 2)
-                throw new InvalidOperationException($"Village location '{src.id.Trim()}' must specify a 'center' with two coordinates.");
-        public string id;
-        public string prototypeId;
-        public GridPos position;
-        public float rotation;
-
-            return new VillageLocation
-        public void ApplyDefaults()
-        {
-            if (id == null)
-            {
-                id = string.Empty;
-            }
-
-            if (prototypeId == null)
-            {
-                prototypeId = string.Empty;
-            }
         }
-    }
-
-        private static IEnumerable<MapThingSeed> LoadBuildings(
-            string annotationsPath,
-            IDictionary<string, MapBuildingPrototypeConfig> prototypes,
-            int tileScale,
-            int width,
-            int height,
-            IReadOnlyDictionary<string, VillageLocation> locations)
-        {
-            using var fs = File.OpenRead(annotationsPath);
-            using var doc = JsonDocument.Parse(fs);
-            if (!doc.RootElement.TryGetProperty("buildings", out var buildingsElement))
-                throw new InvalidOperationException("Map annotations must include a 'buildings' array.");
-            if (buildingsElement.ValueKind != JsonValueKind.Array)
-                throw new InvalidOperationException("Map annotations 'buildings' element must be an array.");
-
-            var annotations = new List<VillageBuildingAnnotation>();
-            foreach (var element in buildingsElement.EnumerateArray())
-            {
-                if (element.ValueKind != JsonValueKind.Object)
-                    throw new InvalidOperationException("Each building annotation must be a JSON object.");
-                if (!element.TryGetProperty("name", out var nameProp))
-                    throw new InvalidOperationException("Building annotations must define a 'name'.");
-                var name = nameProp.GetString();
-                if (string.IsNullOrWhiteSpace(name))
-                    throw new InvalidOperationException("Building annotation names must be non-empty.");
-
-                double[] bbox = null;
-                if (element.TryGetProperty("bbox", out var bboxProp))
-    [Serializable]
-    public sealed class MapBuildingPrototypeConfig
-    {
-                    if (bboxProp.ValueKind != JsonValueKind.Array)
-                        throw new InvalidOperationException($"Building annotation '{name.Trim()}' must provide a 'bbox' array when specified.");
-                    bbox = bboxProp.EnumerateArray().Select(v => v.GetDouble()).ToArray();
-                }
-
-                string locationRef = null;
-                if (element.TryGetProperty("location", out var locationProp))
-                    locationRef = locationProp.GetString();
-        public string id;
-        public string displayName;
-        public string spriteId;
-        public Color32 color;
-        public bool allowRotation = true;
-
-                var annotation = new VillageBuildingAnnotation
-        public void ApplyDefaults()
-        {
-            if (id == null)
-            {
-                id = string.Empty;
-            }
-
-            if (displayName == null)
-            {
-                displayName = id;
-            }
-
-            if (spriteId == null)
-            {
-                spriteId = string.Empty;
-            }
-        }
-
-            return LoadBuildings(annotations, prototypes, tileScale, width, height, locations);
-    }
 
         private static IEnumerable<MapThingSeed> LoadBuildings(
             IEnumerable<VillageBuildingAnnotation> annotations,
@@ -555,267 +530,626 @@ namespace DataDrivenGoap
             int width,
             int height,
             IReadOnlyDictionary<string, VillageLocation> locations)
-    [Serializable]
-    public sealed class VillageLocation
-    {
+        {
             if (annotations == null)
-                throw new InvalidOperationException("Building annotations must be provided.");
-
-            if (tileScale <= 0)
-                throw new InvalidOperationException("Tile scale must be greater than zero when constructing buildings.");
-        public string id;
-        public string displayName;
-        public GridPos center;
-        public int radius;
+            {
+                return Array.Empty<MapThingSeed>();
+            }
 
             var result = new List<MapThingSeed>();
             var counters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var annotation in annotations)
+            {
+                if (annotation == null || string.IsNullOrWhiteSpace(annotation.name))
+                {
+                    continue;
+                }
+
+                if (!prototypes.TryGetValue(annotation.name.Trim(), out var prototype))
+                {
+                    continue;
+                }
+
+                var bbox = ResolveBoundingBox(annotation, locations);
+                if (bbox == null || bbox.Length != 4)
+                {
+                    continue;
+                }
+
+                var area = NormalizeBoundingBox(bbox, tileScale, width, height);
+                if (area.width <= 0 || area.height <= 0)
+                {
+                    continue;
+                }
+
+                var idPrefix = string.IsNullOrWhiteSpace(prototype.idPrefix) ? prototype.type ?? annotation.name : prototype.idPrefix.Trim();
+                counters.TryGetValue(idPrefix, out var index);
+                index++;
+                counters[idPrefix] = index;
+                var id = $"{idPrefix}-{index:00}";
+
+                var tags = new List<string>();
+                if (prototype.tags != null)
+                {
+                    tags.AddRange(prototype.tags.Where(t => !string.IsNullOrWhiteSpace(t)));
+                }
+                if (annotation.tags != null)
+                {
+                    tags.AddRange(annotation.tags.Where(t => !string.IsNullOrWhiteSpace(t)));
+                }
+
+                var attributes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                if (annotation.attributes != null)
+                {
+                    foreach (var kv in annotation.attributes)
+                    {
+                        attributes[kv.Key] = kv.Value;
+                    }
+                }
+
+                var buildingConfig = prototype.building == null ? null : BuildingConfig.Clone(prototype.building);
+                if (buildingConfig != null)
+                {
+                    buildingConfig.id = id;
+                    buildingConfig.prototypeId = annotation.name?.Trim() ?? string.Empty;
+                    buildingConfig.position = new GridPos(area.x + area.width / 2, area.y + area.height / 2);
+                    buildingConfig.rotation = annotation.rotation;
+                    buildingConfig.area = new BuildingAreaConfig
+                    {
+                        x = area.x,
+                        y = area.y,
+                        width = area.width,
+                        height = area.height
+                    };
+                }
+
+                var servicePoints = BuildServicePoints(prototype.servicePoints, area);
+
+                var seed = new MapThingSeed(
+                    id,
+                    prototype.type ?? annotation.name,
+                    tags,
+                    new GridPos(area.x + area.width / 2, area.y + area.height / 2),
+                    attributes,
+                    buildingConfig,
+                    area,
+                    servicePoints);
+
+                result.Add(seed);
+            }
+
+            return result;
+        }
+
+        private static double[] ResolveBoundingBox(VillageBuildingAnnotation annotation, IReadOnlyDictionary<string, VillageLocation> locations)
+        {
+            if (annotation?.bbox != null && annotation.bbox.Length == 4)
+            {
+                return annotation.bbox;
+            }
+
+            if (!string.IsNullOrWhiteSpace(annotation?.location) && locations != null && locations.TryGetValue(annotation.location.Trim(), out var loc))
+            {
+                return loc?.bbox;
+            }
+
+            return null;
+        }
+
+        private static RectInt NormalizeBoundingBox(double[] bbox, int tileScale, int width, int height)
+        {
+            int minX = Mathf.Clamp(Mathf.RoundToInt((float)bbox[0] / tileScale), 0, width);
+            int minY = Mathf.Clamp(Mathf.RoundToInt((float)bbox[1] / tileScale), 0, height);
+            int maxX = Mathf.Clamp(Mathf.RoundToInt((float)bbox[2] / tileScale), 0, width - 1);
+            int maxY = Mathf.Clamp(Mathf.RoundToInt((float)bbox[3] / tileScale), 0, height - 1);
+
+            int rectWidth = Math.Max(0, (maxX - minX) + 1);
+            int rectHeight = Math.Max(0, (maxY - minY) + 1);
+            return new RectInt(minX, minY, rectWidth, rectHeight);
+        }
+
+        private static IReadOnlyList<GridPos> BuildServicePoints(PrototypeServicePointConfig[] configs, RectInt area)
+        {
+            if (configs == null || configs.Length == 0 || area.width <= 0 || area.height <= 0)
+            {
+                return Array.Empty<GridPos>();
+            }
+
+            var points = new List<GridPos>();
+            foreach (var cfg in configs)
+            {
+                if (cfg == null)
+                {
+                    continue;
+                }
+
+                float normX = Mathf.Clamp01(cfg.x);
+                float normY = Mathf.Clamp01(cfg.y);
+                int px = area.x + Mathf.RoundToInt(normX * Math.Max(0, area.width - 1));
+                int py = area.y + Mathf.RoundToInt(normY * Math.Max(0, area.height - 1));
+                points.Add(new GridPos(px, py));
+            }
+
+            return points;
+        }
+
+        private static IReadOnlyList<VillageBuildingAnnotation> LoadAnnotations(string path)
+        {
+            using var stream = File.OpenRead(path);
+            using var doc = JsonDocument.Parse(stream);
+            if (!doc.RootElement.TryGetProperty("buildings", out var buildingsElement) || buildingsElement.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<VillageBuildingAnnotation>();
+            }
+
+            var list = new List<VillageBuildingAnnotation>();
+            foreach (var element in buildingsElement.EnumerateArray())
+            {
+                try
+                {
+                    var annotation = JsonSerializer.Deserialize<VillageBuildingAnnotation>(element.GetRawText());
+                    if (annotation != null)
+                    {
+                        annotation.ApplyDefaults();
+                        list.Add(annotation);
+                    }
+                }
+                catch
+                {
+                    // Ignore malformed entries.
+                }
+            }
+
+            return list;
+        }
+
+        private static VillageConfig LoadVillageConfig(string path)
+        {
+            using var stream = File.OpenRead(path);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            var cfg = JsonSerializer.Deserialize<VillageConfig>(stream, options);
+            cfg ??= new VillageConfig();
+            cfg.ApplyDefaults();
+            return cfg;
+        }
+
+        private static Rgba32 ParseColor(string hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex))
+            {
+                throw new InvalidOperationException("Color must be provided as a non-empty hex string.");
+            }
+
+            hex = hex.Trim();
+            if (hex.StartsWith("#", StringComparison.Ordinal))
+            {
+                hex = hex[1..];
+            }
+
+            if (hex.Length != 6)
+            {
+                throw new InvalidOperationException($"Color '{hex}' must be a 6-character hex code.");
+            }
+
+            if (!int.TryParse(hex[..2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var r) ||
+                !int.TryParse(hex.Substring(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var g) ||
+                !int.TryParse(hex.Substring(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var b))
+            {
+                throw new InvalidOperationException($"Color '{hex}' contains invalid hex characters.");
+            }
+
+            return new Rgba32((byte)r, (byte)g, (byte)b, 255);
+        }
+
+        private sealed class WorldMapDefinitionWrapper
+        {
+            public WorldMapConfig world { get; set; }
+        }
+    }
+
+    [Serializable]
+    public struct GridPos
+    {
+        public int x;
+        public int y;
+
+        public GridPos(int x, int y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+
+        public int X => x;
+
+        public int Y => y;
+
+        public Vector2Int ToVector2Int() => new Vector2Int(x, y);
+
+        public override string ToString() => $"({x}, {y})";
+    }
+
+    [Serializable]
+    public sealed class BuildingConfig
+    {
+        public string id;
+        public string prototypeId;
+        public GridPos position;
+        public float rotation;
+        public BuildingAreaConfig area;
+        public bool open;
+        public int capacity;
+        public ServicePointConfig[] service_points = Array.Empty<ServicePointConfig>();
+        public BuildingOpenHoursConfig[] openHours = Array.Empty<BuildingOpenHoursConfig>();
+        public ShopConfig shop;
+
         public void ApplyDefaults()
         {
-            if (id == null)
+            id ??= string.Empty;
+            prototypeId ??= string.Empty;
+            service_points ??= Array.Empty<ServicePointConfig>();
+            openHours ??= Array.Empty<BuildingOpenHoursConfig>();
+            shop?.ApplyDefaults();
+        }
+
+        public static BuildingConfig Clone(BuildingConfig source)
+        {
+            if (source == null)
             {
-                id = string.Empty;
+                return null;
             }
 
-            if (displayName == null)
+            return new BuildingConfig
             {
-                displayName = id;
+                id = source.id,
+                prototypeId = source.prototypeId,
+                position = source.position,
+                rotation = source.rotation,
+                area = source.area == null ? null : new BuildingAreaConfig
+                {
+                    x = source.area.x,
+                    y = source.area.y,
+                    width = source.area.width,
+                    height = source.area.height
+                },
+                open = source.open,
+                capacity = source.capacity,
+                service_points = source.service_points?.Select(sp => sp == null ? null : new ServicePointConfig { x = sp.x, y = sp.y }).ToArray() ?? Array.Empty<ServicePointConfig>(),
+                openHours = source.openHours?.Select(oh => oh == null ? null : new BuildingOpenHoursConfig
+                {
+                    days = oh.days?.ToArray() ?? Array.Empty<string>(),
+                    seasons = oh.seasons?.ToArray() ?? Array.Empty<string>(),
+                    open = oh.open,
+                    close = oh.close
+                }).ToArray() ?? Array.Empty<BuildingOpenHoursConfig>(),
+                shop = ShopConfig.Clone(source.shop)
+            };
+        }
+    }
+
+    [Serializable]
+    public sealed class BuildingAreaConfig
+    {
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+    }
+
+    [Serializable]
+    public sealed class ServicePointConfig
+    {
+        public int x;
+        public int y;
+    }
+
+    [Serializable]
+    public sealed class BuildingOpenHoursConfig
+    {
+        public string[] days = Array.Empty<string>();
+        public string[] seasons = Array.Empty<string>();
+        public float open;
+        public float close;
+    }
+
+    [Serializable]
+    public sealed class ShopConfig
+    {
+        public ShopItemConfig[] items = Array.Empty<ShopItemConfig>();
+        public string restockEvery;
+        public float restockHour;
+        public float markup = 1f;
+        public float markdown = 1f;
+        public ShopInventoryConfig inventory = new ShopInventoryConfig();
+
+        public void ApplyDefaults()
+        {
+            items ??= Array.Empty<ShopItemConfig>();
+            inventory ??= new ShopInventoryConfig();
+            inventory.ApplyDefaults();
+        }
+
+        public static ShopConfig Clone(ShopConfig source)
+        {
+            if (source == null)
+            {
+                return null;
             }
 
+            return new ShopConfig
+            {
+                restockEvery = source.restockEvery,
+                restockHour = source.restockHour,
+                markup = source.markup,
+                markdown = source.markdown,
+                inventory = source.inventory == null
+                    ? new ShopInventoryConfig()
+                    : new ShopInventoryConfig
+                    {
+                        slots = source.inventory.slots,
+                        stackSize = source.inventory.stackSize
+                    },
+                items = source.items?.Select(i => i == null ? null : new ShopItemConfig
+                {
+                    item = i.item,
+                    quantity = i.quantity,
+                    restock = i.restock
+                }).ToArray() ?? Array.Empty<ShopItemConfig>()
+            };
+        }
+    }
+
+    [Serializable]
+    public sealed class ShopItemConfig
+    {
+        public string item;
+        public int quantity;
+        public string restock;
+    }
+
+    [Serializable]
+    public sealed class ShopInventoryConfig
+    {
+        public int slots = 1;
+        public int stackSize = 1;
+
+        public void ApplyDefaults()
+        {
+            slots = Math.Max(1, slots);
+            stackSize = Math.Max(1, stackSize);
+        }
+    }
+
+    [Serializable]
+    public sealed class MapBuildingPrototypeConfig
+    {
+        public string idPrefix;
+        public string type;
+        public string[] tags = Array.Empty<string>();
+        public BuildingConfig building;
+        public PrototypeServicePointConfig[] servicePoints = Array.Empty<PrototypeServicePointConfig>();
+
+        public void ApplyDefaults()
+        {
+            tags ??= Array.Empty<string>();
+            servicePoints ??= Array.Empty<PrototypeServicePointConfig>();
+            building?.ApplyDefaults();
+        }
+    }
+
+    [Serializable]
+    public sealed class PrototypeServicePointConfig
+    {
+        public float x;
+        public float y;
+    }
+
+    [Serializable]
+    public sealed class VillageLocation
+    {
+        public string id;
+        public string name;
+        public string type;
+        public double[] bbox;
+        public double[] center;
+        public int radius;
+
+        public void ApplyDefaults()
+        {
+            id ??= string.Empty;
+            name ??= string.Empty;
+            type ??= string.Empty;
             radius = Math.Max(0, radius);
         }
 
-            return result;
+        public static VillageLocation Clone(VillageLocation src, string fallbackId)
+        {
+            if (src == null)
+            {
+                throw new InvalidOperationException($"Village location '{fallbackId}' must not be null.");
+            }
+
+            if (string.IsNullOrWhiteSpace(src.id))
+            {
+                throw new InvalidOperationException($"Village location '{fallbackId}' must specify an 'id'.");
+            }
+
+            if (src.bbox == null || src.bbox.Length != 4)
+            {
+                throw new InvalidOperationException($"Village location '{src.id.Trim()}' must specify a 'bbox' with four coordinates.");
+            }
+
+            if (src.center == null || src.center.Length < 2)
+            {
+                throw new InvalidOperationException($"Village location '{src.id.Trim()}' must specify a 'center' with two coordinates.");
+            }
+
+            return new VillageLocation
+            {
+                id = src.id,
+                name = src.name,
+                type = src.type,
+                bbox = src.bbox.ToArray(),
+                center = src.center.ToArray(),
+                radius = src.radius
+            };
+        }
     }
 
-        private static double[] ResolveBoundingBox(VillageBuildingAnnotation annotation, IReadOnlyDictionary<string, VillageLocation> locations)
     [Serializable]
     public sealed class VillageBuildingAnnotation
     {
-            if (annotation == null)
-                throw new InvalidOperationException("Building annotations must not be null when resolving bounding boxes.");
-        public string villageId;
-        public string buildingId;
-        public GridPos position;
+        public string name;
+        public string location;
+        public double[] bbox;
+        public float rotation;
+        public string[] tags = Array.Empty<string>();
+        public Dictionary<string, double> attributes = new Dictionary<string, double>();
 
-            if (annotation.bbox != null)
         public void ApplyDefaults()
         {
-            if (villageId == null)
-            {
-                villageId = string.Empty;
-            }
-
-            if (buildingId == null)
-            {
-                buildingId = string.Empty;
-            }
+            name ??= string.Empty;
+            tags ??= Array.Empty<string>();
+            attributes ??= new Dictionary<string, double>();
         }
-
-            if (string.IsNullOrWhiteSpace(annotation.location))
-                throw new InvalidOperationException($"Building '{annotation.name}' must define either a 'bbox' or a 'location' reference.");
-            if (locations == null || locations.Count == 0)
-                throw new InvalidOperationException($"No village locations are available to resolve building '{annotation.name}'.");
-            if (!locations.TryGetValue(annotation.location.Trim(), out var loc) || loc?.bbox == null || loc.bbox.Length != 4)
-                throw new InvalidOperationException($"Building '{annotation.name}' references unknown location '{annotation.location}'.");
-
-            return loc.bbox.ToArray();
     }
 
-        private static IReadOnlyList<GridPos> BuildServicePoints(MapServicePointConfig[] configs, RectInt area)
     [Serializable]
     public sealed class MapServicePointConfig
     {
-            if (configs == null || configs.Length == 0)
-                return Array.Empty<GridPos>();
         public string id;
         public string displayName;
         public string serviceType;
         public GridPos position;
 
-            var points = new List<GridPos>();
-            foreach (var cfg in configs)
         public void ApplyDefaults()
         {
-            if (id == null)
-            {
-                id = string.Empty;
-            }
-
-            if (displayName == null)
-            {
-                displayName = id;
-            }
-
-            if (serviceType == null)
-            {
-                serviceType = string.Empty;
-            }
+            id ??= string.Empty;
+            displayName ??= id;
+            serviceType ??= string.Empty;
         }
     }
 
-        private static GridPos? FindDoorLocation(RectInt area, IReadOnlyList<GridPos> servicePoints, bool[,] walkable)
-        {
-            if (walkable == null)
-                return null;
-
-            int width = walkable.GetLength(0);
-            int height = walkable.GetLength(1);
-
-            bool IsInsideMap(GridPos p) => p.X >= 0 && p.Y >= 0 && p.X < width && p.Y < height;
-            bool IsOnPerimeter(GridPos p)
     [Serializable]
     public sealed class VillageConfig
     {
-                if (!area.Contains(p))
-                    return false;
-                return p.X == area.MinX || p.X == area.MaxX || p.Y == area.MinY || p.Y == area.MaxY;
-            }
         public string id;
         public string displayName;
         public VillageLocation location = new VillageLocation();
         public BuildingConfig[] buildings = Array.Empty<BuildingConfig>();
         public MapServicePointConfig[] servicePoints = Array.Empty<MapServicePointConfig>();
         public VillageBuildingAnnotation[] annotations = Array.Empty<VillageBuildingAnnotation>();
+        public VillageMapData map = new VillageMapData();
+        public Dictionary<string, VillageLocation> locations = new Dictionary<string, VillageLocation>(StringComparer.OrdinalIgnoreCase);
 
-            bool HasWalkableNeighborOutside(GridPos p)
-            {
-                ReadOnlySpan<GridPos> dirs = stackalloc GridPos[4]
         public void ApplyDefaults()
         {
-            if (id == null)
-            {
-                id = string.Empty;
-            }
-
-            if (displayName == null)
-            {
-                displayName = id;
-            }
-
-            if (location == null)
-            {
-                location = new VillageLocation();
-            }
-
+            id ??= string.Empty;
+            displayName ??= string.IsNullOrWhiteSpace(displayName) ? id : displayName;
+            location ??= new VillageLocation();
             location.ApplyDefaults();
 
-            if (buildings == null)
-            {
-                buildings = Array.Empty<BuildingConfig>();
-            }
+            buildings ??= Array.Empty<BuildingConfig>();
             foreach (var building in buildings)
             {
-                    var neighbor = new GridPos(p.X + dir.X, p.Y + dir.Y);
-                    if (!IsInsideMap(neighbor))
-                        continue;
-                    if (area.Contains(neighbor))
-                        continue;
-                    if (walkable[neighbor.X, neighbor.Y])
-                        return true;
-                }
-
-                return false;
                 building?.ApplyDefaults();
             }
 
-            if (servicePoints == null)
-            {
-                servicePoints = Array.Empty<MapServicePointConfig>();
-            }
+            servicePoints ??= Array.Empty<MapServicePointConfig>();
             foreach (var servicePoint in servicePoints)
             {
-                    if (!IsOnPerimeter(sp) || !IsInsideMap(sp))
-                        continue;
-                    if (HasWalkableNeighborOutside(sp))
-                        return sp;
-                    if (!fallback.HasValue)
-                        fallback = sp;
-                }
                 servicePoint?.ApplyDefaults();
             }
 
-            if (annotations == null)
-            {
-                annotations = Array.Empty<VillageBuildingAnnotation>();
-            }
+            annotations ??= Array.Empty<VillageBuildingAnnotation>();
             foreach (var annotation in annotations)
             {
-                if (!IsInsideMap(candidate))
+                annotation?.ApplyDefaults();
+            }
+
+            map ??= new VillageMapData();
+            map.ApplyDefaults();
+
+            locations ??= new Dictionary<string, VillageLocation>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in locations.ToArray())
+            {
+                if (kv.Value == null)
+                {
+                    locations.Remove(kv.Key);
                     continue;
-                if (HasWalkableNeighborOutside(candidate))
-                    return candidate;
-                if (!fallback.HasValue)
-                    fallback = candidate;
+                }
+
+                kv.Value.ApplyDefaults();
+            }
+        }
+    }
+
+    [Serializable]
+    public sealed class VillageMapData
+    {
+        public Dictionary<string, string> key = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public VillageMapAnnotations annotations = new VillageMapAnnotations();
+
+        public void ApplyDefaults()
+        {
+            key ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            annotations ??= new VillageMapAnnotations();
+            annotations.ApplyDefaults();
+        }
+    }
+
+    [Serializable]
+    public sealed class VillageMapAnnotations
+    {
+        public VillageBuildingAnnotation[] buildings = Array.Empty<VillageBuildingAnnotation>();
+
+        public void ApplyDefaults()
+        {
+            buildings ??= Array.Empty<VillageBuildingAnnotation>();
+            foreach (var annotation in buildings)
+            {
                 annotation?.ApplyDefaults();
             }
         }
-
-            if (fallback.HasValue)
-                return fallback;
-
-            int midX = area.MinX + (area.MaxX - area.MinX) / 2;
-            var door = new GridPos(midX, area.MaxY);
-            return IsInsideMap(door) ? door : (GridPos?)null;
     }
 
-        private static IEnumerable<GridPos> EnumeratePerimeter(RectInt area)
     [Serializable]
     public sealed class WorldMapConfig
     {
-            if (area.IsEmpty)
-                yield break;
-        public GridPos mapSize = new GridPos(32, 32);
-        public float tileSpacing = 1f;
-        public VillageConfig[] villages = Array.Empty<VillageConfig>();
-        public MapBuildingPrototypeConfig[] buildingPrototypes = Array.Empty<MapBuildingPrototypeConfig>();
+        public string image;
+        public string key;
+        public string data;
+        public string annotations;
+        public int tileSize = 1;
+        public Dictionary<string, MapTileConfig> tiles = new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, MapBuildingPrototypeConfig> buildingPrototypes = new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
 
-            for (int x = area.MinX; x <= area.MaxX; x++)
-        public static WorldMapConfig CreateEmpty()
-        {
-                yield return new GridPos(x, area.MinY);
-                if (area.MaxY != area.MinY)
-                    yield return new GridPos(x, area.MaxY);
-            return new WorldMapConfig();
-        }
+        public static WorldMapConfig CreateEmpty() => new WorldMapConfig();
 
-            if (area.MinX == area.MaxX)
-                yield break;
-
-            for (int y = area.MinY + 1; y < area.MaxY; y++)
         public void ApplyDefaults()
         {
-                yield return new GridPos(area.MinX, y);
-                yield return new GridPos(area.MaxX, y);
+            tileSize = Math.Max(1, tileSize);
+            tiles ??= new Dictionary<string, MapTileConfig>(StringComparer.OrdinalIgnoreCase);
+            buildingPrototypes ??= new Dictionary<string, MapBuildingPrototypeConfig>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in buildingPrototypes.ToArray())
+            {
+                kv.Value?.ApplyDefaults();
             }
         }
-            tileSpacing = Mathf.Max(0.01f, tileSpacing);
+    }
 
-            if (villages == null)
-            {
-                villages = Array.Empty<VillageConfig>();
-            }
-            foreach (var village in villages)
-            {
-            if (hex.StartsWith("#", StringComparison.Ordinal))
-                hex = hex[1..];
-            if (hex.Length != 6)
-                throw new InvalidOperationException($"Color '{hex}' must be a 6-character hex code.");
-                village?.ApplyDefaults();
-            }
-
-            if (buildingPrototypes == null)
-            {
-                buildingPrototypes = Array.Empty<MapBuildingPrototypeConfig>();
-            }
-            foreach (var prototype in buildingPrototypes)
-            {
-                throw new InvalidOperationException($"Color '{hex}' contains invalid hex characters.");
-                prototype?.ApplyDefaults();
-            }
-
-            return new Rgba32(r, g, b, 255);
-        }
+    [Serializable]
+    public sealed class MapTileConfig
+    {
+        public bool walkable;
+        public bool farmland;
+        public bool water;
+        public bool shallowWater;
+        public bool forest;
+        public bool coastal;
     }
 }
