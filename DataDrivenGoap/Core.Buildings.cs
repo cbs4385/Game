@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DataDrivenGoap.Compatibility;
 
 namespace DataDrivenGoap.Core
 {
@@ -33,7 +34,7 @@ namespace DataDrivenGoap.Core
 
         public bool Equals(RectInt other) => MinX == other.MinX && MinY == other.MinY && MaxX == other.MaxX && MaxY == other.MaxY;
         public override bool Equals(object obj) => obj is RectInt r && Equals(r);
-        public override int GetHashCode() => HashCode.Combine(MinX, MinY, MaxX, MaxY);
+        public override int GetHashCode() => HashCodeCompat.Combine(MinX, MinY, MaxX, MaxY);
         public override string ToString() => IsEmpty ? "<empty>" : $"[{MinX},{MinY}]-[{MaxX},{MaxY}]";
     }
 
