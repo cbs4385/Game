@@ -286,7 +286,7 @@ namespace DataDrivenGoap.Unity
 
             var random = new System.Random(initialConfig.RandomSeed);
             var content = GoapContentLoader.Load();
-            var map = MapGenerator.Generate(mapDefinition, initialConfig, random);
+            var map = MapGenerator.Generate(mapDefinition, initialConfig);
             var pawns = PawnFactory.Create(map, initialConfig, pawnDefinitions, random);
             var config = pawns.Count == initialConfig.PawnCount
                 ? initialConfig

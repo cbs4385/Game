@@ -116,6 +116,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
     }
 
+    private bool TryLoadMapDefinition(out MapDefinitionDto mapDefinition)
+    {
+        mapDefinition = LoadMapDefinition();
+        return true;
+    }
+
     private void OnValidate()
     {
         if (!EditorApplication.isPlaying && mapLoaderSettings != null && mapLoaderSettings.TryAssignEditorDefaults())
