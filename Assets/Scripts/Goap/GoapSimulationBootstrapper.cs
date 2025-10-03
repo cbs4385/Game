@@ -25,6 +25,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private readonly Dictionary<Vector2Int, GameObject> _tiles = new();
     private readonly Dictionary<int, GameObject> _pawns = new();
+    private readonly Dictionary<int, PawnSnapshot> _pawnSnapshots = new();
     private Simulation _simulation;
     private SimulationConfig _config;
     private Transform _mapRoot;
@@ -52,6 +53,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _simulation.PawnSpawned += HandlePawnSpawned;
         _simulation.PawnUpdated += HandlePawnUpdated;
         _simulation.Start();
+
+        Debug.Log(
+            $"GOAP simulation started with world {mapSize.x}x{mapSize.y}, {pawnCount} pawns, tile spacing {tileSpacing:F2}, elevation range {elevationRange.x:F2}-{elevationRange.y:F2}, pawn speed {pawnSpeed:F2}, height offset {pawnHeightOffset:F2} (seed {randomSeed}).");
 
         ConfigureCamera();
     }
@@ -109,6 +113,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         renderer.color = EvaluateElevationColor(tile.NormalizedElevation);
 
         _tiles[tile.Coordinates] = tileObject;
+
+        Debug.Log(
+            $"Tile generated at {tile.Coordinates} | elevation {tile.Elevation:F2} (normalized {tile.NormalizedElevation:F2}), traversal cost {tile.TraversalCost:F2}, world center {tile.WorldCenter}.");
     }
 
     private void HandlePawnSpawned(PawnSnapshot pawn)
@@ -130,6 +137,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         pawnObject.transform.position = ProjectTo2D(pawn.WorldPosition);
         _pawns[pawn.Id] = pawnObject;
+        _pawnSnapshots[pawn.Id] = pawn;
+
+        Debug.Log($"Pawn spawned: {pawn.Name} (ID {pawn.Id}) at tile {pawn.Tile} targeting {pawn.TargetTile}, world position {pawn.WorldPosition}.");
     }
 
     private void HandlePawnUpdated(PawnSnapshot pawn)
@@ -138,6 +148,22 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             pawnObject.transform.position = ProjectTo2D(pawn.WorldPosition);
         }
+
+        if (_pawnSnapshots.TryGetValue(pawn.Id, out var previous))
+        {
+            if (pawn.Tile != previous.Tile)
+            {
+                Debug.Log(
+                    $"Pawn {pawn.Name} reached tile {pawn.Tile} at world position {pawn.WorldPosition}. Target tile remains {pawn.TargetTile}.");
+            }
+
+            if (pawn.TargetTile != previous.TargetTile)
+            {
+                Debug.Log($"Pawn {pawn.Name} now targeting tile {pawn.TargetTile}.");
+            }
+        }
+
+        _pawnSnapshots[pawn.Id] = pawn;
     }
 
     private Color EvaluateElevationColor(float normalizedHeight)
