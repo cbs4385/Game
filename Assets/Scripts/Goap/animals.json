@@ -1,0 +1,62 @@
+[
+  {
+    "id": "P-0102",
+    "species": "cow",
+    "feedItemId": "animal_feed",
+    "feedQuantity": 1,
+    "hungerHours": 18,
+    "happinessHalfLifeHours": 48,
+    "feedHappiness": 0.25,
+    "brushHappiness": 0.2,
+    "brushCooldownHours": 12,
+    "produce": [
+      {
+        "item": "milk_jug",
+        "quantity": 1,
+        "intervalHours": 20,
+        "happinessThreshold": 0.55,
+        "hungerThreshold": 0.6
+      }
+    ]
+  },
+  {
+    "id": "P-0103",
+    "species": "sheep",
+    "feedItemId": "animal_feed",
+    "feedQuantity": 1,
+    "hungerHours": 20,
+    "happinessHalfLifeHours": 40,
+    "feedHappiness": 0.22,
+    "brushHappiness": 0.18,
+    "brushCooldownHours": 10,
+    "produce": [
+      {
+        "item": "wool_bundle",
+        "quantity": 1,
+        "intervalHours": 24,
+        "happinessThreshold": 0.5,
+        "hungerThreshold": 0.65
+      }
+    ]
+  },
+  {
+    "id": "P-0104",
+    "species": "chicken",
+    "feedItemId": "animal_feed",
+    "feedQuantity": 1,
+    "hungerHours": 16,
+    "happinessHalfLifeHours": 36,
+    "feedHappiness": 0.18,
+    "brushHappiness": 0.12,
+    "brushCooldownHours": 8,
+    "produce": [
+      {
+        "item": "egg",
+        "quantity": 1,
+        "intervalHours": 14,
+        "happinessThreshold": 0.45,
+        "hungerThreshold": 0.55
+      }
+    ]
+  }
+]

@@ -1,0 +1,894 @@
+[
+  {
+    "id": "reduce_loneliness",
+    "priority": "max(0, 3.0 * (attr($self,'loneliness') - 0.2))",
+    "satisfiedWhen": [
+      "attr($self,'loneliness') <= 0.2"
+    ],
+    "actions": [
+      {
+        "id": "chat",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "attr($target,'health') > 0 && !fact('dead',$target,'') && !fact('recently_chatted',$target,'') && !has_active_reservation($target)"
+        }
+      }
+    ]
+  },
+  {
+    "id": "recover_energy",
+    "priority": "max(0, 5.0 * (attr($self,'fatigue') - 0.30))",
+    "satisfiedWhen": [
+      "attr($self,'fatigue') <= 0.35"
+    ],
+    "actions": [
+      {
+        "id": "sleep_in_bed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "bed",
+          "excludeSelf": true
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "nearestTag",
+          "tag": "safe_spot",
+          "excludeSelf": true
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "satisfy_hunger",
+    "priority": "max(0, 8.0 * (attr($self,'hunger') - 0.30))",
+    "satisfiedWhen": [
+      "attr($self,'hunger') <= 0.3"
+    ],
+    "actions": [
+      {
+        "id": "eat_inventory_food",
+        "target": {
+          "type": "self"
+        }
+      },
+      {
+        "id": "eat_food",
+        "target": {
+          "type": "nearestTag",
+          "tag": "food",
+          "excludeSelf": true,
+          "where": "fact('has_item',$self,$target)"
+        }
+      },
+      {
+        "id": "pick_up",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "food",
+          "excludeSelf": true,
+          "where": "attr($target,'consumed') == 0 && !fact('has_item',$self,$target) && attr($target,'held') == 0"
+        }
+      },
+      {
+        "id": "eat_food",
+        "target": {
+          "type": "nearestTag",
+          "tag": "food",
+          "excludeSelf": true,
+          "where": "fact('has_item',$self,$target)"
+        }
+      },
+      {
+        "id": "eat_cooked_food",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "food_source",
+          "excludeSelf": true,
+          "where": "count_food_available($target) > 0"
+        }
+      },
+      {
+        "id": "cook_food",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "food_source",
+          "excludeSelf": true,
+          "where": "attr($self,'ingredients') >= 1 && count_food_available($target) < attr($target,'food_capacity')"
+        }
+      },
+      {
+        "id": "collect_ingredient",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "ingredient_source",
+          "excludeSelf": true,
+          "where": "attr($target,'ingredients') > 0 && attr($self,'ingredients') < 10"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "restock_pantry",
+    "priority": "max(0, 5.0 * (attr($self,'hunger') - 0.35) * (1 - min(count($self,'tag:edible'),1)))",
+    "satisfiedWhen": [
+      "count($self,'tag:edible') >= 1"
+    ],
+    "actions": [
+      {
+        "id": "craft_bread",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "can_craft($self,'bake_bread',$target)"
+        }
+      },
+      {
+        "id": "buy_item",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'bread_loaf')"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "arm_self",
+    "priority": "max(0, 2.0 * (attr($self,'aggression') - 0.3) * clamp(attr($self,'health') + 0.2, 0, 1))",
+    "satisfiedWhen": [
+      "fact('has_weapon',$self,'')"
+    ],
+    "actions": [
+      {
+        "id": "pick_up",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "weapon",
+          "excludeSelf": true,
+          "where": "attr($target,'held') == 0 && !fact('has_item',$self,$target)"
+        }
+      }
+    ]
+  },
+  {
+    "id": "vent_aggression",
+    "priority": "max(0, attr($self,'aggression') * clamp(attr($self,'health') - 0.1, 0, 1))",
+    "satisfiedWhen": [
+      "attr($self,'aggression') <= 0.25"
+    ],
+    "actions": [
+      {
+        "id": "attack",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "attr($target,'health') > 0 && !fact('dead',$target,'')"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "earn_money",
+    "priority": "max(0, (6 - currency($self)) * 0.25)",
+    "satisfiedWhen": [
+      "currency($self) >= 6"
+    ],
+    "actions": [
+      {
+        "id": "work_shift",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "workplace",
+          "excludeSelf": true,
+          "where": "fact('works_at',$self,$target) && is_open($target)"
+        }
+      },
+      {
+        "id": "sell_turnip",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'turnip')"
+        }
+      },
+      {
+        "id": "sell_strawberry",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'strawberry')"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "maintain_fields",
+    "priority": "max(0, 0.5 + crop_ready_count() * 4 + has($self,'turnip_seed') * 0.5 + has($self,'strawberry_seed') * 0.5 + has($self,'sungrain_seed') * 0.6 + has($self,'lavender_seed') * 0.7)",
+    "satisfiedWhen": [
+      "false"
+    ],
+    "actions": [
+      {
+        "id": "harvest_crop",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_ready($target) > 0"
+        }
+      },
+      {
+        "id": "water_crop",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_has($target) > 0 && crop_needs_water($target) > 0"
+        }
+      },
+      {
+        "id": "plant_turnip_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_empty($target) > 0 && crop_tilled($target) > 0 && has($self,'turnip_seed')"
+        }
+      },
+      {
+        "id": "plant_strawberry_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_empty($target) > 0 && crop_tilled($target) > 0 && has($self,'strawberry_seed')"
+        }
+      },
+      {
+        "id": "plant_sungrain_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_empty($target) > 0 && crop_tilled($target) > 0 && has($self,'sungrain_seed')"
+        }
+      },
+      {
+        "id": "plant_lavender_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_empty($target) > 0 && crop_tilled($target) > 0 && has($self,'lavender_seed')"
+        }
+      },
+      {
+        "id": "till_soil",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_tilled($target) == 0"
+        }
+      },
+      {
+        "id": "buy_turnip_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'turnip_seed')"
+        }
+      },
+      {
+        "id": "buy_strawberry_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'strawberry_seed')"
+        }
+      },
+      {
+        "id": "buy_sungrain_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'sungrain_seed')"
+        }
+      },
+      {
+        "id": "buy_lavender_seed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'lavender_seed')"
+        }
+      },
+      {
+        "id": "sell_turnip",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'turnip')"
+        }
+      },
+      {
+        "id": "sell_strawberry",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'strawberry')"
+        }
+      },
+      {
+        "id": "sell_sungrain",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'sungrain')"
+        }
+      },
+      {
+        "id": "sell_lavender",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'lavender')"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "care_for_livestock",
+    "priority": "max(0, animals_need_feed() * 3 + animals_have_produce() * 2 + animals_need_brush() * 1.5)",
+    "satisfiedWhen": [
+      "false"
+    ],
+    "actions": [
+      {
+        "id": "collect_livestock_produce",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "livestock",
+          "excludeSelf": true,
+          "where": "animal_has_produce($target) > 0"
+        }
+      },
+      {
+        "id": "feed_livestock",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "livestock",
+          "excludeSelf": true,
+          "where": "animal_hungry($target) > 0 && has($self,'animal_feed')"
+        }
+      },
+      {
+        "id": "brush_livestock",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "livestock",
+          "excludeSelf": true,
+          "where": "animal_needs_brush($target) > 0"
+        }
+      },
+      {
+        "id": "buy_animal_feed",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'animal_feed')"
+        }
+      },
+      {
+        "id": "sell_milk_jug",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'milk_jug')"
+        }
+      },
+      {
+        "id": "sell_egg",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'egg')"
+        }
+      },
+      {
+        "id": "sell_wool_bundle",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($self,'wool_bundle')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "social_progress",
+    "priority": "max(0, (attr($self,'loneliness') - 0.25) * (0.5 + min(count($self,'tag:gift'),1)))",
+    "satisfiedWhen": [
+      "attr($self,'loneliness') <= 0.25"
+    ],
+    "actions": [
+      {
+        "id": "buy_item",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "shop",
+          "excludeSelf": true,
+          "where": "is_open($target) && has($target,'bread_loaf')"
+        }
+      },
+      {
+        "id": "give_gift",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "attr($target,'health') > 0 && !fact('dead',$target,'')"
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "participate_in_event",
+    "priority": "fact('festival_active','$world','spring_market') * 5.0",
+    "satisfiedWhen": [
+      "!fact('festival_active','$world','spring_market')"
+    ],
+    "actions": [
+      {
+        "id": "spring_market_socialize",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'spring_market')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "eliminate_enemy",
+    "priority": "max(0, (attr($self,'aggression') - 0.55) * clamp(attr($self,'health') - 0.25, 0, 1))",
+    "satisfiedWhen": [
+      "(attr($target,'health') <= 0) || fact('dead',$target,'')"
+    ],
+    "actions": [
+      {
+        "id": "attack",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "attr($target,'health') > 0 && !fact('dead',$target,'') && fact('has_weapon',$self,'')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "stay_alive",
+    "priority": "max(0, 5.0 * (0.35 - attr($self,'health')))",
+    "satisfiedWhen": [
+      "attr($self,'health') >= 0.45"
+    ],
+    "actions": [
+      {
+        "id": "flee",
+        "target": {
+          "type": "nearestTag",
+          "tag": "safe_spot",
+          "excludeSelf": true
+        }
+      },
+      {
+        "id": "wait",
+        "target": {
+          "type": "self"
+        }
+      }
+    ]
+  },
+  {
+    "id": "stock_fresh_fish",
+    "priority": "max(0, 0.35 + fish_spot_count() * 0.12 + has($self,'river_bait') * 0.3)",
+    "satisfiedWhen": [
+      "count($self,'tag:fish') >= 1"
+    ],
+    "actions": [
+      {
+        "id": "move_to",
+        "where": "fish_available($target) > 0",
+        "targetTag": "fishing_spot"
+      },
+      {
+        "id": "cast_line",
+        "targetTag": "fishing_spot"
+      }
+    ]
+  },
+  {
+    "id": "collect_forage",
+    "priority": "max(0, 0.25 + forage_spot_count() * 0.18)",
+    "satisfiedWhen": [
+      "count($self,'tag:forage') >= 1"
+    ],
+    "actions": [
+      {
+        "id": "move_to",
+        "where": "forage_available($target) > 0",
+        "targetTag": "forage_spot"
+      },
+      {
+        "id": "gather_forage",
+        "targetTag": "forage_spot"
+      }
+    ]
+  },
+  {
+    "id": "collect_ore",
+    "priority": "max(0, 0.2 + mine_spot_count() * 0.25)",
+    "satisfiedWhen": [
+      "count($self,'tag:ore') >= 1"
+    ],
+    "actions": [
+      {
+        "id": "move_to",
+        "where": "ore_available($target) > 0",
+        "targetTag": "mine_node"
+      },
+      {
+        "id": "mine_ore",
+        "targetTag": "mine_node"
+      }
+    ]
+  },
+  {
+    "id": "assist_bakery",
+    "priority": "quest_ready_to_turn_in($self,'bakers_intro') * 12 + quest_active($self,'bakers_intro') * 8 + quest_available($self,'bakers_intro') * 5",
+    "satisfiedWhen": [
+      "quest_completed($self,'bakers_intro')"
+    ],
+    "actions": [
+      {
+        "id": "accept_bakers_intro",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'Bakery')"
+        }
+      },
+      {
+        "id": "collect_ingredient",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "ingredient_source",
+          "excludeSelf": true,
+          "where": "attr($target,'ingredients') > 0"
+        }
+      },
+      {
+        "id": "cook_food",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "food_source",
+          "excludeSelf": true,
+          "where": "count_food_available($target) < attr($target,'food_capacity')"
+        }
+      },
+      {
+        "id": "deliver_bread_to_mayor",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'MayorHouse')"
+        }
+      },
+      {
+        "id": "claim_bakers_intro_reward",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'Bakery')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "assist_harvest_preparations",
+    "priority": "quest_ready_to_turn_in($self,'harvest_preparations') * 13 + quest_active($self,'harvest_preparations') * 9 + quest_available($self,'harvest_preparations') * 4",
+    "satisfiedWhen": [
+      "quest_completed($self,'harvest_preparations')"
+    ],
+    "actions": [
+      {
+        "id": "accept_harvest_preparations",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'FarmField')"
+        }
+      },
+      {
+        "id": "gather_autumn_produce",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "field_plot",
+          "excludeSelf": true,
+          "where": "crop_ready($target) > 0"
+        }
+      },
+      {
+        "id": "decorate_autumn_square",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'autumn_harvest_fair')"
+        }
+      },
+      {
+        "id": "claim_harvest_preparations_reward",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'FarmField')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "assist_harvest_feast",
+    "priority": "quest_ready_to_turn_in($self,'harvest_feast') * 14 + quest_active($self,'harvest_feast') * 10 + quest_available($self,'harvest_feast') * 4",
+    "satisfiedWhen": [
+      "quest_completed($self,'harvest_feast')"
+    ],
+    "actions": [
+      {
+        "id": "accept_harvest_feast",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'MayorHouse')"
+        }
+      },
+      {
+        "id": "cook_harvest_courses",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_kitchen",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'autumn_harvest_fair')"
+        }
+      },
+      {
+        "id": "serve_harvest_guests",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'autumn_harvest_fair')"
+        }
+      },
+      {
+        "id": "claim_harvest_feast_reward",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'MayorHouse')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "support_winter_lights",
+    "priority": "quest_ready_to_turn_in($self,'winter_lights') * 14 + quest_active($self,'winter_lights') * 9 + quest_available($self,'winter_lights') * 4",
+    "satisfiedWhen": [
+      "quest_completed($self,'winter_lights')"
+    ],
+    "actions": [
+      {
+        "id": "accept_winter_lights",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'Library')"
+        }
+      },
+      {
+        "id": "craft_winter_lanterns",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_workshop",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'winter_lights_ceremony')"
+        }
+      },
+      {
+        "id": "hang_winter_lanterns",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'winter_lights_ceremony')"
+        }
+      },
+      {
+        "id": "claim_winter_lights_reward",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "actor",
+          "excludeSelf": true,
+          "where": "fact('works_at',$target,'Library')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "participate_in_harvest_fair",
+    "priority": "fact('festival_active','$world','autumn_harvest_fair') * 5.0",
+    "satisfiedWhen": [
+      "!fact('festival_active','$world','autumn_harvest_fair')"
+    ],
+    "actions": [
+      {
+        "id": "autumn_fair_socialize",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'autumn_harvest_fair')"
+        }
+      }
+    ]
+  },
+  {
+    "id": "participate_in_winter_lights",
+    "priority": "fact('festival_active','$world','winter_lights_ceremony') * 5.5",
+    "satisfiedWhen": [
+      "!fact('festival_active','$world','winter_lights_ceremony')"
+    ],
+    "actions": [
+      {
+        "id": "winter_lights_socialize",
+        "moveToTarget": true,
+        "target": {
+          "type": "nearestTag",
+          "tag": "festival_square",
+          "excludeSelf": false,
+          "where": "fact('festival_spot',$target,'winter_lights_ceremony')"
+        }
+      }
+    ]
+  }
+]

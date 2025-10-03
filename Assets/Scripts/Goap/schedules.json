@@ -1,0 +1,190 @@
+{
+  "roles": [
+    {
+      "id": "Shopkeeper",
+      "blocks": [
+        { "start": "06:00", "end": "09:00", "goto": "type:home", "task": "wait" },
+        { "start": "09:00", "end": "18:00", "goto": "type:general_store", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Baker",
+      "blocks": [
+        { "start": "05:00", "end": "07:30", "goto": "type:home", "task": "wait" },
+        { "start": "07:30", "end": "16:30", "goto": "type:bakery", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "16:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Apprentice",
+      "blocks": [
+        { "start": "06:30", "end": "08:00", "goto": "type:home", "task": "wait" },
+        { "start": "08:00", "end": "12:00", "goto": "type:bakery", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "12:00", "end": "13:30", "goto": "safe_spot", "task": "chat", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "13:30", "end": "17:30", "goto": "type:bakery", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "17:30", "end": "19:30", "goto": "safe_spot", "task": "chat" },
+        { "start": "19:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "HeadTeacher",
+      "blocks": [
+        { "start": "06:00", "end": "08:00", "goto": "type:home", "task": "wait" },
+        { "start": "08:00", "end": "12:00", "goto": "type:school", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "12:00", "end": "13:00", "goto": "type:school", "task": "wait", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "13:00", "end": "16:30", "goto": "type:school", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "16:30", "end": "18:00", "goto": "safe_spot", "task": "chat" },
+        { "start": "18:00", "end": "21:30", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Teacher",
+      "blocks": [
+        { "start": "07:00", "end": "08:30", "goto": "type:home", "task": "wait" },
+        { "start": "08:30", "end": "15:30", "goto": "type:school", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "15:30", "end": "20:30", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Librarian",
+      "blocks": [
+        { "start": "08:00", "end": "17:00", "goto": "type:library", "task": "work_shift", "days": ["Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "17:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Priest",
+      "blocks": [
+        { "start": "06:00", "end": "09:00", "goto": "type:church", "task": "wait" },
+        { "start": "09:00", "end": "12:00", "goto": "type:church", "task": "work_shift", "days": ["Sun"] },
+        { "start": "12:00", "end": "21:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Mayor",
+      "blocks": [
+        { "start": "07:00", "end": "09:30", "goto": "type:home", "task": "wait" },
+        { "start": "09:30", "end": "17:30", "goto": "type:mayor_house", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "17:30", "end": "21:30", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Townsperson",
+      "blocks": [
+        { "start": "06:00", "end": "09:00", "goto": "type:home", "task": "wait" },
+        { "start": "09:00", "end": "18:00", "goto": "safe_spot", "task": "chat" },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Clerk",
+      "blocks": [
+        { "start": "06:30", "end": "08:30", "goto": "type:home", "task": "wait" },
+        { "start": "08:30", "end": "17:30", "goto": "type:mayor_house", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+        { "start": "08:30", "end": "17:30", "goto": "type:home", "task": "wait", "days": ["Sat", "Sun"] },
+        { "start": "17:30", "end": "19:30", "goto": "safe_spot", "task": "chat" },
+        { "start": "19:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Apprentice",
+      "blocks": [
+        { "start": "05:30", "end": "07:00", "goto": "type:home", "task": "wait" },
+        { "start": "07:00", "end": "15:00", "goto": "type:bakery", "task": "work_shift", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "07:00", "end": "15:00", "goto": "type:home", "task": "wait", "days": ["Sun"] },
+        { "start": "15:00", "end": "18:00", "goto": "safe_spot", "task": "chat", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] },
+        { "start": "15:00", "end": "18:00", "goto": "type:home", "task": "wait", "days": ["Sun"] },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Farmer",
+      "blocks": [
+        { "start": "05:00", "end": "06:00", "goto": "type:home", "task": "wait" },
+        { "start": "06:00", "end": "12:00", "goto": "thing:FarmField", "task": "work_shift" },
+        { "start": "12:00", "end": "14:00", "goto": "safe_spot", "task": "chat" },
+        { "start": "14:00", "end": "18:00", "goto": "thing:FarmField", "task": "work_shift" },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Spouse",
+      "blocks": [
+        { "start": "06:00", "end": "09:00", "goto": "type:home", "task": "wait" },
+        { "start": "09:00", "end": "12:00", "goto": "thing:FarmField", "task": "work_shift" },
+        { "start": "12:00", "end": "15:00", "goto": "type:home", "task": "wait" },
+        { "start": "15:00", "end": "18:00", "goto": "safe_spot", "task": "chat" },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Farmhand",
+      "blocks": [
+        { "start": "05:30", "end": "07:00", "goto": "type:home", "task": "wait" },
+        { "start": "07:00", "end": "12:00", "goto": "thing:FarmField", "task": "work_shift" },
+        { "start": "12:00", "end": "13:00", "goto": "safe_spot", "task": "chat" },
+        { "start": "13:00", "end": "18:00", "goto": "thing:FarmField", "task": "work_shift" },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "PetDog",
+      "blocks": [
+        { "start": "06:00", "end": "09:00", "goto": "type:home", "task": "wait" },
+        { "start": "09:00", "end": "17:00", "goto": "safe_spot", "task": "wait" },
+        { "start": "17:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "PetCat",
+      "blocks": [
+        { "start": "07:00", "end": "10:00", "goto": "type:home", "task": "wait" },
+        { "start": "10:00", "end": "18:00", "goto": "thing:FarmField", "task": "wait" },
+        { "start": "18:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Cow",
+      "blocks": [
+        { "start": "05:00", "end": "07:00", "goto": "type:home", "task": "wait" },
+        { "start": "07:00", "end": "19:00", "goto": "thing:FarmField", "task": "wait" },
+        { "start": "19:00", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Sheep",
+      "blocks": [
+        { "start": "05:30", "end": "07:30", "goto": "type:home", "task": "wait" },
+        { "start": "07:30", "end": "19:30", "goto": "thing:FarmField", "task": "wait" },
+        { "start": "19:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "id": "Chicken",
+      "blocks": [
+        { "start": "05:30", "end": "07:00", "goto": "type:home", "task": "wait" },
+        { "start": "07:00", "end": "18:30", "goto": "thing:FarmField", "task": "wait" },
+        { "start": "18:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    }
+  ],
+  "pawns": [
+    {
+      "pawn": "P-0009",
+      "role": "Shopkeeper",
+      "blocks": [
+        { "start": "08:30", "end": "18:30", "goto": "type:general_store", "task": "work_shift" },
+        { "start": "18:30", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    },
+    {
+      "pawn": "P-0010",
+      "role": "Clerk",
+      "blocks": [
+        { "start": "08:45", "end": "18:15", "goto": "type:general_store", "task": "work_shift" },
+        { "start": "18:15", "end": "22:00", "goto": "type:home", "task": "wait" }
+      ]
+    }
+  ]
+}
