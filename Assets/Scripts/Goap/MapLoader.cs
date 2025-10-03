@@ -177,14 +177,15 @@ namespace DataDrivenGoap
             try
             {
                 var wrapper = JsonUtilities.Deserialize<WorldMapDefinitionWrapper>(json);
-                if (wrapper?.world == null)
+                var resolvedConfig = ExtractWorldMapConfig(wrapper, json);
+                if (resolvedConfig == null)
                 {
                     config = WorldMapConfig.CreateEmpty();
                     errorMessage = "Failed to deserialize the world map definition.";
                     return false;
                 }
 
-                config = wrapper.world;
+                config = resolvedConfig;
                 config.ApplyDefaults();
                 errorMessage = null;
                 return true;
@@ -994,6 +995,115 @@ namespace DataDrivenGoap
         private sealed class WorldMapDefinitionWrapper
         {
             public WorldMapConfig world { get; set; }
+        }
+
+        private static WorldMapConfig ExtractWorldMapConfig(WorldMapDefinitionWrapper wrapper, string json)
+        {
+            if (IsValidWorldMapConfig(wrapper?.world))
+            {
+                return wrapper.world;
+            }
+
+            if (TryParseWorldMapFromPayload(json, out var parsedConfig) && IsValidWorldMapConfig(parsedConfig))
+            {
+                return parsedConfig;
+            }
+
+            return null;
+        }
+
+        private static bool TryParseWorldMapFromPayload(string json, out WorldMapConfig config)
+        {
+            config = null;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return false;
+            }
+
+            if (MiniJson.Deserialize(json) is not Dictionary<string, object> root)
+            {
+                return false;
+            }
+
+            if (!TryGetCaseInsensitive(root, "world", out var worldValue))
+            {
+                return false;
+            }
+
+            return TryResolveWorldMap(worldValue, out config) && IsValidWorldMapConfig(config);
+        }
+
+        private static bool TryResolveWorldMap(object source, out WorldMapConfig config)
+        {
+            config = JsonUtilities.ConvertTo<WorldMapConfig>(source);
+            if (IsValidWorldMapConfig(config))
+            {
+                return true;
+            }
+
+            if (source is Dictionary<string, object> dict)
+            {
+                if (TryGetCaseInsensitive(dict, "map", out var mapValue))
+                {
+                    var candidate = JsonUtilities.ConvertTo<WorldMapConfig>(mapValue);
+                    if (IsValidWorldMapConfig(candidate))
+                    {
+                        config = candidate;
+                        return true;
+                    }
+                }
+
+                if (TryGetCaseInsensitive(dict, "mapConfig", out var mapConfigValue))
+                {
+                    var candidate = JsonUtilities.ConvertTo<WorldMapConfig>(mapConfigValue);
+                    if (IsValidWorldMapConfig(candidate))
+                    {
+                        config = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetCaseInsensitive(Dictionary<string, object> dict, string key, out object value)
+        {
+            if (dict.TryGetValue(key, out value))
+            {
+                return true;
+            }
+
+            foreach (var kv in dict)
+            {
+                if (string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = kv.Value;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static bool IsValidWorldMapConfig(WorldMapConfig config)
+        {
+            if (config == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.image) ||
+                !string.IsNullOrWhiteSpace(config.key) ||
+                !string.IsNullOrWhiteSpace(config.data) ||
+                (config.tiles != null && config.tiles.Count > 0) ||
+                (config.buildingPrototypes != null && config.buildingPrototypes.Count > 0))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         [Serializable]
