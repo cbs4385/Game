@@ -1,0 +1,48 @@
+[
+  {
+    "id": "turnip",
+    "seasons": ["spring"],
+    "growthStages": [2, 2, 2],
+    "hydrationNeeded": true,
+    "witheredOnSeasonChange": true,
+    "seedItemId": "turnip_seed",
+    "yield": {"item": "turnip", "min": 1, "max": 3},
+    "skill": "farming",
+    "skillXp": 2.0
+  },
+  {
+    "id": "strawberry",
+    "seasons": ["spring", "summer"],
+    "growthStages": [3, 2, 2, 2],
+    "regrowthDays": 2,
+    "hydrationNeeded": true,
+    "witheredOnSeasonChange": true,
+    "seedItemId": "strawberry_seed",
+    "yield": {"item": "strawberry", "min": 1, "max": 2},
+    "skill": "farming",
+    "skillXp": 3.0
+  },
+  {
+    "id": "sungrain",
+    "seasons": ["spring", "summer", "autumn"],
+    "growthStages": [2, 2, 3, 3],
+    "hydrationNeeded": true,
+    "witheredOnSeasonChange": false,
+    "seedItemId": "sungrain_seed",
+    "yield": {"item": "sungrain", "min": 1, "max": 3},
+    "skill": "farming",
+    "skillXp": 3.5
+  },
+  {
+    "id": "lavender",
+    "seasons": ["spring", "summer"],
+    "growthStages": [3, 3, 2, 2],
+    "regrowthDays": 3,
+    "hydrationNeeded": true,
+    "witheredOnSeasonChange": true,
+    "seedItemId": "lavender_seed",
+    "yield": {"item": "lavender", "min": 1, "max": 2},
+    "skill": "farming",
+    "skillXp": 4.0
+  }
+]

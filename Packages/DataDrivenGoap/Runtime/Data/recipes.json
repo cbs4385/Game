@@ -1,0 +1,119 @@
+[
+  {
+    "id": "bake_bread",
+    "inputs": {
+      "sungrain": 2,
+      "turnip": 1
+    },
+    "outputs": {
+      "bread_loaf": 1
+    },
+    "stations": ["bakery"],
+    "gates": [],
+    "time": 2.5
+  },
+  {
+    "id": "mix_forest_salad",
+    "inputs": {
+      "wild_berry": 2,
+      "forest_mushroom": 1,
+      "frost_lichen": 1
+    },
+    "outputs": {
+      "forest_salad": 1
+    },
+    "stations": ["kitchen"],
+    "gates": [],
+    "time": 1.6
+  },
+  {
+    "id": "whittle_river_bait",
+    "inputs": {
+      "driftwood_bundle": 1
+    },
+    "outputs": {
+      "river_bait": 3
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 0.75
+  },
+  {
+    "id": "forge_copper_pickaxe",
+    "inputs": {
+      "copper_ore": 5,
+      "coal_chunk": 2
+    },
+    "outputs": {
+      "copper_pickaxe": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 3.2
+  },
+  {
+    "id": "forge_iron_pickaxe",
+    "inputs": {
+      "iron_ore": 6,
+      "coal_chunk": 3,
+      "copper_pickaxe": 1
+    },
+    "outputs": {
+      "iron_pickaxe": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 4.0
+  },
+  {
+    "id": "craft_sturdy_rod",
+    "inputs": {
+      "driftwood_bundle": 2,
+      "copper_ore": 2
+    },
+    "outputs": {
+      "reinforced_fishing_rod": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 2.8
+  },
+  {
+    "id": "craft_ocean_rod",
+    "inputs": {
+      "reinforced_fishing_rod": 1,
+      "iron_ore": 3,
+      "coal_chunk": 1
+    },
+    "outputs": {
+      "ocean_fishing_rod": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 3.5
+  },
+  {
+    "id": "mill_sungrain_flour",
+    "inputs": {
+      "sungrain": 3
+    },
+    "outputs": {
+      "sungrain_flour": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 1.8
+  },
+  {
+    "id": "press_lavender_oil",
+    "inputs": {
+      "lavender": 4
+    },
+    "outputs": {
+      "lavender_oil": 1
+    },
+    "stations": ["workbench"],
+    "gates": [],
+    "time": 2.6
+  }
+]

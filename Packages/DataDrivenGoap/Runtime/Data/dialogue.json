@@ -1,0 +1,137 @@
+{
+  "nodes": [
+    {
+      "id": "spring_market_greeting",
+      "text": "What a perfect day for the Spring Market!",
+      "conditions": [
+        {"type": "event_active", "eventId": "spring_market"},
+        {"type": "time_between", "startHour": 9.0, "endHour": 18.0}
+      ],
+      "outcomes": []
+    },
+    {
+      "id": "clear_weather_smalltalk",
+      "text": "The sunshine makes the whole town sparkle.",
+      "conditions": [
+        {"type": "weather_is", "weather": "Clear"}
+      ],
+      "outcomes": []
+    },
+    {
+      "id": "fishing_derby_hype",
+      "text": "Grab your rod! The fishing derby is the best day on the calendar.",
+      "conditions": [
+        {"type": "event_active", "eventId": "summer_fishing_derby"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.05}
+      ],
+      "cooldownSeconds": 120.0
+    },
+    {
+      "id": "share_fishing_story",
+      "text": "I still can't believe the size of the perch we reeled in yesterday!",
+      "conditions": [
+        {"type": "inventory_has", "item": "silver_perch", "quantity": 1}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.04}
+      ],
+      "cooldownSeconds": 90.0
+    },
+    {
+      "id": "baker_needs_help",
+      "text": "Could you bring a few fresh ingredients by the bakery when you can?",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "Bakery"},
+        {"type": "has_fact", "fact": "quest_active", "factSubject": "$listener", "factObject": "bakers_intro"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.02}
+      ],
+      "cooldownSeconds": 90.0
+    },
+    {
+      "id": "baker_grateful",
+      "text": "The mayor loved the loaf you delivered—thank you for pitching in!",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "Bakery"},
+        {"type": "has_fact", "fact": "quest_completed", "factSubject": "$listener", "factObject": "bakers_intro"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.03}
+      ],
+      "cooldownSeconds": 120.0
+    },
+    {
+      "id": "farmer_harvest_encouragement",
+      "text": "Those crates are filling up fast—keep at it and we'll dazzle the fair!",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "FarmField"},
+        {"type": "has_fact", "fact": "quest_active", "factSubject": "$listener", "factObject": "harvest_preparations"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.03}
+      ],
+      "cooldownSeconds": 90.0
+    },
+    {
+      "id": "farmer_harvest_thanks",
+      "text": "The plaza looks incredible—couldn't have done it without you!",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "FarmField"},
+        {"type": "has_fact", "fact": "quest_completed", "factSubject": "$listener", "factObject": "harvest_preparations"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.04}
+      ],
+      "cooldownSeconds": 150.0
+    },
+    {
+      "id": "mayor_feast_briefing",
+      "text": "The guests are arriving soon—let's keep those serving trays moving!",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "MayorHouse"},
+        {"type": "has_fact", "fact": "quest_active", "factSubject": "$listener", "factObject": "harvest_feast"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.03}
+      ],
+      "cooldownSeconds": 120.0
+    },
+    {
+      "id": "librarian_winter_lights",
+      "text": "Mind the wax drips—each lantern should glow steady through the longest night.",
+      "conditions": [
+        {"type": "has_fact", "fact": "works_at", "factSubject": "$self", "factObject": "Library"},
+        {"type": "has_fact", "fact": "quest_active", "factSubject": "$listener", "factObject": "winter_lights"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.03}
+      ],
+      "cooldownSeconds": 120.0
+    },
+    {
+      "id": "autumn_fair_cheer",
+      "text": "The Harvest Fair lights up the whole valley—grab a cider and join in!",
+      "conditions": [
+        {"type": "event_active", "eventId": "autumn_harvest_fair"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.02}
+      ],
+      "cooldownSeconds": 100.0
+    },
+    {
+      "id": "winter_lights_cheer",
+      "text": "Nothing beats the glow of lanterns on a winter night, does it?",
+      "conditions": [
+        {"type": "event_active", "eventId": "winter_lights_ceremony"}
+      ],
+      "outcomes": [
+        {"type": "relationship_adjust", "relationship": "friendship", "amount": 0.02}
+      ],
+      "cooldownSeconds": 110.0
+    }
+  ]
+}

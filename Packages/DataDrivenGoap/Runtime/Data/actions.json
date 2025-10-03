@@ -1,0 +1,2610 @@
+[
+  {
+    "id": "move_to",
+    "activity": "MoveTo",
+    "duration": "0.1",
+    "cost": "distance($self,$target)",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) > 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      }
+    ],
+    "effects": [
+      {
+        "op": "move_step",
+        "who": "$self",
+        "towards": "$target",
+        "stopWithin": 1.0
+      }
+    ]
+  },
+  {
+    "id": "chat",
+    "activity": "Chat",
+    "duration": "1.6",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "!fact('recently_chatted',$self,$self)",
+      "!fact('recently_chatted',$self,'')",
+      "distance($self,$target) <= 1",
+      "attr($target,'health') > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "-0.22"
+      },
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "loneliness",
+        "value": "-0.20",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.04"
+      },
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "fatigue",
+        "value": "0.03",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "aggression",
+        "value": "-0.05"
+      },
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "aggression",
+        "value": "-0.03",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_set",
+        "who": "$self",
+        "name": "recently_chatted_cooldown",
+        "value": "1.6",
+        "clamp01": false
+      },
+      {
+        "op": "attr_set",
+        "who": "$target",
+        "name": "recently_chatted_cooldown",
+        "value": "1.6",
+        "clamp01": false,
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$target",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "fact_add",
+        "pred": "adjacent",
+        "a": "$self",
+        "b": "$target"
+      },
+      {
+        "op": "fact_add",
+        "pred": "recently_chatted",
+        "a": "$self",
+        "b": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "recently_chatted",
+        "a": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "recently_chatted",
+        "a": "$target",
+        "when": "!fact('dead',$target,'')"
+      }
+    ]
+  },
+  {
+    "id": "accept_bakers_intro",
+    "activity": "Quest",
+    "duration": "1.4",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_available($self,'bakers_intro')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'Bakery')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_accept",
+        "name": "bakers_intro",
+        "who": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "bakers_intro"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "wait",
+    "activity": "Wait",
+    "duration": "attr($self,'recently_chatted_cooldown') + (1 - fact('recently_chatted',$self,$self)) * (3 - attr($self,'recently_chatted_cooldown'))",
+    "cost": "0.1",
+    "pre": [
+      "!fact('dead',$self,'')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "-0.22"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "0.015"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "aggression",
+        "value": "-0.04"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "health",
+        "value": "0.02"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "recently_chatted_cooldown",
+        "value": "-attr($self,'recently_chatted_cooldown')",
+        "clamp01": false
+      },
+      {
+        "op": "fact_remove",
+        "pred": "recently_chatted",
+        "a": "$self"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "recently_chatted",
+        "a": "$self",
+        "b": "$self"
+      }
+    ]
+  },
+  {
+    "id": "attack",
+    "activity": "Attack",
+    "duration": "2.3",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) <= 1",
+      "attr($target,'health') > 0",
+      "attr($self,'health') > 0.2",
+      "fact('has_weapon',$self,'')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 2
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "health",
+        "value": "-0.30",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "aggression",
+        "value": "-0.35"
+      },
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "aggression",
+        "value": "0.22",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.10"
+      },
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "fatigue",
+        "value": "0.05",
+        "when": "!fact('dead',$target,'')"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "0.02"
+      },
+      {
+        "op": "fact_add",
+        "pred": "dead",
+        "a": "$target",
+        "b": "$self",
+        "when": "attr($target,'health') <= 0"
+      },
+      {
+        "op": "fact_add",
+        "pred": "dead",
+        "a": "$target",
+        "when": "attr($target,'health') <= 0"
+      }
+    ]
+  },
+  {
+    "id": "collect_ingredient",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.3",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "attr($target,'ingredients') > 0",
+      "attr($self,'ingredients') < 10"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$target",
+        "name": "ingredients",
+        "value": "-1",
+        "clamp": false
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "ingredients",
+        "value": "1",
+        "clamp": false
+      },
+      {
+        "op": "quest_progress",
+        "name": "bakers_intro",
+        "value": {
+          "objective": "collect_ingredients",
+          "amount": 1
+        },
+        "who": "$self",
+        "when": "quest_active($self,'bakers_intro')"
+      }
+    ]
+  },
+  {
+    "id": "pick_up",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "!fact('has_item',$self,$target)",
+      "attr($target,'held') == 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "fact_add",
+        "pred": "has_item",
+        "a": "$self",
+        "b": "$target"
+      },
+      {
+        "op": "fact_add",
+        "pred": "has_weapon",
+        "a": "$self",
+        "when": "attr($target,'weapon') > 0"
+      },
+      {
+        "op": "attr_set",
+        "who": "$target",
+        "name": "held",
+        "value": "1",
+        "clamp": false
+      }
+    ]
+  },
+  {
+    "id": "drop_item",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.2",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "fact('has_item',$self,$target)"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "fact_remove",
+        "pred": "has_item",
+        "a": "$self",
+        "b": "$target"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "has_weapon",
+        "a": "$self",
+        "when": "attr($target,'weapon') > 0"
+      },
+      {
+        "op": "attr_set",
+        "who": "$target",
+        "name": "held",
+        "value": "0",
+        "clamp": false
+      }
+    ]
+  },
+  {
+    "id": "sleep_in_bed",
+    "activity": "Rest",
+    "duration": "4.0",
+    "cost": "0.4",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "-0.40"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "health",
+        "value": "0.12"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "aggression",
+        "value": "-0.08"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "rested",
+        "a": "$self"
+      }
+    ]
+  },
+  {
+    "id": "cook_food",
+    "activity": "Work",
+    "duration": "2.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "attr($self,'ingredients') >= 1",
+      "count_food_available($target) < attr($target,'food_capacity')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "ingredients",
+        "value": "-1",
+        "clamp": false
+      },
+      {
+        "type": "spawn",
+        "target": "$target",
+        "name": "meal",
+        "value": {
+          "idPrefix": "food",
+          "tags": [
+            "food",
+            "item",
+            "edible"
+          ],
+          "attributes": {
+            "consumed": 0,
+            "held": 0
+          }
+        }
+      },
+      {
+        "op": "quest_progress",
+        "name": "bakers_intro",
+        "value": {
+          "objective": "bake_loaves",
+          "amount": 1
+        },
+        "who": "$self",
+        "when": "quest_active($self,'bakers_intro')"
+      }
+    ]
+  },
+  {
+    "id": "deliver_bread_to_mayor",
+    "activity": "Quest",
+    "duration": "1.2",
+    "cost": "0.4",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'bakers_intro')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'MayorHouse')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_progress",
+        "name": "bakers_intro",
+        "value": {
+          "objective": "deliver_bread",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "claim_bakers_intro_reward",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.2",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_ready_to_turn_in($self,'bakers_intro')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'Bakery')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_claim",
+        "name": "bakers_intro",
+        "who": "$self"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "bakers_intro"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_completed",
+        "a": "$self",
+        "b": "bakers_intro"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "accept_harvest_preparations",
+    "activity": "Quest",
+    "duration": "1.4",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_available($self,'harvest_preparations')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'FarmField')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_accept",
+        "name": "harvest_preparations",
+        "who": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "harvest_preparations"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "gather_autumn_produce",
+    "activity": "Work",
+    "duration": "1.2",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'harvest_preparations')",
+      "distance($self,$target) <= 1",
+      "crop_ready($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "harvest_crop",
+        "target": "$target"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      },
+      {
+        "op": "quest_progress",
+        "name": "harvest_preparations",
+        "value": {
+          "objective": "gather_autumn_produce",
+          "amount": 1
+        },
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "decorate_autumn_square",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'harvest_preparations')",
+      "fact('festival_active','$world','autumn_harvest_fair')",
+      "fact('festival_spot',$target,'autumn_harvest_fair')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_progress",
+        "name": "harvest_preparations",
+        "value": {
+          "objective": "decorate_fairgrounds",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 60.0
+      }
+    ]
+  },
+  {
+    "id": "claim_harvest_preparations_reward",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.2",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_ready_to_turn_in($self,'harvest_preparations')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'FarmField')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_claim",
+        "name": "harvest_preparations",
+        "who": "$self"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "harvest_preparations"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_completed",
+        "a": "$self",
+        "b": "harvest_preparations"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "accept_harvest_feast",
+    "activity": "Quest",
+    "duration": "1.4",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_available($self,'harvest_feast')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'MayorHouse')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_accept",
+        "name": "harvest_feast",
+        "who": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "harvest_feast"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "cook_harvest_courses",
+    "activity": "Work",
+    "duration": "2.0",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'harvest_feast')",
+      "fact('festival_active','$world','autumn_harvest_fair')",
+      "fact('festival_spot',$target,'autumn_harvest_fair')",
+      "distance($self,$target) <= 1",
+      "attr($self,'ingredients') >= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "ingredients",
+        "value": "-1",
+        "clamp": false
+      },
+      {
+        "op": "quest_progress",
+        "name": "harvest_feast",
+        "value": {
+          "objective": "cook_feast_courses",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 70.0
+      }
+    ]
+  },
+  {
+    "id": "serve_harvest_guests",
+    "activity": "Quest",
+    "duration": "1.2",
+    "cost": "0.4",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'harvest_feast')",
+      "fact('festival_active','$world','autumn_harvest_fair')",
+      "fact('festival_spot',$target,'autumn_harvest_fair')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_progress",
+        "name": "harvest_feast",
+        "value": {
+          "objective": "serve_harvest_guests",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 50.0
+      }
+    ]
+  },
+  {
+    "id": "claim_harvest_feast_reward",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.2",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_ready_to_turn_in($self,'harvest_feast')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'MayorHouse')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_claim",
+        "name": "harvest_feast",
+        "who": "$self"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "harvest_feast"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_completed",
+        "a": "$self",
+        "b": "harvest_feast"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "accept_winter_lights",
+    "activity": "Quest",
+    "duration": "1.4",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_available($self,'winter_lights')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'Library')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_accept",
+        "name": "winter_lights",
+        "who": "$self"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "winter_lights"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "craft_winter_lanterns",
+    "activity": "Work",
+    "duration": "1.6",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'winter_lights')",
+      "fact('festival_active','$world','winter_lights_ceremony')",
+      "fact('festival_spot',$target,'winter_lights_ceremony')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.03"
+      },
+      {
+        "op": "quest_progress",
+        "name": "winter_lights",
+        "value": {
+          "objective": "craft_winter_lanterns",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 55.0
+      }
+    ]
+  },
+  {
+    "id": "hang_winter_lanterns",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.4",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_active($self,'winter_lights')",
+      "fact('festival_active','$world','winter_lights_ceremony')",
+      "fact('festival_spot',$target,'winter_lights_ceremony')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_progress",
+        "name": "winter_lights",
+        "value": {
+          "objective": "hang_winter_lanterns",
+          "amount": 1
+        },
+        "who": "$self"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 45.0
+      }
+    ]
+  },
+  {
+    "id": "claim_winter_lights_reward",
+    "activity": "Quest",
+    "duration": "1.0",
+    "cost": "0.2",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "quest_ready_to_turn_in($self,'winter_lights')",
+      "distance($self,$target) <= 1",
+      "fact('works_at',$target,'Library')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "quest_claim",
+        "name": "winter_lights",
+        "who": "$self"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "quest_active",
+        "a": "$self",
+        "b": "winter_lights"
+      },
+      {
+        "op": "fact_add",
+        "pred": "quest_completed",
+        "a": "$self",
+        "b": "winter_lights"
+      },
+      {
+        "type": "plan_cooldown",
+        "who": "$self"
+      }
+    ]
+  },
+  {
+    "id": "eat_inventory_food",
+    "activity": "Eat",
+    "duration": "1.5",
+    "cost": "0.3",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "count($self,'tag:edible') > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "hunger",
+        "value": "-0.5"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "health",
+        "value": "0.05"
+      },
+      {
+        "op": "inventory_remove",
+        "who": "$self",
+        "name": "tag:edible",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "id": "eat_food",
+    "activity": "Eat",
+    "duration": "1.5",
+    "cost": "0.3",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "fact('has_item',$self,$target)",
+      "attr($target,'consumed') == 0",
+      "attr($target,'held') == 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "hunger",
+        "value": "-0.5"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "health",
+        "value": "0.05"
+      },
+      {
+        "op": "fact_remove",
+        "pred": "has_item",
+        "a": "$self",
+        "b": "$target"
+      },
+      {
+        "op": "attr_set",
+        "who": "$target",
+        "name": "consumed",
+        "value": "1",
+        "clamp": false
+      },
+      {
+        "op": "attr_set",
+        "who": "$target",
+        "name": "held",
+        "value": "0",
+        "clamp": false
+      }
+    ]
+  },
+  {
+    "id": "eat_cooked_food",
+    "activity": "Eat",
+    "duration": "1.5",
+    "cost": "0.3",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "count_food_available($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "hunger",
+        "value": "-0.5"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "health",
+        "value": "0.05"
+      },
+      {
+        "type": "consume_nearby",
+        "target": "$target",
+        "value": {
+          "tag": "food",
+          "maxDistance": 1,
+          "consumedAttr": "consumed",
+          "consumedValue": 1,
+          "heldAttr": "held",
+          "heldValue": 0
+        }
+      }
+    ]
+  },
+  {
+    "id": "flee",
+    "activity": "MoveTo",
+    "duration": "max(distance($self,$target) * 0.12, 0.4)",
+    "cost": "distance($self,$target) * 0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "attr($self,'health') < 0.6"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "move_step",
+        "who": "$self",
+        "towards": "$target",
+        "stopWithin": 1.0
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "aggression",
+        "value": "-0.18"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "0.05",
+        "when": "distance($self,$target) > 3"
+      }
+    ]
+  },
+  {
+    "id": "buy_item",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'bread_loaf')",
+      "currency($self) >= 4.0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "bread_loaf",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "buy_animal_feed",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'animal_feed')",
+      "currency($self) >= 4.0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "animal_feed",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_item",
+    "activity": "Interact",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'bread_loaf')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "bread_loaf",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_milk_jug",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'milk_jug')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "milk_jug",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_egg",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'egg')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "egg",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_wool_bundle",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'wool_bundle')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "wool_bundle",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "buy_turnip_seed",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "0.9",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'turnip_seed')",
+      "currency($self) >= 1.0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "turnip_seed",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "buy_strawberry_seed",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'strawberry_seed')",
+      "currency($self) >= 2.5"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "strawberry_seed",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "buy_sungrain_seed",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "1.1",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'sungrain_seed')",
+      "currency($self) >= 3.2"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "sungrain_seed",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "buy_lavender_seed",
+    "activity": "Interact",
+    "duration": "1.2",
+    "cost": "1.1",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($target,'lavender_seed')",
+      "currency($self) >= 4.0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "buy",
+          "item": "lavender_seed",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_turnip",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'turnip')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "turnip",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_strawberry",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'strawberry')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "strawberry",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_sungrain",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'sungrain')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "sungrain",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "sell_lavender",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)",
+      "has($self,'lavender')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "shop_transaction",
+        "who": "$self",
+        "target": "$target",
+        "value": {
+          "mode": "sell",
+          "item": "lavender",
+          "quantity": "1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "till_soil",
+    "activity": "Work",
+    "duration": "1.2",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_tilled($target) == 0",
+      "crop_has($target) == 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "till_soil",
+        "target": "$target"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "plant_turnip_seed",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_tilled($target) > 0",
+      "crop_empty($target) > 0",
+      "has($self,'turnip_seed')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "plant_seed",
+        "target": "$target",
+        "value": {
+          "seed": "turnip_seed",
+          "crop": "turnip",
+          "quantity": 1
+        }
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "plant_strawberry_seed",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_tilled($target) > 0",
+      "crop_empty($target) > 0",
+      "has($self,'strawberry_seed')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "plant_seed",
+        "target": "$target",
+        "value": {
+          "seed": "strawberry_seed",
+          "crop": "strawberry",
+          "quantity": 1
+        }
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "plant_sungrain_seed",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_tilled($target) > 0",
+      "crop_empty($target) > 0",
+      "has($self,'sungrain_seed')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "plant_seed",
+        "target": "$target",
+        "value": {
+          "seed": "sungrain_seed",
+          "crop": "sungrain",
+          "quantity": 1
+        }
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "plant_lavender_seed",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_tilled($target) > 0",
+      "crop_empty($target) > 0",
+      "has($self,'lavender_seed')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "plant_seed",
+        "target": "$target",
+        "value": {
+          "seed": "lavender_seed",
+          "crop": "lavender",
+          "quantity": 1
+        }
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "water_crop",
+    "activity": "Work",
+    "duration": "0.8",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_has($target) > 0",
+      "crop_needs_water($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "water_crop",
+        "target": "$target"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.015"
+      }
+    ]
+  },
+  {
+    "id": "harvest_crop",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "crop_ready($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "op": "harvest_crop",
+        "target": "$target"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.025"
+      }
+    ]
+  },
+  {
+    "id": "cast_line",
+    "activity": "Leisure",
+    "duration": "1.4",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "fish_available($target) > 0",
+      "has($self,'river_bait')",
+      "has($self,'tool:fishing_rod')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "fish",
+        "target": "$target",
+        "value": {"bait": "river_bait", "quantity": 1}
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "gather_forage",
+    "activity": "Work",
+    "duration": "1.1",
+    "cost": "0.8",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "forage_available($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "forage",
+        "target": "$target"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.03"
+      }
+    ]
+  },
+  {
+    "id": "mine_ore",
+    "activity": "Work",
+    "duration": "1.3",
+    "cost": "1.0",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "ore_available($target) > 0",
+      "has($self,'tool:pickaxe')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "mine",
+        "target": "$target",
+        "value": {"toolFlag": "pickaxe", "tierFromTool": true}
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.04"
+      }
+    ]
+  },
+  {
+    "id": "feed_livestock",
+    "activity": "Work",
+    "duration": "0.9",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) <= 1",
+      "animal_hungry($target) > 0",
+      "has($self,'animal_feed')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Hard",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "animal",
+        "target": "$target",
+        "op": "animal_feed",
+        "value": {
+          "item": "animal_feed",
+          "quantity": 1
+        }
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "brush_livestock",
+    "activity": "Work",
+    "duration": "0.8",
+    "cost": "0.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) <= 1",
+      "animal_needs_brush($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "animal",
+        "target": "$target",
+        "op": "animal_brush"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.015"
+      }
+    ]
+  },
+  {
+    "id": "collect_livestock_produce",
+    "activity": "Work",
+    "duration": "1.0",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) <= 1",
+      "animal_has_produce($target) > 0"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "animal",
+        "target": "$target",
+        "op": "animal_collect"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.02"
+      }
+    ]
+  },
+  {
+    "id": "give_gift",
+    "activity": "Interact",
+    "duration": "1.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "distance($self,$target) <= 1",
+      "has($self,'bread_loaf')"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "inventory",
+        "who": "$self",
+        "name": "bread_loaf",
+        "op": "remove",
+        "value": "1"
+      },
+      {
+        "type": "relationship",
+        "who": "$self",
+        "target": "$target",
+        "name": "friendship",
+        "value": {
+          "item": "bread_loaf"
+        }
+      }
+    ]
+  },
+  {
+    "id": "spring_market_socialize",
+    "activity": "FestivalChat",
+    "duration": "2.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "fact('festival_active','$world','spring_market')",
+      "fact('festival_spot',$target,'spring_market')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 90.0
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "-0.05",
+        "clamp01": true
+      }
+    ]
+  },
+  {
+    "id": "autumn_fair_socialize",
+    "activity": "FestivalChat",
+    "duration": "2.0",
+    "cost": "0.6",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "fact('festival_active','$world','autumn_harvest_fair')",
+      "fact('festival_spot',$target,'autumn_harvest_fair')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 85.0
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "-0.05",
+        "clamp01": true
+      }
+    ]
+  },
+  {
+    "id": "winter_lights_socialize",
+    "activity": "FestivalChat",
+    "duration": "2.2",
+    "cost": "0.7",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "fact('festival_active','$world','winter_lights_ceremony')",
+      "fact('festival_spot',$target,'winter_lights_ceremony')",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 1
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "plan_cooldown",
+        "who": "$self",
+        "seconds": 90.0
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "loneliness",
+        "value": "-0.06",
+        "clamp01": true
+      }
+    ]
+  },
+  {
+    "id": "craft_bread",
+    "activity": "BakeBread",
+    "duration": "max(0.5, recipe_time('bake_bread'))",
+    "cost": "1.5",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "!fact('dead',$target,'')",
+      "can_craft($self,'bake_bread',$target)",
+      "distance($self,$target) <= 1"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "craft",
+        "who": "$self",
+        "name": "bake_bread",
+        "value": {
+          "count": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "work_shift",
+    "activity": "Work",
+    "duration": "2.5",
+    "cost": "1.4",
+    "pre": [
+      "!fact('dead',$self,'')",
+      "distance($self,$target) <= 1",
+      "is_open($target)"
+    ],
+    "reservations": [
+      {
+        "thing": "$self",
+        "mode": "Hard",
+        "priority": 2
+      },
+      {
+        "thing": "$target",
+        "mode": "Soft",
+        "priority": 1
+      }
+    ],
+    "effects": [
+      {
+        "type": "currency",
+        "who": "$self",
+        "value": "6.0"
+      },
+      {
+        "op": "attr_add",
+        "who": "$self",
+        "name": "fatigue",
+        "value": "0.04"
+      }
+    ]
+  }
+]

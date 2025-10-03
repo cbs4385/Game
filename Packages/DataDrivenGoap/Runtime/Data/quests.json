@@ -1,0 +1,134 @@
+{
+  "quests": [
+    {
+      "id": "bakers_intro",
+      "title": "Baker's Helping Hand",
+      "description": "Marin the town baker needs help restocking ingredients and sharing fresh bread with the mayor.",
+      "giver": "P-0005",
+      "objectives": [
+        {
+          "id": "collect_ingredients",
+          "description": "Collect fresh ingredients from gathering spots around town.",
+          "requiredCount": 3
+        },
+        {
+          "id": "bake_loaves",
+          "description": "Cook a batch of bread at any communal kitchen.",
+          "requiredCount": 1
+        },
+        {
+          "id": "deliver_bread",
+          "description": "Visit the mayor with the newly baked loaf.",
+          "requiredCount": 1
+        }
+      ],
+      "reward": {
+        "items": [
+          {
+            "itemId": "bread_loaf",
+            "quantity": 2
+          }
+        ],
+        "currency": 15,
+        "description": "A thank-you from Marin and the town treasury."
+      },
+      "autoAccept": false
+    },
+    {
+      "id": "harvest_preparations",
+      "title": "Harvest Preparations",
+      "description": "Help the farm crew gather produce and dress the square for the autumn fair.",
+      "giver": "P-0013",
+      "prerequisites": [
+        "bakers_intro"
+      ],
+      "objectives": [
+        {
+          "id": "gather_autumn_produce",
+          "description": "Collect baskets of freshly picked crops from the fields.",
+          "requiredCount": 4
+        },
+        {
+          "id": "decorate_fairgrounds",
+          "description": "Add seasonal decorations around the harvest fair plaza.",
+          "requiredCount": 2
+        }
+      ],
+      "reward": {
+        "items": [
+          {
+            "itemId": "turnip",
+            "quantity": 4
+          }
+        ],
+        "currency": 30,
+        "description": "A share of the farm's finest autumn produce."
+      },
+      "autoAccept": false
+    },
+    {
+      "id": "harvest_feast",
+      "title": "Town Harvest Feast",
+      "description": "The mayor needs hearty dishes and cheerful hosts for the seasonal celebration.",
+      "giver": "P-0007",
+      "prerequisites": [
+        "harvest_preparations"
+      ],
+      "objectives": [
+        {
+          "id": "cook_feast_courses",
+          "description": "Cook warm dishes to share during the harvest feast.",
+          "requiredCount": 2
+        },
+        {
+          "id": "serve_harvest_guests",
+          "description": "Welcome townsfolk and serve plates in the festival square.",
+          "requiredCount": 3
+        }
+      ],
+      "reward": {
+        "items": [
+          {
+            "itemId": "flower_bouquet",
+            "quantity": 1
+          }
+        ],
+        "currency": 45,
+        "description": "A bouquet from the mayor and a purse of festival scrip."
+      },
+      "autoAccept": false
+    },
+    {
+      "id": "winter_lights",
+      "title": "Winter Lights Ceremony",
+      "description": "Craft lanterns and hang them around the plaza for the winter celebration.",
+      "giver": "P-0003",
+      "prerequisites": [
+        "harvest_feast"
+      ],
+      "objectives": [
+        {
+          "id": "craft_winter_lanterns",
+          "description": "Assemble delicate lanterns at the community workshop.",
+          "requiredCount": 3
+        },
+        {
+          "id": "hang_winter_lanterns",
+          "description": "Hang lanterns throughout the plaza before the ceremony begins.",
+          "requiredCount": 3
+        }
+      ],
+      "reward": {
+        "items": [
+          {
+            "itemId": "wool_bundle",
+            "quantity": 2
+          }
+        ],
+        "currency": 50,
+        "description": "Cozy winter supplies and a stipend from the library guild."
+      },
+      "autoAccept": false
+    }
+  ]
+}

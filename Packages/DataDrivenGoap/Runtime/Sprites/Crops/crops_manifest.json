@@ -1,0 +1,158 @@
+{
+  "tile_size": 32,
+  "spritesheets": {
+    "master": {
+      "file": "crops_32x32_spritesheet.png",
+      "cols": 8,
+      "rows": 3
+    }
+  },
+  "crops": [
+    {
+      "id": "turnip",
+      "stages": 3,
+      "regrowthDays": null,
+      "witheredOnSeasonChange": true,
+      "seedItemId": "turnip_seed",
+      "sprites": [
+        {
+          "type": "stage",
+          "index": 0,
+          "file": "turnip/stage_0.png"
+        },
+        {
+          "type": "stage",
+          "index": 1,
+          "file": "turnip/stage_1.png"
+        },
+        {
+          "type": "stage",
+          "index": 2,
+          "file": "turnip/stage_2.png"
+        },
+        {
+          "type": "withered",
+          "index": null,
+          "file": "turnip/withered.png"
+        }
+      ],
+      "spritesheet": {
+        "file": "turnip/turnip_spritesheet.png",
+        "cols": 4,
+        "rows": 1
+      }
+    },
+    {
+      "id": "strawberry",
+      "stages": 4,
+      "regrowthDays": 2,
+      "witheredOnSeasonChange": true,
+      "seedItemId": "strawberry_seed",
+      "sprites": [
+        {
+          "type": "stage",
+          "index": 0,
+          "file": "strawberry/stage_0.png"
+        },
+        {
+          "type": "stage",
+          "index": 1,
+          "file": "strawberry/stage_1.png"
+        },
+        {
+          "type": "stage",
+          "index": 2,
+          "file": "strawberry/stage_2.png"
+        },
+        {
+          "type": "stage",
+          "index": 3,
+          "file": "strawberry/stage_3.png"
+        },
+        {
+          "type": "withered",
+          "index": null,
+          "file": "strawberry/withered.png"
+        }
+      ],
+      "spritesheet": {
+        "file": "strawberry/strawberry_spritesheet.png",
+        "cols": 5,
+        "rows": 1
+      }
+    },
+    {
+      "id": "sungrain",
+      "stages": 4,
+      "regrowthDays": null,
+      "witheredOnSeasonChange": false,
+      "seedItemId": "sungrain_seed",
+      "sprites": [
+        {
+          "type": "stage",
+          "index": 0,
+          "file": "sungrain/stage_0.png"
+        },
+        {
+          "type": "stage",
+          "index": 1,
+          "file": "sungrain/stage_1.png"
+        },
+        {
+          "type": "stage",
+          "index": 2,
+          "file": "sungrain/stage_2.png"
+        },
+        {
+          "type": "stage",
+          "index": 3,
+          "file": "sungrain/stage_3.png"
+        }
+      ],
+      "spritesheet": {
+        "file": "sungrain/sungrain_spritesheet.png",
+        "cols": 4,
+        "rows": 1
+      }
+    },
+    {
+      "id": "lavender",
+      "stages": 4,
+      "regrowthDays": 3,
+      "witheredOnSeasonChange": true,
+      "seedItemId": "lavender_seed",
+      "sprites": [
+        {
+          "type": "stage",
+          "index": 0,
+          "file": "lavender/stage_0.png"
+        },
+        {
+          "type": "stage",
+          "index": 1,
+          "file": "lavender/stage_1.png"
+        },
+        {
+          "type": "stage",
+          "index": 2,
+          "file": "lavender/stage_2.png"
+        },
+        {
+          "type": "stage",
+          "index": 3,
+          "file": "lavender/stage_3.png"
+        },
+        {
+          "type": "withered",
+          "index": null,
+          "file": "lavender/withered.png"
+        }
+      ],
+      "spritesheet": {
+        "file": "lavender/lavender_spritesheet.png",
+        "cols": 5,
+        "rows": 1
+      }
+    }
+  ]
+}

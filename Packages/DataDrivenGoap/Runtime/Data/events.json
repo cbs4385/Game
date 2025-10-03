@@ -1,0 +1,192 @@
+{
+  "events": [
+    {
+      "id": "spring_market",
+      "label": "Spring Market Day",
+      "when": {
+        "seasons": ["Spring"],
+        "weekdays": ["Sat"],
+        "startHour": 9.0,
+        "endHour": 17.0,
+        "weather": ["Clear", "Cloudy"]
+      },
+      "do": {
+        "facts": [
+          {"pred": "festival_active", "a": "$world", "b": "spring_market"},
+          {"pred": "festival_spot", "a": "spring-market-square", "b": "spring_market"}
+        ],
+        "spawns": [
+          {
+            "id": "spring-market-square",
+            "type": "event_anchor",
+            "tags": ["festival_square", "safe_spot"],
+            "x": 500,
+            "y": 520,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          },
+          {
+            "id": "spring-market-vendor",
+            "type": "event_vendor",
+            "tags": ["festival_vendor", "shop"],
+            "x": 502,
+            "y": 520,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          }
+        ],
+        "schedule": [
+          {"role": "Shopkeeper", "gotoTag": "festival_square", "task": "spring_market_socialize"},
+          {"role": "Baker", "gotoTag": "festival_square", "task": "spring_market_socialize"},
+          {"role": "Townsperson", "gotoTag": "festival_square", "task": "spring_market_socialize"}
+        ]
+      },
+      "effects": [
+        {"type": "plan_cooldown", "who": "$world", "seconds": 120.0}
+      ]
+    },
+    {
+      "id": "summer_fishing_derby",
+      "label": "Summer Fishing Derby",
+      "when": {
+        "seasons": ["Summer"],
+        "daysOfSeason": [20],
+        "startHour": 10.0,
+        "endHour": 16.0,
+        "weather": ["Clear", "Cloudy"]
+      },
+      "do": {
+        "facts": [
+          {"pred": "festival_active", "a": "$world", "b": "summer_fishing_derby"}
+        ],
+        "spawns": [
+          {
+            "id": "fishing-derby-pier",
+            "type": "event_anchor",
+            "tags": ["festival_anchor", "fishing_spot", "safe_spot"],
+            "x": 462,
+            "y": 540,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          }
+        ],
+        "schedule": [
+          {"role": "Townsperson", "gotoTag": "fishing_spot", "task": "festival_socialize"},
+          {"role": "Farmer", "gotoTag": "fishing_spot", "task": "festival_socialize"}
+        ]
+      },
+      "effects": [
+        {"type": "plan_cooldown", "who": "$world", "seconds": 90.0}
+      ]
+    },
+    {
+      "id": "autumn_harvest_fair",
+      "label": "Autumn Harvest Fair",
+      "when": {
+        "seasons": ["Autumn"],
+        "daysOfSeason": [18],
+        "startHour": 10.0,
+        "endHour": 20.0,
+        "weather": ["Clear", "Cloudy"]
+      },
+      "do": {
+        "facts": [
+          {"pred": "festival_active", "a": "$world", "b": "autumn_harvest_fair"},
+          {"pred": "festival_spot", "a": "harvest-fair-square", "b": "autumn_harvest_fair"},
+          {"pred": "festival_spot", "a": "harvest-fair-kitchen", "b": "autumn_harvest_fair"}
+        ],
+        "spawns": [
+          {
+            "id": "harvest-fair-square",
+            "type": "event_anchor",
+            "tags": ["festival_square", "safe_spot"],
+            "x": 506,
+            "y": 508,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          },
+          {
+            "id": "harvest-fair-kitchen",
+            "type": "event_anchor",
+            "tags": ["festival_kitchen", "food_source"],
+            "x": 509,
+            "y": 510,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          },
+          {
+            "id": "harvest-fair-vendor",
+            "type": "event_vendor",
+            "tags": ["festival_vendor", "shop"],
+            "x": 504,
+            "y": 506,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          }
+        ],
+        "schedule": [
+          {"role": "Farmer", "gotoTag": "festival_square", "task": "autumn_fair_socialize"},
+          {"role": "Mayor", "gotoTag": "festival_square", "task": "autumn_fair_socialize"},
+          {"role": "Townsperson", "gotoTag": "festival_square", "task": "autumn_fair_socialize"}
+        ]
+      },
+      "effects": [
+        {"type": "plan_cooldown", "who": "$world", "seconds": 120.0}
+      ]
+    },
+    {
+      "id": "winter_lights_ceremony",
+      "label": "Winter Lights Ceremony",
+      "when": {
+        "seasons": ["Winter"],
+        "daysOfSeason": [10],
+        "startHour": 18.0,
+        "endHour": 23.0,
+        "weather": ["Clear", "Snow"]
+      },
+      "do": {
+        "facts": [
+          {"pred": "festival_active", "a": "$world", "b": "winter_lights_ceremony"},
+          {"pred": "festival_spot", "a": "winter-lights-plaza", "b": "winter_lights_ceremony"},
+          {"pred": "festival_spot", "a": "winter-lights-workshop", "b": "winter_lights_ceremony"}
+        ],
+        "spawns": [
+          {
+            "id": "winter-lights-plaza",
+            "type": "event_anchor",
+            "tags": ["festival_square", "safe_spot"],
+            "x": 498,
+            "y": 496,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          },
+          {
+            "id": "winter-lights-workshop",
+            "type": "event_anchor",
+            "tags": ["festival_workshop", "crafting_station"],
+            "x": 500,
+            "y": 494,
+            "attributes": [
+              {"name": "open", "value": 1.0}
+            ]
+          }
+        ],
+        "schedule": [
+          {"role": "Townsperson", "gotoTag": "festival_square", "task": "winter_lights_socialize"},
+          {"role": "Teacher", "gotoTag": "festival_square", "task": "winter_lights_socialize"},
+          {"role": "Librarian", "gotoTag": "festival_square", "task": "winter_lights_socialize"}
+        ]
+      },
+      "effects": [
+        {"type": "plan_cooldown", "who": "$world", "seconds": 140.0}
+      ]
+    }
+  ]
+}
