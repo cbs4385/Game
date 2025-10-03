@@ -447,22 +447,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47e3d8a842d94a4e9bcf836b1bcdcc0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapDefinitionAsset: {fileID: 0}
-  pawnDefinitionAsset: {fileID: 4900000, guid: 3f73f64b8fbc4a3c9a1820e72ef7e250, type: 3}
-  itemDefinitionAsset: {fileID: 0}
-  mapLoaderSettings:
-    worldSettingsAsset: {fileID: 4900000, guid: 278b5f123d332134eaa3748ace326f4a, type: 3}
-    villageDataAsset: {fileID: 4900000, guid: 785792aedc2fade4991478d9b65842b8, type: 3}
-    mapTexture: {fileID: 2800000, guid: 7107b5145f8fc794680863ef3f1a9d0e, type: 3}
+  mapDefinitionAsset: {fileID: 4900000, guid: 785792aedc2fade4991478d9b65842b8, type: 3}
+  pawnDefinitionAsset: {fileID: 4900000, guid: 785792aedc2fade4991478d9b65842b8, type: 3}
+  itemDefinitionAsset: {fileID: 4900000, guid: 960941129333c6d4688d3486d99b5f2a, type: 3}
+  mapLoaderSettings: {worldSettingsAsset: {fileID: 4900000, guid: 278b5f123d332134eaa3748ace326f4a, type: 3}, villageDataAsset: {fileID: 4900000, guid: 785792aedc2fade4991478d9b65842b8, type: 3}, mapTexture: {fileID: 2800000, guid: 7107b5145f8fc794680863ef3f1a9d0e, type: 3}}
   randomSeed: 1337
   tileScaleFactor: 0.9
-  lowElevationColor: {r: 0.16, g: 0.42, b: 0.23, a: 1}
-  midElevationColor: {r: 0.88, g: 0.79, b: 0.29, a: 1}
-  highElevationColor: {r: 1, g: 1, b: 1, a: 1}
+  lowElevationColor:
+    r: 0.16
+    g: 0.42
+    b: 0.23
+    a: 1
+  midElevationColor:
+    r: 0.88
+    g: 0.79
+    b: 0.29
+    a: 1
+  highElevationColor:
+    r: 1
+    g: 1
+    b: 1
+    a: 1
   pawnVisualScale: 0.6
-  tileSprite: {fileID: 21300000, guid: 849b0520d2ac48eba6048449cfc7cf93, type: 3}
-  pawnSprite: {fileID: 21300000, guid: 41b1bc34f9db441abdbcb27870e4848c, type: 3}
-  defaultItemSprite: {fileID: 21300000, guid: a17fb2245b63403ea7cdcda661fb2fc1, type: 3}
+  tileSprite: {fileID: 6762909353662473493, guid: 93dbfb8b795f04b478574b28fc4c4fc5, type: 3}
+  pawnSprite: {fileID: -7443570879181605577, guid: 0762445866139c143b221b91ef58d678, type: 3}
+  defaultItemSprite: {fileID: -877435751657082384, guid: 0541c8ce5f605e74a8b2091ef4c73579, type: 3}
   itemSpriteMappings:
   - spriteId: Item_Apple
     sprite: {fileID: 21300000, guid: bb73641fd87e4946a7a2daea889d005b, type: 3}
@@ -470,6 +479,9 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 87c7322af4ca416ea91e3ac2b21699aa, type: 3}
   - spriteId: Item_Gem
     sprite: {fileID: 21300000, guid: 5b87c1de5fcb42439da46db578e2feb9, type: 3}
+  _mapRoot: {fileID: 0}
+  _pawnRoot: {fileID: 0}
+  _itemRoot: {fileID: 0}
 --- !u!114 &100023
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -480,8 +492,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94ae767f64b544fd8a74a2c484d2b7bc, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   bootstrapper: {fileID: 100022}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
