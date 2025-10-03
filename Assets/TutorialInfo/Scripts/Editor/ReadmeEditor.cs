@@ -9,9 +9,11 @@ using System.Reflection;
 
 namespace TutorialInfo
 {
-    [CustomEditor(typeof(Readme))]
-    [InitializeOnLoad]
-    public class ReadmeEditor : Editor
+    private const string k_ShowedReadmeSessionStateName = "ReadmeEditor.showedReadme";
+    private const string k_ReadmeSourceDirectory = "Assets/TutorialInfo";
+    private const float k_Space = 16f;
+
+    static ReadmeEditor()
     {
         private const string k_ShowedReadmeSessionStateName = "ReadmeEditor.showedReadme";
         private const string k_ReadmeSourceDirectory = "Assets/TutorialInfo";
