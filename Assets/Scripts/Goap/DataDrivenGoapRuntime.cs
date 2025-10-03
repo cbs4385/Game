@@ -286,7 +286,7 @@ namespace DataDrivenGoap.Unity
             var content = GoapContentLoader.Load();
             var map = MapGenerator.Generate(mapDefinition, config, random);
             var pawns = PawnFactory.Create(map, config, random);
-            var items = ItemFactory.Create(map, config, content, random);
+            var items = ItemFactory.Create(map, content, itemDefinitions);
             return new UnitySimulation(config, map, pawns, items, content, random);
         }
     }
@@ -585,42 +585,78 @@ namespace DataDrivenGoap.Unity
 
     internal static class ItemFactory
     {
-        public static List<ItemInternal> Create(GoapMap map, SimulationConfig config, GoapContent content, System.Random random)
+        public static List<ItemInternal> Create(GoapMap map, GoapContent content, ItemDefinitionsDto itemDefinitions)
         {
+            if (map == null)
+            {
+                throw new ArgumentNullException(nameof(map));
+            }
+
+            if (content == null)
+            {
+                throw new ArgumentNullException(nameof(content));
+            }
+
+            if (itemDefinitions == null)
+            {
+                throw new ArgumentNullException(nameof(itemDefinitions));
+            }
+
             var items = new List<ItemInternal>();
-            if (map == null || content == null)
+            var definitions = itemDefinitions.items;
+            if (definitions == null || definitions.Length == 0)
             {
                 return items;
             }
 
-            var definitions = content.ItemDefinitions;
-            if (definitions.Count == 0)
+            var usedTiles = new HashSet<Vector2Int>();
+            var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var index = 0; index < definitions.Length; index++)
             {
-                return items;
-            }
-
-            var tiles = new List<MapTile>(map.Tiles);
-            if (tiles.Count == 0)
-            {
-                return items;
-            }
-
-            var targetCount = Mathf.Clamp(tiles.Count / 4, 1, tiles.Count);
-            var heightOffset = Mathf.Max(0.05f, config.PawnHeightOffset * 0.3f);
-
-            for (var i = 0; i < targetCount; i++)
-            {
-                var definition = definitions[random.Next(0, definitions.Count)];
-                var tileIndex = random.Next(0, tiles.Count);
-                var tile = tiles[tileIndex];
-                tiles.RemoveAt(tileIndex);
-                var worldPosition = tile.WorldSurfacePosition + Vector3.up * heightOffset;
-                items.Add(new ItemInternal(i, definition, tile.Coordinates, worldPosition));
-
-                if (tiles.Count == 0)
+                var definition = definitions[index];
+                if (definition == null)
                 {
-                    break;
+                    throw new InvalidOperationException($"Item definition at index {index} is null.");
                 }
+
+                if (string.IsNullOrWhiteSpace(definition.id))
+                {
+                    throw new InvalidOperationException($"Item definition at index {index} must specify an id.");
+                }
+
+                if (!usedIds.Add(definition.id))
+                {
+                    throw new InvalidOperationException($"Duplicate item id '{definition.id}' detected in the dataset.");
+                }
+
+                if (!content.TryGetItemDefinition(definition.id, out var itemDefinition) || itemDefinition == null)
+                {
+                    throw new InvalidOperationException($"Item '{definition.id}' does not exist in the loaded GOAP content.");
+                }
+
+                var tileCoordinates = definition.tile.ToVector2Int();
+                if (tileCoordinates.x < 0 || tileCoordinates.x >= map.Size.x || tileCoordinates.y < 0 || tileCoordinates.y >= map.Size.y)
+                {
+                    throw new InvalidOperationException($"Item '{definition.id}' references tile {tileCoordinates}, which is outside the generated map bounds {map.Size}.");
+                }
+
+                if (!usedTiles.Add(tileCoordinates))
+                {
+                    throw new InvalidOperationException($"Multiple items reference tile {tileCoordinates}. Each tile can host only one item.");
+                }
+
+                MapTile tile;
+                try
+                {
+                    tile = map.GetTile(tileCoordinates);
+                }
+                catch (KeyNotFoundException exception)
+                {
+                    throw new InvalidOperationException($"Item '{definition.id}' references tile {tileCoordinates}, but the tile does not exist in the generated map.", exception);
+                }
+
+                items.Add(new ItemInternal(index, itemDefinition, tileCoordinates, tile.WorldSurfacePosition));
             }
 
             return items;
