@@ -269,23 +269,32 @@ namespace DataDrivenGoap.Unity
             var tileSpacing = Mathf.Max(0.01f, mapDefinition.tileSpacing);
             var minElevation = Mathf.Min(mapDefinition.minElevation, mapDefinition.maxElevation);
             var maxElevation = Mathf.Max(mapDefinition.minElevation, mapDefinition.maxElevation);
-            var pawnCount = pawnDefinitions.pawns.Length;
             var defaultSpeed = Mathf.Max(0.01f, pawnDefinitions.defaultSpeed);
             var defaultHeightOffset = pawnDefinitions.defaultHeightOffset;
 
-            var config = new SimulationConfig(
+            var initialConfig = new SimulationConfig(
                 mapSize,
-                pawnCount,
+                pawnDefinitions.pawns.Length,
                 tileSpacing,
                 new Vector2(minElevation, maxElevation),
                 defaultSpeed,
                 defaultHeightOffset,
                 randomSeed);
 
-            var random = new System.Random(config.RandomSeed);
+            var random = new System.Random(initialConfig.RandomSeed);
             var content = GoapContentLoader.Load();
-            var map = MapGenerator.Generate(mapDefinition, config, random);
-            var pawns = PawnFactory.Create(map, config, random);
+            var map = MapGenerator.Generate(mapDefinition, initialConfig, random);
+            var pawns = PawnFactory.Create(map, initialConfig, pawnDefinitions, random);
+            var config = pawns.Count == initialConfig.PawnCount
+                ? initialConfig
+                : new SimulationConfig(
+                    mapSize,
+                    pawns.Count,
+                    tileSpacing,
+                    new Vector2(minElevation, maxElevation),
+                    defaultSpeed,
+                    defaultHeightOffset,
+                    initialConfig.RandomSeed);
             var items = ItemFactory.Create(map, config, content, random);
             return new UnitySimulation(config, map, pawns, items, content, random);
         }
@@ -629,30 +638,100 @@ namespace DataDrivenGoap.Unity
 
     internal static class PawnFactory
     {
-        public static List<PawnInternal> Create(GoapMap map, SimulationConfig config, System.Random random)
+        public static List<PawnInternal> Create(
+            GoapMap map,
+            SimulationConfig config,
+            PawnDefinitionsDto pawnDefinitions,
+            System.Random random)
         {
-            var pawns = new List<PawnInternal>(config.PawnCount);
-            var candidateTiles = new List<MapTile>();
-            foreach (var tile in map.Tiles)
+            if (map == null)
             {
-                if (tile.TraversalCost <= 5f)
+                throw new ArgumentNullException(nameof(map));
+            }
+
+            if (config == null)
+            {
+                throw new ArgumentNullException(nameof(config));
+            }
+
+            if (pawnDefinitions == null)
+            {
+                throw new ArgumentNullException(nameof(pawnDefinitions));
+            }
+
+            var definitions = pawnDefinitions.pawns ?? Array.Empty<PawnDefinitionDto>();
+            var pawns = new List<PawnInternal>(definitions.Length);
+            if (definitions.Length == 0)
+            {
+                return pawns;
+            }
+
+            var mapSize = map.Size;
+            var usedIds = new HashSet<int>();
+
+            for (var i = 0; i < definitions.Length; i++)
+            {
+                var definition = definitions[i];
+                if (definition == null)
                 {
-                    candidateTiles.Add(tile);
+                    throw new InvalidOperationException($"Pawn definition at index {i} is null.");
                 }
-            }
 
-            if (candidateTiles.Count == 0)
-            {
-                candidateTiles.AddRange(map.Tiles);
-            }
+                var id = definition.id;
+                if (id < 0)
+                {
+                    throw new InvalidOperationException($"Pawn definition at index {i} must specify a non-negative id.");
+                }
 
-            for (var i = 0; i < config.PawnCount; i++)
-            {
-                var spawnTile = candidateTiles[random.Next(0, candidateTiles.Count)];
-                var spawnCoordinates = spawnTile.Coordinates;
-                var color = Color.HSVToRGB((float)random.NextDouble(), 0.8f, 1f);
-                var pawn = new PawnInternal(i, $"Pawn {i + 1}", color, config.PawnSpeed, config.PawnHeightOffset);
-                pawn.TeleportTo(spawnTile);
+                if (!usedIds.Add(id))
+                {
+                    throw new InvalidOperationException($"Duplicate pawn id '{id}' detected.");
+                }
+
+                var spawnCoordinates = definition.spawnTile.ToVector2Int();
+                if (spawnCoordinates.x < 0 || spawnCoordinates.x >= mapSize.x ||
+                    spawnCoordinates.y < 0 || spawnCoordinates.y >= mapSize.y)
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' spawn tile {spawnCoordinates} is outside the map bounds {mapSize}.");
+                }
+
+                var colorString = definition.color?.Trim();
+                if (!ColorUtility.TryParseHtmlString(colorString, out var color))
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' has an invalid color value '{definition.color}'.");
+                }
+
+                var speed = config.PawnSpeed;
+                if (definition.speed > 0f)
+                {
+                    speed = definition.speed;
+                }
+                else if (definition.speed == 0f)
+                {
+                    throw new InvalidOperationException($"Pawn '{id}' speed override must be positive.");
+                }
+                else if (definition.speed < 0f && !Mathf.Approximately(definition.speed, -1f))
+                {
+                    throw new InvalidOperationException($"Pawn '{id}' speed override must be positive.");
+                }
+
+                var heightOffset = config.PawnHeightOffset;
+                if (definition.heightOffset >= 0f)
+                {
+                    heightOffset = definition.heightOffset;
+                }
+                else if (!Mathf.Approximately(definition.heightOffset, -1f))
+                {
+                    throw new InvalidOperationException(
+                        $"Pawn '{id}' height offset override must be non-negative.");
+                }
+
+                var tile = map.GetTile(spawnCoordinates);
+                var name = string.IsNullOrWhiteSpace(definition.name) ? $"Pawn {id}" : definition.name.Trim();
+                var pawn = new PawnInternal(id, name, color, speed, heightOffset);
+                pawn.TeleportTo(tile);
                 pawn.TargetTile = spawnCoordinates;
                 pawns.Add(pawn);
             }
