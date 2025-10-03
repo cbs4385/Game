@@ -173,7 +173,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         mapDefinition = null;
-        Debug.LogError("Cannot start GOAP simulation without a map definition asset or a configured map loader source.");
+        Debug.LogError(
+            "Cannot start GOAP simulation without a map definition asset or a configured map loader source. " +
+            "Configure a proper simulation-provided map definition; automatic fallback generation is no longer supported.");
         return false;
     }
 
