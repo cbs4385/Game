@@ -297,13 +297,23 @@ namespace DataDrivenGoap.World
                     b.tb[sp.Id] = record; builders[idx] = b;
                 }
 
+                var movedThings = new HashSet<ThingId>();
+
                 foreach (var w in batch.Writes ?? Array.Empty<WriteSetEntry>())
                 {
                     int idx = HashIdx(w.Thing, _shards.Length);
                     var b = builders[idx];
                     ThingRecord tr; if (!b.tb.TryGetValue(w.Thing, out tr)) return CommitResult.Conflict;
-                    if (w.Attribute == "@move.x") tr = tr.WithPos(new GridPos((int)w.Value, tr.Pos.Y));
-                    else if (w.Attribute == "@move.y") tr = tr.WithPos(new GridPos(tr.Pos.X, (int)w.Value));
+                    if (w.Attribute == "@move.x")
+                    {
+                        tr = tr.WithPos(new GridPos((int)w.Value, tr.Pos.Y));
+                        movedThings.Add(w.Thing);
+                    }
+                    else if (w.Attribute == "@move.y")
+                    {
+                        tr = tr.WithPos(new GridPos(tr.Pos.X, (int)w.Value));
+                        movedThings.Add(w.Thing);
+                    }
                     else tr = tr.WithAttr(w.Attribute, w.Value);
                     b.tb[w.Thing] = tr; builders[idx] = b;
                 }
@@ -344,6 +354,23 @@ namespace DataDrivenGoap.World
                     }
 
                     builders[shardIdx] = builder;
+                }
+
+                foreach (var mover in movedThings)
+                {
+                    int idx = HashIdx(mover, _shards.Length);
+                    if (!builders.TryGetValue(idx, out var builder))
+                        return CommitResult.Conflict;
+
+                    if (!builder.tb.TryGetValue(mover, out var record))
+                        return CommitResult.Conflict;
+
+                    var pos = record.Pos;
+                    if (pos.X < 0 || pos.Y < 0 || pos.X >= _width || pos.Y >= _height)
+                        return CommitResult.Conflict;
+
+                    if (!_walkable[pos.X, pos.Y])
+                        return CommitResult.Conflict;
                 }
 
                 foreach (var kv in builders)
