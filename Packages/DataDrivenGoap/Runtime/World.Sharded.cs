@@ -121,6 +121,36 @@ namespace DataDrivenGoap.World
 
         private static int HashIdx(ThingId id, int mod) => (id.GetHashCode() & 0x7fffffff) % mod;
 
+        private static bool SeedRequiresWalkableGround(string type, IEnumerable<string> tags)
+        {
+            if (TokenRequiresWalkable(type))
+                return true;
+
+            if (tags == null)
+                return false;
+
+            foreach (var tag in tags)
+            {
+                if (TokenRequiresWalkable(tag))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool TokenRequiresWalkable(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            if (value.IndexOf("pawn", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return string.Equals(value, "actor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "human", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "animal", StringComparison.OrdinalIgnoreCase);
+        }
+
         private readonly WorldClock _clock;
 
         public ShardedWorld(
@@ -187,7 +217,8 @@ namespace DataDrivenGoap.World
 
                 int x = Math.Max(0, Math.Min(_width-1, t.pos.X));
                 int y = Math.Max(0, Math.Min(_height-1, t.pos.Y));
-                if (!_walkable[x,y])
+                bool requiresWalkableGround = SeedRequiresWalkableGround(t.type, t.tags);
+                if (requiresWalkableGround && !_walkable[x,y])
                 {
                     for (int tries=0; tries<200; tries++)
                     {
