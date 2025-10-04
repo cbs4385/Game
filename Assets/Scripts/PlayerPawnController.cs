@@ -13,6 +13,9 @@ public sealed class PlayerPawnController : MonoBehaviour
     [SerializeField, Min(0.01f)] private float moveIntervalSeconds = 0.2f;
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference interactAction;
+    [SerializeField] private PlayerInput playerInput;
+    [SerializeField] private string moveActionName;
+    [SerializeField] private string interactActionName;
     [SerializeField, Range(0f, 0.99f)] private float movementDeadZone = 0.4f;
 
     private IWorld _world;
@@ -27,11 +30,13 @@ public sealed class PlayerPawnController : MonoBehaviour
     private void Awake()
     {
         EnsureBootstrapperReference();
+        EnsurePlayerInputReference();
     }
 
     private void OnEnable()
     {
         EnsureBootstrapperReference();
+        EnsurePlayerInputReference();
         BindInputActions();
         bootstrapper.Bootstrapped += HandleBootstrapped;
         if (bootstrapper.HasBootstrapped)
@@ -353,10 +358,10 @@ public sealed class PlayerPawnController : MonoBehaviour
 
     private void BindInputActions()
     {
-        _resolvedMoveAction = ResolveAction(moveAction, nameof(moveAction));
+        _resolvedMoveAction = ResolveAction(moveAction, nameof(moveAction), moveActionName, nameof(moveActionName));
         _resolvedMoveAction.Enable();
 
-        _resolvedInteractAction = ResolveAction(interactAction, nameof(interactAction));
+        _resolvedInteractAction = ResolveAction(interactAction, nameof(interactAction), interactActionName, nameof(interactActionName));
         _resolvedInteractAction.performed += HandleInteractPerformed;
         _resolvedInteractAction.Enable();
     }
@@ -400,20 +405,59 @@ public sealed class PlayerPawnController : MonoBehaviour
         ExecuteInteract();
     }
 
-    private static InputAction ResolveAction(InputActionReference reference, string fieldName)
+    private InputAction ResolveAction(InputActionReference reference, string referenceFieldName, string actionName, string actionNameField)
     {
         if (reference == null)
         {
-            throw new InvalidOperationException($"PlayerPawnController requires an InputActionReference assigned to '{fieldName}'.");
+            return ResolveActionFromPlayerInput(referenceFieldName, actionName, actionNameField);
         }
 
         var action = reference.action;
         if (action == null)
         {
-            throw new InvalidOperationException($"InputActionReference '{fieldName}' does not resolve to a valid InputAction instance.");
+            throw new InvalidOperationException($"InputActionReference '{referenceFieldName}' does not resolve to a valid InputAction instance.");
         }
 
         return action;
+    }
+
+    private InputAction ResolveActionFromPlayerInput(string referenceFieldName, string actionName, string actionNameField)
+    {
+        EnsurePlayerInputReference();
+
+        if (playerInput == null)
+        {
+            throw new InvalidOperationException($"PlayerPawnController requires a PlayerInput reference when '{referenceFieldName}' is not assigned.");
+        }
+
+        if (string.IsNullOrWhiteSpace(actionName))
+        {
+            throw new InvalidOperationException($"PlayerPawnController requires '{actionNameField}' to be specified when '{referenceFieldName}' is not assigned.");
+        }
+
+        var actions = playerInput.actions;
+        if (actions == null)
+        {
+            throw new InvalidOperationException("PlayerPawnController requires the PlayerInput to have an actions asset assigned.");
+        }
+
+        var action = actions.FindAction(actionName, false);
+        if (action == null)
+        {
+            throw new InvalidOperationException($"PlayerInput actions asset does not define an action named '{actionName}'.");
+        }
+
+        return action;
+    }
+
+    private void EnsurePlayerInputReference()
+    {
+        if (playerInput != null)
+        {
+            return;
+        }
+
+        playerInput = GetComponent<PlayerInput>();
     }
 
     private GridPos ResolveInteractionTarget(IWorldSnapshot snapshot, ThingView playerThing)
