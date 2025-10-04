@@ -498,8 +498,32 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _skillSystem);
 
         BuildActorHosts(logRoot);
+        PerformInitialShopRestock();
         NotifyBootstrapped(datasetRoot);
         StartSimulation();
+    }
+
+    private void PerformInitialShopRestock()
+    {
+        if (_shopSystem == null || _clock == null)
+        {
+            return;
+        }
+
+        var bootstrapTime = _clock.Snapshot();
+        _shopSystem.Tick(bootstrapTime);
+
+        var generalStoreId = new ThingId("store_generalstore");
+        var generalStore = _shopSystem.GetShop(generalStoreId);
+        if (generalStore != null)
+        {
+            bool hasStock = generalStore.Stock.Any(entry => entry != null && entry.Quantity > 0);
+            if (!hasStock)
+            {
+                throw new InvalidOperationException(
+                    "Shop 'store_generalstore' did not report stocked inventory after the bootstrap restock tick.");
+            }
+        }
     }
 
     private void NotifyBootstrapped(string datasetRoot)
