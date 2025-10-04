@@ -14,7 +14,8 @@
       "ORCHARD": "#95d5b2",
       "MOUNTAIN": "#6b6b6b",
       "BRIDGE": "#8d99ae",
-      "FOUNTAIN": "#74c0fc"
+      "FOUNTAIN": "#74c0fc",
+	  "FLOOR": "#63422F"
     },
     "annotations": {
       "buildings": [

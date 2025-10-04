@@ -57,6 +57,9 @@
         },
         "FOUNTAIN": {
           "walkable": false
+        },
+        "FLOOR": {
+          "walkable": false
         }
       },
       "buildingPrototypes": {
