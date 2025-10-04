@@ -1,6 +1,6 @@
 {
   "observer":{
-	"camerPawn": "Player"
+	"cameraPawn": "Player"
   },
   "world": {
     "width": 1000,
