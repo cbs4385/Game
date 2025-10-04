@@ -42,6 +42,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField, Min(0.01f)] private float perspectiveZoomStep = 10f;
 
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
+    private readonly Dictionary<ThingId, GridPos> _pawnPreviousGridPositions = new Dictionary<ThingId, GridPos>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _pawnSpritePaths = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
@@ -140,7 +141,29 @@ public sealed class GoapSimulationView : MonoBehaviour
                 throw new InvalidOperationException($"World snapshot no longer contains actor '{entry.Key.Value}'.");
             }
 
-            UpdatePawnPosition(entry.Value, thing.Position);
+            if (!_pawnPreviousGridPositions.TryGetValue(entry.Key, out var previousGridPosition))
+            {
+                throw new InvalidOperationException(
+                    $"Previous grid position for pawn '{entry.Key.Value}' is missing; direction tracking cannot continue.");
+            }
+
+            var currentGridPosition = thing.Position;
+            var orientationKey = DetermineOrientationKey(previousGridPosition, currentGridPosition);
+            if (orientationKey != null)
+            {
+                var spritePath = ResolveOrientationSpritePath(entry.Value, orientationKey);
+                var sprite = LoadSpriteAsset(spritePath);
+                if (sprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Sprite asset loader returned null for pawn '{entry.Value.PawnId}' orientation '{orientationKey}'.");
+                }
+
+                entry.Value.Renderer.sprite = sprite;
+            }
+
+            UpdatePawnPosition(entry.Value, currentGridPosition);
+            _pawnPreviousGridPositions[entry.Key] = currentGridPosition;
 
             if (_selectedPawnId != null && entry.Key.Equals(_selectedPawnId.Value))
             {
@@ -165,6 +188,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             DisposeVisuals();
         }
+
+        _pawnPreviousGridPositions.Clear();
 
         _world = args.World ?? throw new InvalidOperationException("Bootstrapper emitted a null world instance.");
         _actors = args.ActorDefinitions ?? throw new InvalidOperationException("Bootstrapper emitted null actor definitions.");
@@ -344,9 +369,10 @@ public sealed class GoapSimulationView : MonoBehaviour
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
 
-            var visual = new PawnVisual(pawnObject.transform, renderer, spritePaths);
+            var visual = new PawnVisual(pawnObject.transform, renderer, spritePaths, pawnId);
             _pawnVisuals.Add(actor.Id, visual);
             UpdatePawnPosition(visual, thing.Position);
+            _pawnPreviousGridPositions[actor.Id] = thing.Position;
         }
     }
 
@@ -1098,6 +1124,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         _pawnVisuals.Clear();
+        _pawnPreviousGridPositions.Clear();
 
         if (_pawnRoot != null)
         {
@@ -1176,18 +1203,78 @@ public sealed class GoapSimulationView : MonoBehaviour
         return new ThingId(rawId.Trim());
     }
 
+    private static string ResolveOrientationSpritePath(PawnVisual visual, string orientationKey)
+    {
+        if (visual == null)
+        {
+            throw new ArgumentNullException(nameof(visual));
+        }
+
+        if (string.IsNullOrWhiteSpace(orientationKey))
+        {
+            throw new ArgumentException("Orientation key must be provided.", nameof(orientationKey));
+        }
+
+        if (!visual.SpritePaths.TryGetValue(orientationKey, out var manifestPath) || string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new InvalidOperationException(
+                $"Sprite manifest entry for pawn '{visual.PawnId}' does not define an orientation '{orientationKey}'.");
+        }
+
+        return manifestPath;
+    }
+
+    private static string DetermineOrientationKey(GridPos previous, GridPos current)
+    {
+        var deltaX = current.X - previous.X;
+        var deltaY = current.Y - previous.Y;
+
+        if (deltaX > 0)
+        {
+            return "east";
+        }
+
+        if (deltaX < 0)
+        {
+            return "west";
+        }
+
+        if (deltaY > 0)
+        {
+            return "north";
+        }
+
+        if (deltaY < 0)
+        {
+            return "south";
+        }
+
+        return null;
+    }
+
     private sealed class PawnVisual
     {
-        public PawnVisual(Transform root, SpriteRenderer renderer, IReadOnlyDictionary<string, string> spritePaths)
+        public PawnVisual(
+            Transform root,
+            SpriteRenderer renderer,
+            IReadOnlyDictionary<string, string> spritePaths,
+            string pawnId)
         {
             Root = root ?? throw new ArgumentNullException(nameof(root));
             Renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             SpritePaths = spritePaths ?? throw new ArgumentNullException(nameof(spritePaths));
+            if (string.IsNullOrWhiteSpace(pawnId))
+            {
+                throw new ArgumentException("Pawn id must be provided for a pawn visual.", nameof(pawnId));
+            }
+
+            PawnId = pawnId;
         }
 
         public Transform Root { get; }
         public SpriteRenderer Renderer { get; }
         public IReadOnlyDictionary<string, string> SpritePaths { get; }
+        public string PawnId { get; }
     }
 
     private static class StrictJson
