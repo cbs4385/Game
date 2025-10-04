@@ -359,6 +359,26 @@
       "west": "sprites/pawn/P_0036_Rosa_Rowe_west.png"
     }
   },
+  "P-0100": {
+    "name": "0100",
+    "role": "Animal",
+    "sprites": {
+      "north": "sprites/pawn/P_0102.png",
+      "south": "sprites/pawn/P_0102.png",
+      "east": "sprites/pawn/P_0102.png",
+      "west": "sprites/pawn/P_0102.png"
+    }
+  },
+  "P-0101": {
+    "name": "0101",
+    "role": "Animal",
+    "sprites": {
+      "north": "sprites/pawn/P_0102.png",
+      "south": "sprites/pawn/P_0102.png",
+      "east": "sprites/pawn/P_0102.png",
+      "west": "sprites/pawn/P_0102.png"
+    }
+  },
   "P-0102": {
     "name": "0102",
     "role": "Animal",
