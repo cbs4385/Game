@@ -246,9 +246,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new InvalidOperationException($"World snapshot no longer contains the selected pawn '{selectedId.Value}'.");
         }
 
+        if (!_pawnVisuals.TryGetValue(selectedId, out var visual))
+        {
+            throw new InvalidOperationException($"Visual representation for selected pawn '{selectedId.Value}' is missing.");
+        }
+
         var cameraTransform = observerCamera.transform;
         var currentZ = cameraTransform.position.z;
-        var target = new Vector3(thing.Position.X + 0.5f, thing.Position.Y + 0.5f, currentZ);
+        var pawnWorldPosition = visual.Root.position;
+        var target = new Vector3(pawnWorldPosition.x, pawnWorldPosition.y, currentZ);
         cameraTransform.position = target;
     }
 
