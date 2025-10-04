@@ -23,7 +23,8 @@
         "towards": "$target",
         "stopWithin": 1.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_moveto.png"
   },
   {
     "id": "chat",
@@ -137,7 +138,8 @@
         "a": "$target",
         "when": "!fact('dead',$target,'')"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_chat.png"
   },
   {
     "id": "accept_bakers_intro",
@@ -178,7 +180,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "wait",
@@ -238,7 +241,8 @@
         "a": "$self",
         "b": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_wait.png"
   },
   {
     "id": "attack",
@@ -318,7 +322,8 @@
         "a": "$target",
         "when": "attr($target,'health') <= 0"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_attack.png"
   },
   {
     "id": "collect_ingredient",
@@ -368,7 +373,8 @@
         "who": "$self",
         "when": "quest_active($self,'bakers_intro')"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "pick_up",
@@ -413,7 +419,8 @@
         "value": "1",
         "clamp": false
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "drop_item",
@@ -456,7 +463,8 @@
         "value": "0",
         "clamp": false
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sleep_in_bed",
@@ -507,7 +515,8 @@
         "pred": "rested",
         "a": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_rest.png"
   },
   {
     "id": "cook_food",
@@ -567,7 +576,8 @@
         "who": "$self",
         "when": "quest_active($self,'bakers_intro')"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/cooking.png"
   },
   {
     "id": "deliver_bread_to_mayor",
@@ -606,7 +616,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "claim_bakers_intro_reward",
@@ -653,7 +664,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "accept_harvest_preparations",
@@ -694,7 +706,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "gather_autumn_produce",
@@ -739,7 +752,8 @@
         },
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "decorate_autumn_square",
@@ -780,7 +794,8 @@
         "who": "$self",
         "seconds": 60.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "claim_harvest_preparations_reward",
@@ -827,7 +842,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "accept_harvest_feast",
@@ -868,7 +884,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "cook_harvest_courses",
@@ -917,7 +934,8 @@
         "who": "$self",
         "seconds": 70.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "serve_harvest_guests",
@@ -958,7 +976,8 @@
         "who": "$self",
         "seconds": 50.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "claim_harvest_feast_reward",
@@ -1005,7 +1024,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "accept_winter_lights",
@@ -1046,7 +1066,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "craft_winter_lanterns",
@@ -1093,7 +1114,8 @@
         "who": "$self",
         "seconds": 55.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "hang_winter_lanterns",
@@ -1134,7 +1156,8 @@
         "who": "$self",
         "seconds": 45.0
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "claim_winter_lights_reward",
@@ -1181,7 +1204,8 @@
         "type": "plan_cooldown",
         "who": "$self"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_quest.png"
   },
   {
     "id": "eat_inventory_food",
@@ -1218,7 +1242,8 @@
         "name": "tag:edible",
         "value": 1
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_eat.png"
   },
   {
     "id": "eat_food",
@@ -1276,7 +1301,8 @@
         "value": "0",
         "clamp": false
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_eat.png"
   },
   {
     "id": "eat_cooked_food",
@@ -1325,7 +1351,8 @@
           "heldValue": 0
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_eat.png"
   },
   {
     "id": "flee",
@@ -1368,7 +1395,8 @@
         "value": "0.05",
         "when": "distance($self,$target) > 3"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_moveto.png"
   },
   {
     "id": "buy_item",
@@ -1405,7 +1433,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "buy_animal_feed",
@@ -1442,7 +1471,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_item",
@@ -1478,7 +1508,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_milk_jug",
@@ -1514,7 +1545,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_egg",
@@ -1550,7 +1582,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_wool_bundle",
@@ -1586,7 +1619,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "buy_turnip_seed",
@@ -1623,7 +1657,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "buy_strawberry_seed",
@@ -1660,7 +1695,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "buy_sungrain_seed",
@@ -1697,7 +1733,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "buy_lavender_seed",
@@ -1734,7 +1771,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_turnip",
@@ -1770,7 +1808,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_strawberry",
@@ -1806,7 +1845,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_sungrain",
@@ -1842,7 +1882,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "sell_lavender",
@@ -1878,7 +1919,8 @@
           "quantity": "1"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "till_soil",
@@ -1914,7 +1956,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "plant_turnip_seed",
@@ -1956,7 +1999,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "plant_strawberry_seed",
@@ -1998,7 +2042,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "plant_sungrain_seed",
@@ -2040,7 +2085,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "plant_lavender_seed",
@@ -2082,7 +2128,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "water_crop",
@@ -2118,7 +2165,8 @@
         "name": "fatigue",
         "value": "0.015"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "harvest_crop",
@@ -2153,7 +2201,8 @@
         "name": "fatigue",
         "value": "0.025"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "cast_line",
@@ -2183,7 +2232,10 @@
       {
         "type": "fish",
         "target": "$target",
-        "value": {"bait": "river_bait", "quantity": 1}
+        "value": {
+          "bait": "river_bait",
+          "quantity": 1
+        }
       },
       {
         "op": "attr_add",
@@ -2191,7 +2243,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_leisure.png"
   },
   {
     "id": "gather_forage",
@@ -2226,7 +2279,8 @@
         "name": "fatigue",
         "value": "0.03"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "mine_ore",
@@ -2255,7 +2309,10 @@
       {
         "type": "mine",
         "target": "$target",
-        "value": {"toolFlag": "pickaxe", "tierFromTool": true}
+        "value": {
+          "toolFlag": "pickaxe",
+          "tierFromTool": true
+        }
       },
       {
         "op": "attr_add",
@@ -2263,7 +2320,8 @@
         "name": "fatigue",
         "value": "0.04"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "feed_livestock",
@@ -2305,7 +2363,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "brush_livestock",
@@ -2342,7 +2401,8 @@
         "name": "fatigue",
         "value": "0.015"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "collect_livestock_produce",
@@ -2379,7 +2439,8 @@
         "name": "fatigue",
         "value": "0.02"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   },
   {
     "id": "give_gift",
@@ -2421,7 +2482,8 @@
           "item": "bread_loaf"
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_interact.png"
   },
   {
     "id": "spring_market_socialize",
@@ -2459,7 +2521,8 @@
         "value": "-0.05",
         "clamp01": true
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_festivalchat.png"
   },
   {
     "id": "autumn_fair_socialize",
@@ -2497,7 +2560,8 @@
         "value": "-0.05",
         "clamp01": true
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_festivalchat.png"
   },
   {
     "id": "winter_lights_socialize",
@@ -2535,7 +2599,8 @@
         "value": "-0.06",
         "clamp01": true
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_festivalchat.png"
   },
   {
     "id": "craft_bread",
@@ -2569,7 +2634,8 @@
           "count": 1
         }
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_bakebread.png"
   },
   {
     "id": "work_shift",
@@ -2605,6 +2671,7 @@
         "name": "fatigue",
         "value": "0.04"
       }
-    ]
+    ],
+    "activityIcon": "/Sprites/Activities/activity_work.png"
   }
 ]
