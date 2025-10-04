@@ -507,6 +507,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 100041}
+  - component: {fileID: 100043}
   - component: {fileID: 100042}
   m_Layer: 0
   m_Name: Player Pawn Controller
@@ -530,6 +531,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &100043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc4420fa30974ff0896856ce872c712e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!114 &100042
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -545,13 +558,18 @@ MonoBehaviour:
   bootstrapper: {fileID: 100022}
   moveIntervalSeconds: 0.2
   moveAction:
-    m_Asset: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-    m_ActionId: 351f2ccd-1f9f-44bf-9bec-d62ac5c5f408
+    m_Asset: {fileID: 0}
+    m_ActionId:
     m_Reference: {fileID: 0}
   interactAction:
-    m_Asset: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-    m_ActionId: 852140f2-7766-474d-8707-702459ba45f3
+    m_Asset: {fileID: 0}
+    m_ActionId:
     m_Reference: {fileID: 0}
+  playerControlsAsset: {fileID: -944628639613478452, guid: bab4b8bb967c4936901e90477aa6bb36, type: 3}
+  playerInput: {fileID: 100043}
+  defaultActionMap: Gameplay
+  moveActionName: Move
+  interactActionName: Interact
   movementDeadZone: 0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
