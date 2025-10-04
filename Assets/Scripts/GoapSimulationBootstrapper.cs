@@ -59,7 +59,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             IReadOnlyDictionary<ThingId, ActorHostDiagnostics> actorDiagnostics,
             string cameraPawnId,
             IReadOnlyList<ThingId> manualPawnIds,
-            ThingId? playerPawnId)
+            ThingId? playerPawnId,
+            bool showOnlySelectedPawn)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
@@ -70,6 +71,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             CameraPawnId = string.IsNullOrWhiteSpace(cameraPawnId) ? null : cameraPawnId.Trim();
             ManualPawnIds = manualPawnIds ?? Array.AsReadOnly(Array.Empty<ThingId>());
             PlayerPawnId = playerPawnId;
+            ShowOnlySelectedPawn = showOnlySelectedPawn;
         }
 
         public ShardedWorld World { get; }
@@ -81,6 +83,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public string CameraPawnId { get; }
         public IReadOnlyList<ThingId> ManualPawnIds { get; }
         public ThingId? PlayerPawnId { get; }
+        public bool ShowOnlySelectedPawn { get; }
     }
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
@@ -484,7 +487,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             new Dictionary<ThingId, ActorHostDiagnostics>(_actorDiagnostics),
             _demoConfig?.observer?.cameraPawn,
             Array.AsReadOnly(manual),
-            _playerPawnId);
+            _playerPawnId,
+            _demoConfig?.observer?.showOnlySelectedPawn ?? false);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 
