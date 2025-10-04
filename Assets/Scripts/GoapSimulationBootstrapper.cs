@@ -50,6 +50,51 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     public sealed class SimulationReadyEventArgs : EventArgs
     {
+        public sealed class TileClassificationSnapshot
+        {
+            public TileClassificationSnapshot(
+                bool[,] walkable,
+                bool[,] water,
+                bool[,] shallow,
+                bool[,] forest,
+                bool[,] farmland,
+                bool[,] coastal)
+            {
+                Walkable = walkable ?? throw new ArgumentNullException(nameof(walkable));
+                Water = water ?? throw new ArgumentNullException(nameof(water));
+                Shallow = shallow ?? throw new ArgumentNullException(nameof(shallow));
+                Forest = forest ?? throw new ArgumentNullException(nameof(forest));
+                Farmland = farmland ?? throw new ArgumentNullException(nameof(farmland));
+                Coastal = coastal ?? throw new ArgumentNullException(nameof(coastal));
+
+                ValidateLayerDimensions(Water, nameof(Water));
+                ValidateLayerDimensions(Shallow, nameof(Shallow));
+                ValidateLayerDimensions(Forest, nameof(Forest));
+                ValidateLayerDimensions(Farmland, nameof(Farmland));
+                ValidateLayerDimensions(Coastal, nameof(Coastal));
+            }
+
+            public int Width => Walkable.GetLength(0);
+            public int Height => Walkable.GetLength(1);
+
+            public bool[,] Walkable { get; }
+            public bool[,] Water { get; }
+            public bool[,] Shallow { get; }
+            public bool[,] Forest { get; }
+            public bool[,] Farmland { get; }
+            public bool[,] Coastal { get; }
+
+            private void ValidateLayerDimensions(bool[,] layer, string layerName)
+            {
+                if (layer.GetLength(0) != Width || layer.GetLength(1) != Height)
+                {
+                    throw new ArgumentException(
+                        $"Tile classification layer '{layerName}' dimensions {layer.GetLength(0)}x{layer.GetLength(1)} do not match walkable dimensions {Width}x{Height}.",
+                        layerName);
+                }
+            }
+        }
+
         public SimulationReadyEventArgs(
             ShardedWorld world,
             IReadOnlyList<(ThingId Id, VillagePawn Pawn)> actors,
@@ -60,6 +105,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             string cameraPawnId,
             IReadOnlyList<ThingId> manualPawnIds,
             ThingId? playerPawnId,
+            TileClassificationSnapshot tileClassification,
             bool showOnlySelectedPawn)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
@@ -71,6 +117,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             CameraPawnId = string.IsNullOrWhiteSpace(cameraPawnId) ? null : cameraPawnId.Trim();
             ManualPawnIds = manualPawnIds ?? Array.AsReadOnly(Array.Empty<ThingId>());
             PlayerPawnId = playerPawnId;
+            TileClassification = tileClassification ?? throw new ArgumentNullException(nameof(tileClassification));
             ShowOnlySelectedPawn = showOnlySelectedPawn;
         }
 
@@ -83,6 +130,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public string CameraPawnId { get; }
         public IReadOnlyList<ThingId> ManualPawnIds { get; }
         public ThingId? PlayerPawnId { get; }
+        public TileClassificationSnapshot TileClassification { get; }
         public bool ShowOnlySelectedPawn { get; }
     }
 
@@ -477,7 +525,19 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException("World clock must be initialized before publishing bootstrap completion.");
         }
 
+        if (_tiles == null)
+        {
+            throw new InvalidOperationException("Tile classification must be initialized before publishing bootstrap completion.");
+        }
+
         var manual = _manualPawnIds.ToArray();
+        var tileClassification = new SimulationReadyEventArgs.TileClassificationSnapshot(
+            CloneTileLayer(_tiles.Walkable),
+            CloneTileLayer(_tiles.Water),
+            CloneTileLayer(_tiles.Shallow),
+            CloneTileLayer(_tiles.Forest),
+            CloneTileLayer(_tiles.Farmland),
+            CloneTileLayer(_tiles.Coastal));
         _readyEventArgs = new SimulationReadyEventArgs(
             _world,
             Array.AsReadOnly(actors),
@@ -488,8 +548,21 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _demoConfig?.observer?.cameraPawn,
             Array.AsReadOnly(manual),
             _playerPawnId,
+            tileClassification,
             _demoConfig?.observer?.showOnlySelectedPawn ?? false);
         Bootstrapped?.Invoke(this, _readyEventArgs);
+    }
+
+    private static bool[,] CloneTileLayer(bool[,] source)
+    {
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        var clone = new bool[source.GetLength(0), source.GetLength(1)];
+        Array.Copy(source, clone, source.Length);
+        return clone;
     }
 
     private void ConfigureScheduleDefinitions()
