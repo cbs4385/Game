@@ -54,18 +54,21 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             ShardedWorld world,
             IReadOnlyList<(ThingId Id, VillagePawn Pawn)> actors,
             string datasetRoot,
-            Texture2D mapTexture)
+            Texture2D mapTexture,
+            WorldClock clock)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
             DatasetRoot = datasetRoot ?? throw new ArgumentNullException(nameof(datasetRoot));
             MapTexture = mapTexture ?? throw new ArgumentNullException(nameof(mapTexture));
+            Clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
         public ShardedWorld World { get; }
         public IReadOnlyList<(ThingId Id, VillagePawn Pawn)> ActorDefinitions { get; }
         public string DatasetRoot { get; }
         public Texture2D MapTexture { get; }
+        public WorldClock Clock { get; }
     }
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
@@ -306,7 +309,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         var actors = _actorDefinitions.ToArray();
-        _readyEventArgs = new SimulationReadyEventArgs(_world, Array.AsReadOnly(actors), datasetRoot, _mapTexture);
+        if (_clock == null)
+        {
+            throw new InvalidOperationException("World clock must be initialized before publishing bootstrap completion.");
+        }
+
+        _readyEventArgs = new SimulationReadyEventArgs(_world, Array.AsReadOnly(actors), datasetRoot, _mapTexture, _clock);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 

@@ -15,11 +15,18 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField] private Transform pawnContainer;
     [SerializeField] private int mapSortingOrder = -100;
     [SerializeField] private int pawnSortingOrder = 0;
+    [SerializeField] private Vector2 clockScreenOffset = new Vector2(16f, 16f);
+    [SerializeField] private Vector2 clockBackgroundPadding = new Vector2(12f, 8f);
+    [SerializeField] private Color clockTextColor = Color.white;
+    [SerializeField] private Color clockBackgroundColor = new Color(0f, 0f, 0f, 0.65f);
+    [SerializeField, Min(1)] private int clockFontSize = 18;
+    [SerializeField] private string clockLabelTemplate = "Year {0}, Day {1:D3} — {2:hh\\:mm\\:ss}";
 
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _pawnSpritePaths = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+    private readonly GUIContent _clockGuiContent = new GUIContent();
 
     private ShardedWorld _world;
     private IReadOnlyList<(ThingId Id, VillagePawn Pawn)> _actors;
@@ -29,6 +36,9 @@ public sealed class GoapSimulationView : MonoBehaviour
     private Texture2D _mapTexture;
     private bool _ownsMapTexture;
     private Transform _pawnRoot;
+    private WorldClock _clock;
+    private string _clockLabel = string.Empty;
+    private GUIStyle _clockStyle;
 
     private void Awake()
     {
@@ -64,6 +74,8 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void Update()
     {
+        UpdateClockDisplay();
+
         if (_world == null)
         {
             return;
@@ -97,6 +109,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _world = args.World ?? throw new InvalidOperationException("Bootstrapper emitted a null world instance.");
         _actors = args.ActorDefinitions ?? throw new InvalidOperationException("Bootstrapper emitted null actor definitions.");
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
+        _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
 
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
@@ -104,6 +117,32 @@ public sealed class GoapSimulationView : MonoBehaviour
         var snapshot = _world.Snap();
         LoadMap(args.MapTexture, snapshot.Width, snapshot.Height);
         CreatePawnVisuals(snapshot);
+        UpdateClockDisplay();
+    }
+
+    private void UpdateClockDisplay()
+    {
+        if (_clock == null)
+        {
+            _clockLabel = string.Empty;
+            _clockGuiContent.text = string.Empty;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(clockLabelTemplate))
+        {
+            throw new InvalidOperationException("Clock label template must be a non-empty string.");
+        }
+
+        var snapshot = _clock.Snapshot();
+        var formatted = string.Format(
+            CultureInfo.InvariantCulture,
+            clockLabelTemplate,
+            snapshot.Year,
+            snapshot.DayOfYear,
+            snapshot.TimeOfDay);
+        _clockLabel = formatted;
+        _clockGuiContent.text = formatted;
     }
 
     private void CreatePawnVisuals(IWorldSnapshot snapshot)
@@ -161,6 +200,64 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         var translated = new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f);
         visual.Root.localPosition = translated;
+    }
+
+    private void OnGUI()
+    {
+        if (string.IsNullOrEmpty(_clockLabel))
+        {
+            return;
+        }
+
+        EnsureClockStyle();
+
+        var content = _clockGuiContent;
+        var labelSize = _clockStyle.CalcSize(content);
+        var x = clockScreenOffset.x;
+        var y = clockScreenOffset.y;
+        var labelRect = new Rect(x, y, Mathf.Max(0f, labelSize.x), Mathf.Max(0f, labelSize.y));
+
+        var paddingX = Mathf.Max(0f, clockBackgroundPadding.x);
+        var paddingY = Mathf.Max(0f, clockBackgroundPadding.y);
+        if (clockBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
+        {
+            var halfPadX = paddingX * 0.5f;
+            var halfPadY = paddingY * 0.5f;
+            var backgroundRect = new Rect(
+                labelRect.x - halfPadX,
+                labelRect.y - halfPadY,
+                labelRect.width + paddingX,
+                labelRect.height + paddingY);
+
+            var previousColor = GUI.color;
+            GUI.color = clockBackgroundColor;
+            GUI.DrawTexture(backgroundRect, Texture2D.whiteTexture);
+            GUI.color = previousColor;
+        }
+
+        GUI.Label(labelRect, content, _clockStyle);
+    }
+
+    private void EnsureClockStyle()
+    {
+        var desiredFontSize = Mathf.Max(1, clockFontSize);
+        if (_clockStyle == null)
+        {
+            _clockStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.UpperLeft,
+                wordWrap = false,
+                richText = false,
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+        }
+
+        if (_clockStyle.fontSize != desiredFontSize)
+        {
+            _clockStyle.fontSize = desiredFontSize;
+        }
+
+        _clockStyle.normal.textColor = clockTextColor;
     }
 
     private void LoadMap(Texture2D mapTexture, int expectedWidth, int expectedHeight)
@@ -401,6 +498,10 @@ public sealed class GoapSimulationView : MonoBehaviour
         _actors = null;
         _world = null;
         _datasetRoot = null;
+        _clock = null;
+        _clockLabel = string.Empty;
+        _clockGuiContent.text = string.Empty;
+        _clockStyle = null;
     }
 
     private sealed class PawnVisual
