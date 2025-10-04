@@ -951,6 +951,17 @@
           "start": []
         },
         "currency": 0
+      },
+      {
+        "id": "player",
+        "name": "Player",
+        "role": "Player",
+        "home": {
+          "location": "Bakery"
+        },
+        "workplace": {
+          "location": "Bakery"
+        }
       }
     ]
   },

@@ -792,6 +792,23 @@ namespace DataDrivenGoap.Config
         public FileReferenceConfig quests { get; set; }
         public PersistenceConfig persistence { get; set; }
         public ObserverConfig observer { get; set; }
+        public PlayerConfig player { get; set; }
+    }
+
+    public sealed class PlayerConfig
+    {
+        public string id { get; set; }
+        public string[] tags { get; set; }
+        public PlayerSpawnConfig spawn { get; set; }
+        public InventoryConfig inventory { get; set; }
+        public double? currency { get; set; }
+        public Dictionary<string, double> attributes { get; set; }
+        public bool allowAiFallback { get; set; }
+    }
+
+    public sealed class PlayerSpawnConfig
+    {
+        public string id { get; set; }
     }
 
     public sealed class ItemDatabaseConfig
@@ -1085,6 +1102,11 @@ namespace DataDrivenGoap.Config
                 throw new InvalidDataException($"Demo config '{sourcePath}' is missing the 'persistence' section.");
             }
 
+            if (config.player is null)
+            {
+                throw new InvalidDataException($"Demo config '{sourcePath}' is missing the 'player' section.");
+            }
+
             ValidateWorldConfig(config.world, sourcePath);
             ValidateSimulationConfig(config.simulation, sourcePath);
             ValidateTimeConfig(config.time, sourcePath);
@@ -1100,6 +1122,25 @@ namespace DataDrivenGoap.Config
             ValidatePersistenceConfig(config.persistence, sourcePath);
             ValidateActorSeedConfig(config.actors, sourcePath);
             ValidateSocialConfig(config.social, sourcePath);
+            ValidatePlayerConfig(config.player, sourcePath);
+        }
+
+        private static void ValidatePlayerConfig(PlayerConfig config, string sourcePath)
+        {
+            if (string.IsNullOrWhiteSpace(config.id))
+            {
+                throw new InvalidDataException($"Demo config '{sourcePath}' is missing a non-empty 'player.id'.");
+            }
+
+            if (config.spawn is null || string.IsNullOrWhiteSpace(config.spawn.id))
+            {
+                throw new InvalidDataException($"Demo config '{sourcePath}' must specify 'player.spawn.id'.");
+            }
+
+            if (config.inventory == null)
+            {
+                throw new InvalidDataException($"Demo config '{sourcePath}' must define 'player.inventory'.");
+            }
         }
 
         private static void ValidateWorldConfig(WorldConfig config, string sourcePath)
