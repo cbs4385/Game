@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
+using DataDrivenGoap.Execution;
 using DataDrivenGoap.World;
 using UnityEngine;
 
@@ -28,9 +29,11 @@ public sealed class GoapSimulationView : MonoBehaviour
     private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _pawnSpritePaths = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
     private readonly GUIContent _clockGuiContent = new GUIContent();
+    private readonly GUIContent _pawnUpdateGuiContent = new GUIContent();
 
     private ShardedWorld _world;
     private IReadOnlyList<(ThingId Id, VillagePawn Pawn)> _actors;
+    private IReadOnlyDictionary<ThingId, ActorHostDiagnostics> _actorDiagnostics;
     private string _datasetRoot;
     private GameObject _mapObject;
     private Sprite _mapSprite;
@@ -39,6 +42,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private Transform _pawnRoot;
     private WorldClock _clock;
     private string _clockLabel = string.Empty;
+    private string _pawnUpdateLabel = string.Empty;
     private GUIStyle _clockStyle;
     private ThingId? _selectedPawnId;
 
@@ -82,8 +86,11 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (_world == null)
         {
+            ClearPawnUpdateLabel();
             return;
         }
+
+        UpdatePawnDiagnosticsLabel();
 
         var snapshot = _world.Snap();
         foreach (var entry in _pawnVisuals)
@@ -116,6 +123,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         _world = args.World ?? throw new InvalidOperationException("Bootstrapper emitted a null world instance.");
         _actors = args.ActorDefinitions ?? throw new InvalidOperationException("Bootstrapper emitted null actor definitions.");
+        _actorDiagnostics = args.ActorDiagnostics ?? throw new InvalidOperationException("Bootstrapper emitted null actor diagnostics.");
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
         _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
@@ -134,6 +142,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         ValidateSelectedPawnPresence();
         UpdateObserverCamera(snapshot);
         UpdateClockDisplay();
+        UpdatePawnDiagnosticsLabel();
     }
 
     private void UpdateClockDisplay()
@@ -159,6 +168,49 @@ public sealed class GoapSimulationView : MonoBehaviour
             snapshot.TimeOfDay);
         _clockLabel = formatted;
         _clockGuiContent.text = formatted;
+    }
+
+    private void ClearPawnUpdateLabel()
+    {
+        _pawnUpdateLabel = string.Empty;
+        _pawnUpdateGuiContent.text = string.Empty;
+    }
+
+    private void UpdatePawnDiagnosticsLabel()
+    {
+        if (_selectedPawnId == null || _actorDiagnostics == null)
+        {
+            ClearPawnUpdateLabel();
+            return;
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!_actorDiagnostics.TryGetValue(selectedId, out var diagnostics) || diagnostics == null)
+        {
+            throw new InvalidOperationException($"Diagnostics for pawn '{selectedId.Value}' are missing.");
+        }
+
+        var updateCount = diagnostics.UpdateCount;
+        var deltaSeconds = diagnostics.LastUpdateDeltaSeconds;
+        var lastUpdateUtc = diagnostics.LastUpdateUtc;
+
+        string label;
+        if (updateCount < 2 || !double.IsFinite(deltaSeconds) || deltaSeconds < 0d)
+        {
+            label = "Δt: collecting…";
+        }
+        else
+        {
+            label = string.Format(CultureInfo.InvariantCulture, "Δt: {0:0.00}s", deltaSeconds);
+        }
+
+        if (lastUpdateUtc != DateTime.MinValue)
+        {
+            label += string.Format(CultureInfo.InvariantCulture, " @ {0:HH:mm:ss} UTC", lastUpdateUtc);
+        }
+
+        _pawnUpdateLabel = label;
+        _pawnUpdateGuiContent.text = label;
     }
 
     private void CreatePawnVisuals(IWorldSnapshot snapshot)
@@ -265,19 +317,30 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void OnGUI()
     {
-        if (string.IsNullOrEmpty(_clockLabel))
+        bool hasClock = !string.IsNullOrEmpty(_clockLabel);
+        bool hasPawnUpdate = !string.IsNullOrEmpty(_pawnUpdateLabel);
+        if (!hasClock && !hasPawnUpdate)
         {
             return;
         }
 
         EnsureClockStyle();
 
-        var content = _clockGuiContent;
-        var labelSize = _clockStyle.CalcSize(content);
         var x = clockScreenOffset.x;
         var y = clockScreenOffset.y;
-        var labelRect = new Rect(x, y, Mathf.Max(0f, labelSize.x), Mathf.Max(0f, labelSize.y));
+        var clockSize = hasClock ? _clockStyle.CalcSize(_clockGuiContent) : Vector2.zero;
+        var pawnSize = hasPawnUpdate ? _clockStyle.CalcSize(_pawnUpdateGuiContent) : Vector2.zero;
+        const float lineSpacing = 4f;
+        float spacing = (hasClock && hasPawnUpdate) ? lineSpacing : 0f;
+        float width = Mathf.Max(clockSize.x, pawnSize.x);
+        float height = clockSize.y + pawnSize.y + spacing;
 
+        if (width <= 0f && height <= 0f)
+        {
+            return;
+        }
+
+        var labelRect = new Rect(x, y, Mathf.Max(0f, width), Mathf.Max(0f, height));
         var paddingX = Mathf.Max(0f, clockBackgroundPadding.x);
         var paddingY = Mathf.Max(0f, clockBackgroundPadding.y);
         if (clockBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
@@ -296,7 +359,19 @@ public sealed class GoapSimulationView : MonoBehaviour
             GUI.color = previousColor;
         }
 
-        GUI.Label(labelRect, content, _clockStyle);
+        float currentY = y;
+        if (hasClock)
+        {
+            var clockRect = new Rect(x, currentY, labelRect.width, clockSize.y);
+            GUI.Label(clockRect, _clockGuiContent, _clockStyle);
+            currentY += clockSize.y + spacing;
+        }
+
+        if (hasPawnUpdate)
+        {
+            var pawnRect = new Rect(x, currentY, labelRect.width, pawnSize.y);
+            GUI.Label(pawnRect, _pawnUpdateGuiContent, _clockStyle);
+        }
     }
 
     private void EnsureClockStyle()
@@ -577,6 +652,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockGuiContent.text = string.Empty;
         _clockStyle = null;
         _selectedPawnId = null;
+        _actorDiagnostics = null;
+        ClearPawnUpdateLabel();
     }
 
     private static ThingId? ParseSelectedPawnId(string rawId)

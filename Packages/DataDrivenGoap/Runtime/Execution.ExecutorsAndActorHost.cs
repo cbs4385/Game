@@ -14,6 +14,50 @@ using GoapExecutionContext = DataDrivenGoap.Core.ExecutionContext;
 
 namespace DataDrivenGoap.Execution
 {
+    public sealed class ActorHostDiagnostics
+    {
+        private readonly ThingId _actorId;
+        private double _lastUpdateDeltaSeconds = double.NaN;
+        private long _lastUpdateTimestampTicks;
+        private long _updateCount;
+
+        public ActorHostDiagnostics(ThingId actorId)
+        {
+            _actorId = actorId;
+        }
+
+        public ThingId ActorId => _actorId;
+
+        public double LastUpdateDeltaSeconds => Volatile.Read(ref _lastUpdateDeltaSeconds);
+
+        public DateTime LastUpdateUtc
+        {
+            get
+            {
+                var ticks = Volatile.Read(ref _lastUpdateTimestampTicks);
+                return ticks > 0 ? new DateTime(ticks, DateTimeKind.Utc) : DateTime.MinValue;
+            }
+        }
+
+        public long UpdateCount => Interlocked.Read(ref _updateCount);
+
+        internal void RecordLoop(DateTime utcNow, double deltaSeconds, bool hasDelta)
+        {
+            if (utcNow.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException("Timestamp must be specified in UTC.", nameof(utcNow));
+            }
+
+            Volatile.Write(ref _lastUpdateTimestampTicks, utcNow.Ticks);
+            if (hasDelta)
+            {
+                Volatile.Write(ref _lastUpdateDeltaSeconds, deltaSeconds);
+            }
+
+            Interlocked.Increment(ref _updateCount);
+        }
+    }
+
     public sealed class ExecutorRegistry : IExecutorRegistry
     {
         private readonly IExecutor _instant = new InstantExecutor();
@@ -77,6 +121,8 @@ namespace DataDrivenGoap.Execution
         private readonly Dictionary<string, DateTime> _reservationCooldownUntil = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _planCooldownUntil = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly RoleScheduleService _scheduleService;
+        private readonly ActorHostDiagnostics _diagnostics;
+        private long _lastLoopTimestampTicks;
         private RoleScheduleBlock _activeScheduleBlock;
         private ThingId _activeScheduleTarget;
         private bool _loggedLateWarning;
@@ -107,9 +153,12 @@ namespace DataDrivenGoap.Execution
             _questSystem = questSystem;
             _worldLogger = worldLogger;
             _worldLogger?.LogActorLifecycle(_self, "start");
+            _diagnostics = new ActorHostDiagnostics(_self);
         }
 
         public ThingId Id => _self;
+
+        public ActorHostDiagnostics Diagnostics => _diagnostics;
 
         public void Start() { _thread.Start(); }
         public void Stop()
@@ -132,6 +181,19 @@ namespace DataDrivenGoap.Execution
         {
             while (!_stop)
             {
+                var loopStartUtc = DateTime.UtcNow;
+                var previousTicks = Interlocked.Exchange(ref _lastLoopTimestampTicks, loopStartUtc.Ticks);
+                if (previousTicks > 0)
+                {
+                    var previousUtc = new DateTime(previousTicks, DateTimeKind.Utc);
+                    var delta = Math.Max(0.0, (loopStartUtc - previousUtc).TotalSeconds);
+                    _diagnostics.RecordLoop(loopStartUtc, delta, true);
+                }
+                else
+                {
+                    _diagnostics.RecordLoop(loopStartUtc, double.NaN, false);
+                }
+
                 try
                 {
                     var snap = _world.Snap();
