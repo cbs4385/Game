@@ -117,6 +117,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private List<GoalConfig> _goalConfigs;
     private string[] _needAttributeNames = Array.Empty<string>();
 
+    private bool _simulationRunning;
+
     private void Awake()
     {
         Bootstrap();
@@ -148,14 +150,75 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void Start()
     {
-        if (_needScheduler != null && _needScheduler.HasNeeds)
+        StartSimulation();
+    }
+
+    private void StartSimulation()
+    {
+        if (_simulationRunning)
         {
-            _needScheduler.Start();
+            return;
         }
 
-        foreach (var actor in _actorHosts)
+        if (_world == null)
         {
-            actor.Start();
+            throw new InvalidOperationException("World must be initialized before starting the simulation.");
+        }
+
+        _simulationRunning = true;
+        try
+        {
+            if (_needScheduler != null && _needScheduler.HasNeeds)
+            {
+                _needScheduler.Start();
+            }
+
+            for (var i = 0; i < _actorHosts.Count; i++)
+            {
+                var actor = _actorHosts[i];
+                if (actor == null)
+                {
+                    throw new InvalidOperationException($"Actor host list contains a null reference during startup (index {i}).");
+                }
+
+                actor.Start();
+            }
+        }
+        catch
+        {
+            StopSimulationCore();
+            _simulationRunning = false;
+            throw;
+        }
+    }
+
+    private void StopSimulation()
+    {
+        if (!_simulationRunning)
+        {
+            return;
+        }
+
+        StopSimulationCore();
+        _simulationRunning = false;
+    }
+
+    private void StopSimulationCore()
+    {
+        for (var i = 0; i < _actorHosts.Count; i++)
+        {
+            var actor = _actorHosts[i];
+            if (actor == null)
+            {
+                throw new InvalidOperationException($"Actor host list contains a null reference during shutdown (index {i}).");
+            }
+
+            actor.Stop();
+        }
+
+        if (_needScheduler != null)
+        {
+            _needScheduler.Stop();
         }
     }
 
@@ -181,37 +244,61 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void OnDestroy()
     {
-        foreach (var actor in _actorHosts)
-        {
-            if (actor == null)
-            {
-                throw new InvalidOperationException("Actor host list contains a null reference during shutdown.");
-            }
+        StopSimulation();
 
-            actor.Stop();
-        }
         _actorHosts.Clear();
         _actorDiagnostics.Clear();
         _actorHostById.Clear();
 
-        if (_needScheduler != null)
-        {
-            _needScheduler.Stop();
-        }
-
         _worldLogger?.Dispose();
+        _worldLogger = null;
 
         if (_mapTexture != null)
         {
             Destroy(_mapTexture);
             _mapTexture = null;
         }
+
+        _needAttributeNames = Array.Empty<string>();
+        _readyEventArgs = null;
+        _world = null;
+        _clock = null;
+        _needScheduler = null;
+        _reservations = null;
+        _planner = null;
+        _executors = null;
+        _inventorySystem = null;
+        _itemCatalog = null;
+        _craftingSystem = null;
+        _shopSystem = null;
+        _cropSystem = null;
+        _animalSystem = null;
+        _fishingSystem = null;
+        _foragingSystem = null;
+        _miningSystem = null;
+        _weatherSystem = null;
+        _calendarSystem = null;
+        _scheduleService = null;
+        _socialSystem = null;
+        _skillSystem = null;
+        _questSystem = null;
+        _dialogueDatabase = null;
+        _scheduleDatabase = null;
+        _demoConfig = null;
+        _tiles = null;
+        _actionConfigs = null;
+        _goalConfigs = null;
+
+        Bootstrapped = null;
     }
 
     private WorldLogger _worldLogger;
 
     private void Bootstrap()
     {
+        StopSimulation();
+
+        _simulationRunning = false;
         _actorHosts.Clear();
         _actorHostById.Clear();
         _actorDefinitions.Clear();
@@ -329,6 +416,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         BuildActorHosts(logRoot);
         NotifyBootstrapped(datasetRoot);
+        StartSimulation();
     }
 
     private void NotifyBootstrapped(string datasetRoot)
