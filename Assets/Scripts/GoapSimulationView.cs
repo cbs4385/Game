@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
@@ -22,12 +23,21 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField] private Color clockBackgroundColor = new Color(0f, 0f, 0f, 0.65f);
     [SerializeField, Min(1)] private int clockFontSize = 18;
     [SerializeField] private string clockLabelTemplate = "Year {0}, Day {1:D3} — {2:hh\\:mm\\:ss}";
+    [SerializeField] private Vector2 selectedPawnPanelOffset = new Vector2(16f, 80f);
+    [SerializeField, Min(16f)] private float selectedPawnPanelWidth = 320f;
+    [SerializeField] private Vector2 selectedPawnPanelPadding = new Vector2(12f, 12f);
+    [SerializeField] private Color selectedPawnPanelTextColor = Color.white;
+    [SerializeField] private Color selectedPawnPanelBackgroundColor = new Color(0f, 0f, 0f, 0.75f);
+    [SerializeField, Min(1)] private int selectedPawnPanelFontSize = 14;
+    [SerializeField] private string selectedPawnPanelNeedsHeader = "Needs";
+    [SerializeField] private string selectedPawnPanelPlanHeader = "Plan";
 
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _pawnSpritePaths = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
     private readonly GUIContent _clockGuiContent = new GUIContent();
+    private readonly GUIContent _selectedPawnGuiContent = new GUIContent();
 
     private ShardedWorld _world;
     private IReadOnlyList<(ThingId Id, VillagePawn Pawn)> _actors;
@@ -40,7 +50,21 @@ public sealed class GoapSimulationView : MonoBehaviour
     private WorldClock _clock;
     private string _clockLabel = string.Empty;
     private GUIStyle _clockStyle;
+    private GUIStyle _selectedPawnPanelStyle;
     private ThingId? _selectedPawnId;
+    private readonly Dictionary<ThingId, VillagePawn> _pawnDefinitions = new Dictionary<ThingId, VillagePawn>();
+    private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
+    private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
+    private string[] _selectedPawnPlanSteps = Array.Empty<string>();
+    private string[] _needAttributeNames = Array.Empty<string>();
+    private string _selectedPawnPanelText = string.Empty;
+    private string _selectedPawnName = string.Empty;
+    private string _selectedPawnRole = string.Empty;
+    private GridPos? _selectedPawnGridPosition;
+    private string _selectedPawnPlanGoal = string.Empty;
+    private string _selectedPawnPlanState = string.Empty;
+    private string _selectedPawnPlanCurrentStep = string.Empty;
+    private DateTime _selectedPawnPlanUpdatedUtc;
 
     private void Awake()
     {
@@ -82,10 +106,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (_world == null)
         {
+            ClearSelectedPawnInfo();
             return;
         }
 
         var snapshot = _world.Snap();
+        ThingView selectedThing = null;
         foreach (var entry in _pawnVisuals)
         {
             var thing = snapshot.GetThing(entry.Key);
@@ -95,9 +121,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
 
             UpdatePawnPosition(entry.Value, thing.Position);
+
+            if (_selectedPawnId != null && entry.Key.Equals(_selectedPawnId.Value))
+            {
+                selectedThing = thing;
+            }
         }
 
         UpdateObserverCamera(snapshot);
+        UpdateSelectedPawnInfo(selectedThing);
     }
 
     private void HandleBootstrapped(object sender, GoapSimulationBootstrapper.SimulationReadyEventArgs args)
@@ -125,6 +157,30 @@ public sealed class GoapSimulationView : MonoBehaviour
                 "Demo configuration must define observer.cameraPawn so the observer camera can track a pawn.");
         }
 
+        _pawnDefinitions.Clear();
+        foreach (var actor in _actors)
+        {
+            if (actor.Pawn != null)
+            {
+                _pawnDefinitions[actor.Id] = actor.Pawn;
+            }
+        }
+
+        var needNames = bootstrapper?.NeedAttributeNames;
+        if (needNames != null && needNames.Count > 0)
+        {
+            var copy = new string[needNames.Count];
+            for (int i = 0; i < needNames.Count; i++)
+            {
+                copy[i] = needNames[i];
+            }
+            _needAttributeNames = copy;
+        }
+        else
+        {
+            _needAttributeNames = Array.Empty<string>();
+        }
+
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
 
@@ -134,6 +190,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         ValidateSelectedPawnPresence();
         UpdateObserverCamera(snapshot);
         UpdateClockDisplay();
+        var selectedThing = _selectedPawnId != null ? snapshot.GetThing(_selectedPawnId.Value) : null;
+        UpdateSelectedPawnInfo(selectedThing);
     }
 
     private void UpdateClockDisplay()
@@ -265,6 +323,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void OnGUI()
     {
+        RenderClockLabel();
+        RenderSelectedPawnPanel();
+    }
+
+    private void RenderClockLabel()
+    {
         if (string.IsNullOrEmpty(_clockLabel))
         {
             return;
@@ -319,6 +383,269 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         _clockStyle.normal.textColor = clockTextColor;
+    }
+
+    private void RenderSelectedPawnPanel()
+    {
+        if (string.IsNullOrEmpty(_selectedPawnPanelText))
+        {
+            return;
+        }
+
+        EnsureSelectedPawnPanelStyle();
+
+        var width = Mathf.Max(16f, selectedPawnPanelWidth);
+        var content = _selectedPawnGuiContent;
+        content.text = _selectedPawnPanelText;
+        var height = _selectedPawnPanelStyle.CalcHeight(content, width);
+        var panelRect = new Rect(selectedPawnPanelOffset.x, selectedPawnPanelOffset.y, width, Mathf.Max(0f, height));
+
+        if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
+        {
+            var padX = Mathf.Max(0f, selectedPawnPanelPadding.x);
+            var padY = Mathf.Max(0f, selectedPawnPanelPadding.y);
+            var backgroundRect = new Rect(
+                panelRect.x - padX * 0.5f,
+                panelRect.y - padY * 0.5f,
+                panelRect.width + padX,
+                panelRect.height + padY);
+            var previous = GUI.color;
+            GUI.color = selectedPawnPanelBackgroundColor;
+            GUI.DrawTexture(backgroundRect, Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        GUI.Label(panelRect, content, _selectedPawnPanelStyle);
+    }
+
+    private void EnsureSelectedPawnPanelStyle()
+    {
+        var desiredFontSize = Mathf.Max(1, selectedPawnPanelFontSize);
+        if (_selectedPawnPanelStyle == null)
+        {
+            _selectedPawnPanelStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.UpperLeft,
+                wordWrap = true,
+                richText = false,
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+        }
+
+        if (_selectedPawnPanelStyle.fontSize != desiredFontSize)
+        {
+            _selectedPawnPanelStyle.fontSize = desiredFontSize;
+        }
+
+        _selectedPawnPanelStyle.normal.textColor = selectedPawnPanelTextColor;
+    }
+
+    private void UpdateSelectedPawnInfo(ThingView selectedThing)
+    {
+        if (_selectedPawnId == null)
+        {
+            ClearSelectedPawnInfo();
+            return;
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!_pawnDefinitions.TryGetValue(selectedId, out var pawn) || pawn == null)
+        {
+            _selectedPawnName = selectedId.Value ?? string.Empty;
+            _selectedPawnRole = string.Empty;
+        }
+        else
+        {
+            var rawName = pawn.name?.Trim();
+            _selectedPawnName = string.IsNullOrEmpty(rawName) ? (selectedId.Value ?? string.Empty) : rawName;
+            _selectedPawnRole = pawn.role?.Trim() ?? string.Empty;
+        }
+
+        _selectedPawnGridPosition = selectedThing?.Position;
+
+        PopulateSelectedPawnNeeds(selectedThing);
+        PopulateSelectedPawnPlan(selectedId);
+        _selectedPawnPanelText = ComposeSelectedPawnPanelText(selectedId);
+    }
+
+    private void PopulateSelectedPawnNeeds(ThingView selectedThing)
+    {
+        _selectedPawnNeeds.Clear();
+        if (selectedThing?.Attributes == null)
+        {
+            return;
+        }
+
+        if (_needAttributeNames.Length > 0)
+        {
+            foreach (var attributeName in _needAttributeNames)
+            {
+                if (string.IsNullOrWhiteSpace(attributeName))
+                {
+                    continue;
+                }
+
+                if (selectedThing.Attributes.TryGetValue(attributeName, out var value))
+                {
+                    _selectedPawnNeeds.Add((attributeName, value));
+                }
+                else
+                {
+                    _selectedPawnNeeds.Add((attributeName, null));
+                }
+            }
+        }
+        else
+        {
+            foreach (var entry in selectedThing.Attributes.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                _selectedPawnNeeds.Add((entry.Key, entry.Value));
+            }
+        }
+    }
+
+    private void PopulateSelectedPawnPlan(ThingId selectedId)
+    {
+        if (bootstrapper != null && bootstrapper.TryGetActorPlanStatus(selectedId, out var status) && status != null)
+        {
+            _selectedPawnPlanGoal = status.GoalId ?? string.Empty;
+            _selectedPawnPlanState = HumanizeIdentifier(status.State);
+            _selectedPawnPlanCurrentStep = status.CurrentStep ?? string.Empty;
+            _selectedPawnPlanUpdatedUtc = status.UpdatedUtc;
+            _selectedPawnPlanSteps = status.Steps != null
+                ? status.Steps.Where(step => !string.IsNullOrWhiteSpace(step)).Select(step => step.Trim()).ToArray()
+                : Array.Empty<string>();
+        }
+        else
+        {
+            _selectedPawnPlanGoal = string.Empty;
+            _selectedPawnPlanState = string.Empty;
+            _selectedPawnPlanCurrentStep = string.Empty;
+            _selectedPawnPlanUpdatedUtc = default;
+            _selectedPawnPlanSteps = Array.Empty<string>();
+        }
+    }
+
+    private string ComposeSelectedPawnPanelText(ThingId selectedId)
+    {
+        var builder = _selectedPawnPanelBuilder;
+        builder.Clear();
+
+        var displayId = selectedId.Value ?? string.Empty;
+        var displayName = string.IsNullOrEmpty(_selectedPawnName) ? displayId : _selectedPawnName;
+        builder.Append(displayName);
+        if (!string.IsNullOrEmpty(displayId) && !string.Equals(displayName, displayId, StringComparison.Ordinal))
+        {
+            builder.Append(" (").Append(displayId).Append(')');
+        }
+        builder.AppendLine();
+
+        if (!string.IsNullOrEmpty(_selectedPawnRole))
+        {
+            builder.Append("Role: ").Append(HumanizeIdentifier(_selectedPawnRole)).AppendLine();
+        }
+
+        if (_selectedPawnGridPosition.HasValue)
+        {
+            var pos = _selectedPawnGridPosition.Value;
+            builder.Append("Position: (").Append(pos.X).Append(", ").Append(pos.Y).Append(')').AppendLine();
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(string.IsNullOrWhiteSpace(selectedPawnPanelNeedsHeader) ? "Needs" : selectedPawnPanelNeedsHeader);
+        if (_selectedPawnNeeds.Count == 0)
+        {
+            builder.AppendLine("  <none>");
+        }
+        else
+        {
+            foreach (var entry in _selectedPawnNeeds)
+            {
+                var label = HumanizeIdentifier(entry.Label);
+                builder.Append("  ").Append(string.IsNullOrEmpty(label) ? entry.Label : label).Append(": ")
+                    .Append(FormatNeedValue(entry.Value)).AppendLine();
+            }
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(string.IsNullOrWhiteSpace(selectedPawnPanelPlanHeader) ? "Plan" : selectedPawnPanelPlanHeader);
+        bool hasPlanContent = false;
+        if (!string.IsNullOrEmpty(_selectedPawnPlanState))
+        {
+            builder.Append("  State: ").Append(_selectedPawnPlanState).AppendLine();
+            hasPlanContent = true;
+        }
+        if (!string.IsNullOrEmpty(_selectedPawnPlanGoal))
+        {
+            builder.Append("  Goal: ").Append(_selectedPawnPlanGoal).AppendLine();
+            hasPlanContent = true;
+        }
+        if (!string.IsNullOrEmpty(_selectedPawnPlanCurrentStep))
+        {
+            builder.Append("  Current: ").Append(_selectedPawnPlanCurrentStep).AppendLine();
+            hasPlanContent = true;
+        }
+        if (_selectedPawnPlanSteps.Length > 0)
+        {
+            builder.AppendLine("  Steps:");
+            for (int i = 0; i < _selectedPawnPlanSteps.Length; i++)
+            {
+                builder.Append("    ").Append(i + 1).Append(". ").Append(_selectedPawnPlanSteps[i]).AppendLine();
+            }
+            hasPlanContent = true;
+        }
+        if (_selectedPawnPlanUpdatedUtc != default)
+        {
+            builder.Append("  Updated: ").Append(_selectedPawnPlanUpdatedUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)).Append("Z").AppendLine();
+            hasPlanContent = true;
+        }
+        if (!hasPlanContent)
+        {
+            builder.AppendLine("  <none>");
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private void ClearSelectedPawnInfo()
+    {
+        _selectedPawnName = string.Empty;
+        _selectedPawnRole = string.Empty;
+        _selectedPawnGridPosition = null;
+        _selectedPawnPlanGoal = string.Empty;
+        _selectedPawnPlanState = string.Empty;
+        _selectedPawnPlanCurrentStep = string.Empty;
+        _selectedPawnPlanUpdatedUtc = default;
+        _selectedPawnNeeds.Clear();
+        _selectedPawnPlanSteps = Array.Empty<string>();
+        _selectedPawnPanelText = string.Empty;
+        _selectedPawnPanelBuilder.Clear();
+    }
+
+    private static string HumanizeIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Replace('_', ' ').Replace('-', ' ').Trim();
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(normalized);
+    }
+
+    private static string FormatNeedValue(double? value)
+    {
+        if (!value.HasValue || double.IsNaN(value.Value))
+        {
+            return "—";
+        }
+
+        return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     private void LoadMap(Texture2D mapTexture, int expectedWidth, int expectedHeight)
@@ -577,6 +904,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockGuiContent.text = string.Empty;
         _clockStyle = null;
         _selectedPawnId = null;
+        _pawnDefinitions.Clear();
+        _needAttributeNames = Array.Empty<string>();
+        _selectedPawnPanelStyle = null;
+        _selectedPawnGuiContent.text = string.Empty;
+        ClearSelectedPawnInfo();
     }
 
     private static ThingId? ParseSelectedPawnId(string rawId)

@@ -86,6 +86,8 @@ namespace DataDrivenGoap.Execution
         private DateTime _goalStartUtc;
         private string _lastPlanSummary;
         private readonly object _stateGate = new object();
+        private readonly object _planStatusGate = new object();
+        private ActorPlanStatus _planStatus;
 
         public ActorHost(IWorld world, IPlanner planner, IExecutorRegistry execs, IReservationService reservations, ThingId self, int seed, string logDir, double priorityJitterRange, RoleScheduleService scheduleService = null, InventorySystem inventorySystem = null, ShopSystem shopSystem = null, SocialRelationshipSystem socialSystem = null, CropSystem cropSystem = null, AnimalSystem animalSystem = null, MiningSystem miningSystem = null, FishingSystem fishingSystem = null, ForagingSystem foragingSystem = null, SkillProgressionSystem skillSystem = null, QuestSystem questSystem = null, WorldLogger worldLogger = null)
         {
@@ -107,6 +109,14 @@ namespace DataDrivenGoap.Execution
             _questSystem = questSystem;
             _worldLogger = worldLogger;
             _worldLogger?.LogActorLifecycle(_self, "start");
+            _planStatus = new ActorPlanStatus(
+                _self.Value ?? string.Empty,
+                string.Empty,
+                NoPlanSummary,
+                Array.Empty<string>(),
+                string.Empty,
+                "initializing",
+                DateTime.UtcNow);
         }
 
         public ThingId Id => _self;
@@ -126,6 +136,7 @@ namespace DataDrivenGoap.Execution
             _log.FlushTick();
             _log.Dispose();
             _worldLogger?.LogActorLifecycle(_self, "stop");
+            UpdatePlanStatus(string.Empty, "<stopped>", Array.Empty<string>(), string.Empty, "stopped");
         }
 
         private void RunLoop()
@@ -142,8 +153,10 @@ namespace DataDrivenGoap.Execution
                     HandleScheduleState(snap, worldTime, worldDay);
                     var plan = _planner.Plan(snap, _self, null, _priorityJitterRange, _rng);
                     TrackGoal(plan);
-                    if (plan == null || plan.IsEmpty)
+                    var planSteps = BuildPlanStepDescriptions(plan);
+                    if (plan == null)
                     {
+                        UpdatePlanStatus(string.Empty, NoPlanSummary, Array.Empty<string>(), string.Empty, "no-plan");
                         if (!string.Equals(_lastPlanSummary, NoPlanSummary, StringComparison.Ordinal))
                         {
                             _log.Write($"PLAN none_available world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
@@ -155,6 +168,20 @@ namespace DataDrivenGoap.Execution
                     }
 
                     string planSummary = SummarizePlan(plan);
+                    if (plan.IsEmpty)
+                    {
+                        UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, string.Empty, "plan-empty");
+                        if (!string.Equals(_lastPlanSummary, NoPlanSummary, StringComparison.Ordinal))
+                        {
+                            _log.Write($"PLAN none_available world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
+                            _worldLogger?.LogStep("plan_none", _self, Guid.Empty, $"snapshot_version={snapshotVersion} world_time={worldTime} world_day={worldDay}");
+                            _lastPlanSummary = NoPlanSummary;
+                        }
+                        WaitWithStopCheck(20);
+                        continue;
+                    }
+
+                    UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, string.Empty, "plan-selected");
                     if (!string.Equals(planSummary, _lastPlanSummary, StringComparison.Ordinal))
                     {
                         _log.Write($"PLAN selected goal={plan.GoalId ?? "<none>"} steps={plan.Steps.Count} detail={planSummary} world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
@@ -165,6 +192,7 @@ namespace DataDrivenGoap.Execution
                     var step = plan.NextStepWhosePreconditionsHold(snap);
                     if (step == null)
                     {
+                        UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, string.Empty, "waiting-preconditions");
                         _log.Write($"PLAN waiting_preconditions goal={plan.GoalId ?? "<none>"} detail={planSummary} world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
                         _worldLogger?.LogStep("waiting_preconditions", _self, Guid.Empty, $"goal={plan.GoalId ?? "<none>"} detail={planSummary} snapshot_version={snapshotVersion} world_time={worldTime} world_day={worldDay}");
                         WaitWithStopCheck(15);
@@ -176,9 +204,11 @@ namespace DataDrivenGoap.Execution
                     string stepKey = BuildStepKey(step);
                     double durSec = (step.DurationSeconds != null) ? Math.Max(0.0, step.DurationSeconds(snap)) : 0.0;
                     double expectedDurationMs = durSec * 1000.0;
+                    string currentStepLabel = FormatStepForStatus(step);
 
                     if (TryGetCooldown(stepKey, out int waitMs))
                     {
+                        UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, currentStepLabel, "cooldown");
                         var end = DateTime.UtcNow.AddMilliseconds(waitMs);
                         _log.Write($"STEP wait_start plan={planId} wait_kind=cooldown expected_ms={waitMs.ToString("0.##", CultureInfo.InvariantCulture)} {stepDescription} world_time={worldTime} world_day={worldDay}");
                         _worldLogger?.LogStep("wait_cooldown_start", _self, planId, $"{stepDescription} expected_ms={waitMs.ToString("0.##", CultureInfo.InvariantCulture)} world_time={worldTime} world_day={worldDay}");
@@ -189,11 +219,13 @@ namespace DataDrivenGoap.Execution
                         _worldLogger?.LogStep("wait_cooldown_complete", _self, planId, $"{stepDescription} actual_ms={waited.ToString("0.##", CultureInfo.InvariantCulture)} world_time={worldTime} world_day={worldDay}");
                     }
 
+                    UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, currentStepLabel, "executing-step");
                     _log.Write($"STEP begin plan={planId} goal={plan.GoalId ?? "<none>"} {stepDescription} reservations={DescribeReservations(step.Reservations)} duration_ms={expectedDurationMs.ToString("0.##", CultureInfo.InvariantCulture)} world_time={worldTime} world_day={worldDay} snapshot_version={snapshotVersion}");
                     _worldLogger?.LogStep("begin", _self, planId, $"goal={plan.GoalId ?? "<none>"} {stepDescription} reservations={DescribeReservations(step.Reservations)} duration_ms={expectedDurationMs.ToString("0.##", CultureInfo.InvariantCulture)} snapshot_version={snapshotVersion} world_time={worldTime} world_day={worldDay}");
 
                     if (!_reservations.TryAcquireAll(step.Reservations, planId, _self))
                     {
+                        UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, currentStepLabel, "reservation-failed");
                         _log.Write($"STEP reservation_failed plan={planId} {stepDescription} world_time={worldTime} world_day={worldDay}");
                         _log.IncReservationFailure(step.ActivityName);
                         _worldLogger?.LogStep("reservation_failed", _self, planId, $"{stepDescription} world_time={worldTime} world_day={worldDay}");
@@ -214,6 +246,7 @@ namespace DataDrivenGoap.Execution
                         var ctx = new GoapExecutionContext(snap, _self, _rng);
                         if (durSec > 0)
                         {
+                            UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, currentStepLabel, "duration-wait");
                             var end = DateTime.UtcNow.AddMilliseconds(durSec * 1000.0);
                             string expected = (durSec * 1000.0).ToString("0.##", CultureInfo.InvariantCulture);
                             _log.Write($"STEP wait_start plan={planId} wait_kind=duration expected_ms={expected} {stepDescription} world_time={worldTime} world_day={worldDay}");
@@ -224,6 +257,7 @@ namespace DataDrivenGoap.Execution
                             string actual = waited.ToString("0.##", CultureInfo.InvariantCulture);
                             _log.Write($"STEP wait_complete plan={planId} wait_kind=duration actual_ms={actual} {stepDescription} world_time={worldTime} world_day={worldDay}");
                             _worldLogger?.LogStep("wait_duration_complete", _self, planId, $"{stepDescription} actual_ms={actual} world_time={worldTime} world_day={worldDay}");
+                            UpdatePlanStatus(plan.GoalId ?? string.Empty, planSummary, planSteps, currentStepLabel, "executing-step");
                         }
 
                         EffectBatch batch;
@@ -271,6 +305,7 @@ namespace DataDrivenGoap.Execution
                 {
                     string errorWorldTime = "<unknown>", errorWorldDay = "<unknown>";
                     RefreshWorldTime(ref errorWorldTime, ref errorWorldDay);
+                    UpdatePlanStatus(string.Empty, "<error>", Array.Empty<string>(), string.Empty, "error");
                     string actorId = _self.Value ?? "<unknown>";
                     string exceptionType = ex.GetType().Name ?? "Exception";
                     string fatalMessage =
@@ -999,6 +1034,63 @@ namespace DataDrivenGoap.Execution
             return $"{plan.GoalId ?? "<no-goal>"}|{string.Join("|", parts)}";
         }
 
+        public ActorPlanStatus SnapshotPlanStatus()
+        {
+            lock (_planStatusGate)
+            {
+                return _planStatus;
+            }
+        }
+
+        private void UpdatePlanStatus(string goalId, string planSummary, IReadOnlyList<string> steps, string currentStep, string state)
+        {
+            var snapshot = new ActorPlanStatus(
+                _self.Value ?? string.Empty,
+                goalId ?? string.Empty,
+                planSummary ?? string.Empty,
+                steps,
+                currentStep ?? string.Empty,
+                state ?? string.Empty,
+                DateTime.UtcNow);
+            lock (_planStatusGate)
+            {
+                _planStatus = snapshot;
+            }
+        }
+
+        private static string[] BuildPlanStepDescriptions(Plan plan)
+        {
+            if (plan?.Steps == null || plan.Steps.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var result = new string[plan.Steps.Count];
+            for (int i = 0; i < plan.Steps.Count; i++)
+            {
+                result[i] = FormatStepForStatus(plan.Steps[i]);
+            }
+
+            return result;
+        }
+
+        private static string FormatStepForStatus(PlanStep step)
+        {
+            if (step == null)
+            {
+                return "<none>";
+            }
+
+            string activity = step.ActivityName ?? "<unknown>";
+            string target = FormatThingId(step.Target);
+            if (string.IsNullOrWhiteSpace(target) || string.Equals(target, "<none>", StringComparison.Ordinal))
+            {
+                return activity;
+            }
+
+            return string.Concat(activity, " -> ", target);
+        }
+
         private static string FormatWorldTime(WorldTimeSnapshot time)
         {
             if (time == null)
@@ -1084,6 +1176,41 @@ namespace DataDrivenGoap.Execution
             var value = thing.Value;
             return string.IsNullOrEmpty(value) ? "<none>" : value;
         }
+    }
+
+    public sealed class ActorPlanStatus
+    {
+        private readonly string[] _steps;
+
+        public ActorPlanStatus(string actorId, string goalId, string planSummary, IReadOnlyList<string> steps, string currentStep, string state, DateTime updatedUtc)
+        {
+            ActorId = actorId ?? string.Empty;
+            GoalId = goalId ?? string.Empty;
+            PlanSummary = planSummary ?? string.Empty;
+            CurrentStep = currentStep ?? string.Empty;
+            State = state ?? string.Empty;
+            UpdatedUtc = updatedUtc;
+            if (steps == null || steps.Count == 0)
+            {
+                _steps = Array.Empty<string>();
+            }
+            else
+            {
+                _steps = new string[steps.Count];
+                for (int i = 0; i < steps.Count; i++)
+                {
+                    _steps[i] = steps[i] ?? string.Empty;
+                }
+            }
+        }
+
+        public string ActorId { get; }
+        public string GoalId { get; }
+        public string PlanSummary { get; }
+        public string CurrentStep { get; }
+        public string State { get; }
+        public DateTime UpdatedUtc { get; }
+        public IReadOnlyList<string> Steps => _steps;
     }
 
     public sealed class PerActorLogger : IDisposable
