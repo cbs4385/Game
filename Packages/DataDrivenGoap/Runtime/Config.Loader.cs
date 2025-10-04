@@ -672,6 +672,7 @@ namespace DataDrivenGoap.Config
         public double durationGameDays { get; set; }
         public int actorHostSeed { get; set; }
         public double priorityJitter { get; set; }
+        public bool? worldLoggingEnabled { get; set; }
     }
 
     public sealed class TimeConfig

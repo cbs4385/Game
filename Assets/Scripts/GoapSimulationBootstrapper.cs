@@ -405,8 +405,19 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         ConfigureScheduleDefinitions();
 
         string logRoot = Path.Combine(Application.persistentDataPath, "goap-logs");
-        Directory.CreateDirectory(logRoot);
-        _worldLogger = new WorldLogger(Path.Combine(logRoot, "world.log.txt"));
+        string worldLogPath = Path.Combine(logRoot, "world.log.txt");
+        bool worldLoggingEnabled = _demoConfig?.simulation?.worldLoggingEnabled ?? true;
+
+        if (worldLoggingEnabled)
+        {
+            Directory.CreateDirectory(logRoot);
+            _worldLogger = new WorldLogger(worldLogPath, enabled: true);
+        }
+        else
+        {
+            DeleteWorldLogFiles(worldLogPath);
+            _worldLogger = null;
+        }
 
         _executors = new ExecutorRegistry();
         _planner = new JsonDrivenPlanner(
@@ -681,6 +692,70 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             }
             _actorHostById[entry.Id] = host;
         }
+    }
+
+    private static void DeleteWorldLogFiles(string worldLogPath)
+    {
+        if (string.IsNullOrWhiteSpace(worldLogPath))
+        {
+            throw new ArgumentException("World log path must be a valid, non-empty string.", nameof(worldLogPath));
+        }
+
+        string directory = Path.GetDirectoryName(worldLogPath);
+        string fileName = Path.GetFileName(worldLogPath);
+
+        if (string.IsNullOrEmpty(fileName))
+        {
+            throw new ArgumentException("World log path must include a file name.", nameof(worldLogPath));
+        }
+
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        if (File.Exists(worldLogPath))
+        {
+            File.Delete(worldLogPath);
+        }
+
+        string searchDirectory = string.IsNullOrEmpty(directory) ? Directory.GetCurrentDirectory() : directory;
+        if (!Directory.Exists(searchDirectory))
+        {
+            return;
+        }
+
+        foreach (var candidate in Directory.GetFiles(searchDirectory, fileName + ".*"))
+        {
+            if (IsWorldLogSegment(candidate, fileName))
+            {
+                File.Delete(candidate);
+            }
+        }
+    }
+
+    private static bool IsWorldLogSegment(string candidatePath, string baseFileName)
+    {
+        string candidate = Path.GetFileName(candidatePath);
+        if (string.IsNullOrEmpty(candidate) || !candidate.StartsWith(baseFileName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (candidate.Length <= baseFileName.Length + 1 || candidate[baseFileName.Length] != '.')
+        {
+            return false;
+        }
+
+        for (int i = baseFileName.Length + 1; i < candidate.Length; i++)
+        {
+            if (!char.IsDigit(candidate[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private List<ThingSeed> BuildThingSeeds(WorldConfig worldConfig, VillageConfig villageConfig)
