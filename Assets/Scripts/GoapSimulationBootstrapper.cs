@@ -57,7 +57,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             Texture2D mapTexture,
             WorldClock clock,
             IReadOnlyDictionary<ThingId, ActorHostDiagnostics> actorDiagnostics,
-            string cameraPawnId)
+            string cameraPawnId,
+            IReadOnlyList<ThingId> manualPawnIds,
+            ThingId? playerPawnId)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
@@ -66,6 +68,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             Clock = clock ?? throw new ArgumentNullException(nameof(clock));
             ActorDiagnostics = actorDiagnostics ?? throw new ArgumentNullException(nameof(actorDiagnostics));
             CameraPawnId = string.IsNullOrWhiteSpace(cameraPawnId) ? null : cameraPawnId.Trim();
+            ManualPawnIds = manualPawnIds ?? Array.AsReadOnly(Array.Empty<ThingId>());
+            PlayerPawnId = playerPawnId;
         }
 
         public ShardedWorld World { get; }
@@ -75,6 +79,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public WorldClock Clock { get; }
         public IReadOnlyDictionary<ThingId, ActorHostDiagnostics> ActorDiagnostics { get; }
         public string CameraPawnId { get; }
+        public IReadOnlyList<ThingId> ManualPawnIds { get; }
+        public ThingId? PlayerPawnId { get; }
     }
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
@@ -85,6 +91,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private readonly Dictionary<ThingId, ActorHostDiagnostics> _actorDiagnostics = new Dictionary<ThingId, ActorHostDiagnostics>();
     private readonly Dictionary<string, ThingId> _locationToThing = new Dictionary<string, ThingId>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ThingId, ThingSeed> _seedByThing = new Dictionary<ThingId, ThingSeed>();
+    private readonly HashSet<ThingId> _manualPawnIds = new HashSet<ThingId>();
 
     private SimulationReadyEventArgs _readyEventArgs;
     private ShardedWorld _world;
@@ -116,6 +123,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private List<ActionConfig> _actionConfigs;
     private List<GoalConfig> _goalConfigs;
     private string[] _needAttributeNames = Array.Empty<string>();
+    private ThingId? _playerPawnId;
 
     private bool _simulationRunning;
 
@@ -317,6 +325,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _seedByThing.Clear();
         _actorDiagnostics.Clear();
         _needAttributeNames = Array.Empty<string>();
+        _manualPawnIds.Clear();
+        _playerPawnId = null;
 
         if (_mapTexture != null)
         {
@@ -464,6 +474,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException("World clock must be initialized before publishing bootstrap completion.");
         }
 
+        var manual = _manualPawnIds.ToArray();
         _readyEventArgs = new SimulationReadyEventArgs(
             _world,
             Array.AsReadOnly(actors),
@@ -471,7 +482,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             _mapTexture,
             _clock,
             new Dictionary<ThingId, ActorHostDiagnostics>(_actorDiagnostics),
-            _demoConfig?.observer?.cameraPawn);
+            _demoConfig?.observer?.cameraPawn,
+            Array.AsReadOnly(manual),
+            _playerPawnId);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 
@@ -533,6 +546,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         foreach (var entry in _actorDefinitions)
         {
+            if (_manualPawnIds.Contains(entry.Id))
+            {
+                continue;
+            }
+
             RoleScheduleDefinition schedule = null;
             if (pawnOverrides.TryGetValue(entry.Id.Value, out var overrideSchedule))
             {
@@ -632,14 +650,31 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void ConfigureInventoriesAndCurrency()
     {
-        var actorConfig = _demoConfig.actors;
-        if (actorConfig == null)
+        var actorConfig = _demoConfig.actors ?? throw new InvalidDataException("actors section missing in demo config.");
+        var playerConfig = _demoConfig.player ?? throw new InvalidDataException("player section missing in demo config.");
+        if (_playerPawnId == null)
         {
-            return;
+            throw new InvalidOperationException("Player pawn id was not initialized before configuring inventories.");
         }
 
         foreach (var actor in _actorDefinitions)
         {
+            bool isPlayer = actor.Id.Equals(_playerPawnId.Value);
+            if (isPlayer)
+            {
+                if (playerConfig.inventory != null)
+                {
+                    _inventorySystem.ConfigureInventory(actor.Id, playerConfig.inventory);
+                }
+
+                if (playerConfig.currency.HasValue)
+                {
+                    _inventorySystem.SetCurrency(actor.Id, playerConfig.currency.Value);
+                }
+
+                continue;
+            }
+
             if (actorConfig.inventory != null)
             {
                 _inventorySystem.ConfigureInventory(actor.Id, actorConfig.inventory);
@@ -656,6 +691,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     {
         foreach (var entry in _actorDefinitions)
         {
+            if (_manualPawnIds.Contains(entry.Id))
+            {
+                continue;
+            }
+
             var host = new ActorHost(
                 _world,
                 _planner,
@@ -772,6 +812,22 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return seeds;
     }
 
+    private static void AddTagIfMissing(List<string> tags, string tag)
+    {
+        if (tags == null || string.IsNullOrWhiteSpace(tag))
+        {
+            return;
+        }
+
+        string trimmed = tag.Trim();
+        if (tags.Any(existing => string.Equals(existing, trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        tags.Add(trimmed);
+    }
+
     private void AddActorSeeds(VillageConfig villageConfig, List<ThingSeed> seeds)
     {
         if (villageConfig?.pawns?.pawns == null)
@@ -780,6 +836,14 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         var actorConfig = _demoConfig.actors ?? throw new InvalidDataException("actors section missing in demo config.");
+        var playerConfig = _demoConfig.player ?? throw new InvalidDataException("player section missing in demo config.");
+        if (string.IsNullOrWhiteSpace(playerConfig.id))
+        {
+            throw new InvalidDataException("player.id must be specified in demo config.");
+        }
+
+        var expectedPlayerId = new ThingId(playerConfig.id.Trim());
+        bool playerFound = false;
         var rng = new System.Random(_demoConfig.simulation.actorHostSeed);
 
         foreach (var pawn in villageConfig.pawns.pawns)
@@ -799,16 +863,29 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
             foreach (var tag in actorConfig.tags ?? Array.Empty<string>())
             {
-                if (!string.IsNullOrWhiteSpace(tag))
+                AddTagIfMissing(seed.Tags, tag);
+            }
+
+            bool isPlayer = id.Equals(expectedPlayerId);
+            if (isPlayer)
+            {
+                playerFound = true;
+                _playerPawnId = id;
+                if (!playerConfig.allowAiFallback)
                 {
-                    seed.Tags.Add(tag.Trim());
+                    _manualPawnIds.Add(id);
+                }
+
+                foreach (var tag in playerConfig.tags ?? Array.Empty<string>())
+                {
+                    AddTagIfMissing(seed.Tags, tag);
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(pawn.role))
             {
-                seed.Tags.Add(pawn.role.Trim());
-                seed.Tags.Add($"role:{pawn.role.Trim().ToLowerInvariant()}");
+                AddTagIfMissing(seed.Tags, pawn.role);
+                AddTagIfMissing(seed.Tags, $"role:{pawn.role.Trim().ToLowerInvariant()}");
             }
 
             foreach (var kv in actorConfig.attributes ?? new Dictionary<string, AttributeInitConfig>())
@@ -822,9 +899,43 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 seed.Attributes[kv.Key.Trim()] = value;
             }
 
+            if (isPlayer && playerConfig.attributes != null)
+            {
+                foreach (var kvp in playerConfig.attributes)
+                {
+                    if (string.IsNullOrWhiteSpace(kvp.Key))
+                    {
+                        continue;
+                    }
+
+                    seed.Attributes[kvp.Key.Trim()] = kvp.Value;
+                }
+            }
+
+            if (isPlayer)
+            {
+                string spawnId = playerConfig.spawn?.id?.Trim();
+                if (string.IsNullOrWhiteSpace(spawnId))
+                {
+                    throw new InvalidDataException("player.spawn.id must be specified in demo config.");
+                }
+
+                if (!_locationToThing.TryGetValue(spawnId, out var spawnThing) || !_seedByThing.TryGetValue(spawnThing, out var spawnSeed))
+                {
+                    throw new InvalidDataException($"Player spawn location '{spawnId}' could not be resolved to a world thing.");
+                }
+
+                seed.Position = spawnSeed.Position;
+            }
+
             seeds.Add(seed);
             _seedByThing[id] = seed;
             _actorDefinitions.Add((id, pawn));
+        }
+
+        if (!playerFound)
+        {
+            throw new InvalidDataException($"Demo dataset did not define a pawn with id '{expectedPlayerId.Value}' for the player.");
         }
     }
 

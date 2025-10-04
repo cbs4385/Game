@@ -57,6 +57,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private GUIStyle _selectedPawnPanelStyle;
     private ThingId? _selectedPawnId;
     private readonly Dictionary<ThingId, VillagePawn> _pawnDefinitions = new Dictionary<ThingId, VillagePawn>();
+    private readonly HashSet<ThingId> _manualPawnIds = new HashSet<ThingId>();
     private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
     private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
     private string[] _selectedPawnPlanSteps = Array.Empty<string>();
@@ -156,6 +157,14 @@ public sealed class GoapSimulationView : MonoBehaviour
         _world = args.World ?? throw new InvalidOperationException("Bootstrapper emitted a null world instance.");
         _actors = args.ActorDefinitions ?? throw new InvalidOperationException("Bootstrapper emitted null actor definitions.");
         _actorDiagnostics = args.ActorDiagnostics ?? throw new InvalidOperationException("Bootstrapper emitted null actor diagnostics.");
+        _manualPawnIds.Clear();
+        if (args.ManualPawnIds != null)
+        {
+            foreach (var manualId in args.ManualPawnIds)
+            {
+                _manualPawnIds.Add(manualId);
+            }
+        }
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
         _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
@@ -243,6 +252,13 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         var selectedId = _selectedPawnId.Value;
+        if (_manualPawnIds.Contains(selectedId))
+        {
+            _pawnUpdateLabel = "Manual control";
+            _pawnUpdateGuiContent.text = _pawnUpdateLabel;
+            return;
+        }
+
         if (!_actorDiagnostics.TryGetValue(selectedId, out var diagnostics) || diagnostics == null)
         {
             throw new InvalidOperationException($"Diagnostics for pawn '{selectedId.Value}' are missing.");
@@ -990,6 +1006,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPanelStyle = null;
         _selectedPawnGuiContent.text = string.Empty;
         ClearSelectedPawnInfo();
+        _manualPawnIds.Clear();
     }
 
     private static ThingId? ParseSelectedPawnId(string rawId)
