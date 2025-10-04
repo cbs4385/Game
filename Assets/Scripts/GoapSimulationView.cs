@@ -9,6 +9,7 @@ using DataDrivenGoap.Core;
 using DataDrivenGoap.Execution;
 using DataDrivenGoap.World;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
 public sealed class GoapSimulationView : MonoBehaviour
@@ -32,6 +33,12 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField, Min(1)] private int selectedPawnPanelFontSize = 14;
     [SerializeField] private string selectedPawnPanelNeedsHeader = "Needs";
     [SerializeField] private string selectedPawnPanelPlanHeader = "Plan";
+    [SerializeField, Min(0.01f)] private float minOrthographicSize = 2.5f;
+    [SerializeField, Min(0.01f)] private float maxOrthographicSize = 40f;
+    [SerializeField, Min(0.01f)] private float orthographicZoomStep = 1.5f;
+    [SerializeField, Range(1f, 179f)] private float minPerspectiveFieldOfView = 25f;
+    [SerializeField, Range(1f, 179f)] private float maxPerspectiveFieldOfView = 80f;
+    [SerializeField, Min(0.01f)] private float perspectiveZoomStep = 10f;
 
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
@@ -70,6 +77,9 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _selectedPawnPlanState = string.Empty;
     private string _selectedPawnPlanCurrentStep = string.Empty;
     private DateTime _selectedPawnPlanUpdatedUtc;
+    private float _targetOrthographicSize;
+    private float _targetPerspectiveFieldOfView;
+    private bool _zoomInitialized;
 
     private void Awake()
     {
@@ -382,11 +392,97 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new InvalidOperationException($"Visual representation for selected pawn '{selectedId.Value}' is missing.");
         }
 
+        ApplyCameraZoom();
+
         var cameraTransform = observerCamera.transform;
         var currentZ = cameraTransform.position.z;
         var pawnWorldPosition = visual.Root.position;
         var target = new Vector3(pawnWorldPosition.x, pawnWorldPosition.y, currentZ);
         cameraTransform.position = target;
+    }
+
+    private void ApplyCameraZoom()
+    {
+        if (observerCamera == null)
+        {
+            throw new InvalidOperationException("Observer camera reference has not been configured for GoapSimulationView.");
+        }
+
+        if (!_zoomInitialized)
+        {
+            InitializeCameraZoomTargets();
+        }
+
+        var scrollDelta = ReadMouseScrollDelta();
+        if (Mathf.Approximately(scrollDelta, 0f))
+        {
+            return;
+        }
+
+        if (observerCamera.orthographic)
+        {
+            var minSize = Mathf.Max(0.01f, minOrthographicSize);
+            var maxSize = Mathf.Max(minSize, maxOrthographicSize);
+            var step = Mathf.Max(0.01f, orthographicZoomStep);
+            _targetOrthographicSize = Mathf.Clamp(
+                _targetOrthographicSize - scrollDelta * step * 0.01f,
+                minSize,
+                maxSize);
+            observerCamera.orthographicSize = _targetOrthographicSize;
+        }
+        else
+        {
+            var minFov = Mathf.Clamp(minPerspectiveFieldOfView, 1f, 179f);
+            var maxFov = Mathf.Clamp(Mathf.Max(minFov, maxPerspectiveFieldOfView), 1f, 179f);
+            var step = Mathf.Max(0.01f, perspectiveZoomStep);
+            _targetPerspectiveFieldOfView = Mathf.Clamp(
+                _targetPerspectiveFieldOfView - scrollDelta * step * 0.01f,
+                minFov,
+                maxFov);
+            observerCamera.fieldOfView = _targetPerspectiveFieldOfView;
+        }
+    }
+
+    private void InitializeCameraZoomTargets()
+    {
+        if (observerCamera == null)
+        {
+            throw new InvalidOperationException("Observer camera reference has not been configured for GoapSimulationView.");
+        }
+
+        if (observerCamera.orthographic)
+        {
+            var minSize = Mathf.Max(0.01f, minOrthographicSize);
+            var maxSize = Mathf.Max(minSize, maxOrthographicSize);
+            _targetOrthographicSize = Mathf.Clamp(observerCamera.orthographicSize, minSize, maxSize);
+            observerCamera.orthographicSize = _targetOrthographicSize;
+        }
+        else
+        {
+            var minFov = Mathf.Clamp(minPerspectiveFieldOfView, 1f, 179f);
+            var maxFov = Mathf.Clamp(Mathf.Max(minFov, maxPerspectiveFieldOfView), 1f, 179f);
+            _targetPerspectiveFieldOfView = Mathf.Clamp(observerCamera.fieldOfView, minFov, maxFov);
+            observerCamera.fieldOfView = _targetPerspectiveFieldOfView;
+        }
+
+        _zoomInitialized = true;
+    }
+
+    private static float ReadMouseScrollDelta()
+    {
+        var mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return 0f;
+        }
+
+        var scroll = mouse.scroll.ReadValue().y;
+        if (float.IsNaN(scroll) || float.IsInfinity(scroll))
+        {
+            throw new InvalidOperationException("Mouse scroll produced a non-finite value.");
+        }
+
+        return scroll;
     }
 
     private void OnGUI()
@@ -914,6 +1010,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         if (observerCamera == null)
         {
             throw new InvalidOperationException("GoapSimulationView requires a Camera reference to center on the selected pawn.");
+        }
+
+        if (!_zoomInitialized)
+        {
+            InitializeCameraZoomTargets();
         }
     }
 
