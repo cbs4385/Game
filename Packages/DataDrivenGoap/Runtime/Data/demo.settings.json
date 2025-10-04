@@ -383,7 +383,7 @@
         "y": 529,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -490,7 +490,7 @@
         "y": 453,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -597,7 +597,7 @@
         "y": 508,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -704,7 +704,7 @@
         "y": 439,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -811,7 +811,7 @@
         "y": 464,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -918,7 +918,7 @@
         "y": 482,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1025,7 +1025,7 @@
         "y": 567,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1132,7 +1132,7 @@
         "y": 592,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1239,7 +1239,7 @@
         "y": 606,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1346,7 +1346,7 @@
         "y": 571,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1453,7 +1453,7 @@
         "y": 544,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1560,7 +1560,7 @@
         "y": 549,
         "attributes": {
           "inventory_capacity": 12,
-          "ingredients": 12
+          "ingredients": 10
         }
       },
       {
@@ -1693,7 +1693,7 @@
         "y": 251,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -1710,8 +1710,8 @@
         }
       },
       {
-        "id": "fh-01-stool-1",
-        "type": "stool",
+        "id": "fh-01-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -1719,7 +1719,7 @@
         "x": 553,
         "y": 251,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -1864,7 +1864,7 @@
         "y": 345,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -1881,8 +1881,8 @@
         }
       },
       {
-        "id": "fh-02-stool-1",
-        "type": "stool",
+        "id": "fh-02-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -1890,7 +1890,7 @@
         "x": 588,
         "y": 345,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2035,7 +2035,7 @@
         "y": 364,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2052,8 +2052,8 @@
         }
       },
       {
-        "id": "fh-03-stool-1",
-        "type": "stool",
+        "id": "fh-03-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2061,7 +2061,7 @@
         "x": 733,
         "y": 364,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2206,7 +2206,7 @@
         "y": 519,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2223,8 +2223,8 @@
         }
       },
       {
-        "id": "fh-04-stool-1",
-        "type": "stool",
+        "id": "fh-04-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2232,7 +2232,7 @@
         "x": 787,
         "y": 519,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2377,7 +2377,7 @@
         "y": 654,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2394,8 +2394,8 @@
         }
       },
       {
-        "id": "fh-05-stool-1",
-        "type": "stool",
+        "id": "fh-05-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2403,7 +2403,7 @@
         "x": 782,
         "y": 654,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2548,7 +2548,7 @@
         "y": 793,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2565,8 +2565,8 @@
         }
       },
       {
-        "id": "fh-06-stool-1",
-        "type": "stool",
+        "id": "fh-06-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2574,7 +2574,7 @@
         "x": 723,
         "y": 793,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2719,7 +2719,7 @@
         "y": 842,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2736,8 +2736,8 @@
         }
       },
       {
-        "id": "fh-07-stool-1",
-        "type": "stool",
+        "id": "fh-07-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2745,7 +2745,7 @@
         "x": 577,
         "y": 842,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
@@ -2890,7 +2890,7 @@
         "y": 821,
         "attributes": {
           "inventory_capacity": 18,
-          "ingredients": 14
+          "ingredients": 10
         }
       },
       {
@@ -2907,8 +2907,8 @@
         }
       },
       {
-        "id": "fh-08-stool-1",
-        "type": "stool",
+        "id": "fh-08-chair-1",
+        "type": "chair",
         "tags": [
           "furniture",
           "seat"
@@ -2916,7 +2916,7 @@
         "x": 547,
         "y": 821,
         "attributes": {
-          "comfort": 0.3
+          "comfort": 0.4
         }
       },
       {
