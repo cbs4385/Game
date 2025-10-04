@@ -135,11 +135,11 @@ namespace DataDrivenGoap.Execution
         private readonly object _planStatusGate = new object();
         private ActorPlanStatus _planStatus;
 
-        public ActorHost(IWorld world, IPlanner planner, IExecutorRegistry execs, IReservationService reservations, ThingId self, int seed, string logDir, double priorityJitterRange, RoleScheduleService scheduleService = null, InventorySystem inventorySystem = null, ShopSystem shopSystem = null, SocialRelationshipSystem socialSystem = null, CropSystem cropSystem = null, AnimalSystem animalSystem = null, MiningSystem miningSystem = null, FishingSystem fishingSystem = null, ForagingSystem foragingSystem = null, SkillProgressionSystem skillSystem = null, QuestSystem questSystem = null, WorldLogger worldLogger = null)
+        public ActorHost(IWorld world, IPlanner planner, IExecutorRegistry execs, IReservationService reservations, ThingId self, int seed, string logDir, double priorityJitterRange, RoleScheduleService scheduleService = null, InventorySystem inventorySystem = null, ShopSystem shopSystem = null, SocialRelationshipSystem socialSystem = null, CropSystem cropSystem = null, AnimalSystem animalSystem = null, MiningSystem miningSystem = null, FishingSystem fishingSystem = null, ForagingSystem foragingSystem = null, SkillProgressionSystem skillSystem = null, QuestSystem questSystem = null, WorldLogger worldLogger = null, bool enablePerActorLogging = true)
         {
             _world = world; _planner = planner; _execs = execs; _reservations = reservations; _self = self;
             _rng = new Random(seed ^ self.GetHashCode());
-            _log = new PerActorLogger(Path.Combine(logDir, $"pawn-{_self.Value}.log.txt"));
+            _log = new PerActorLogger(Path.Combine(logDir, $"pawn-{_self.Value}.log.txt"), enablePerActorLogging);
             _priorityJitterRange = Math.Max(0.0, priorityJitterRange);
             _thread = new Thread(new ThreadStart(RunLoop)) { IsBackground = true, Name = $"Actor-{_self.Value}" };
             _scheduleService = scheduleService;
@@ -1290,6 +1290,7 @@ namespace DataDrivenGoap.Execution
         private readonly object _gate = new object();
         private const long MaxLogBytes = 75L * 1024L * 1024L;
         private readonly RollingLogWriter _writer;
+        private readonly bool _enabled;
         private int _commitCount, _conflictCount;
         private readonly System.Collections.Generic.Dictionary<string,int> _activityCommits = new System.Collections.Generic.Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
         private readonly System.Collections.Generic.Dictionary<string,int> _tickActivityCommits = new System.Collections.Generic.Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
@@ -1308,14 +1309,36 @@ namespace DataDrivenGoap.Execution
         private int _pathBlockedCount;
         private int _pathDetourCount;
 
-        public PerActorLogger(string filePath)
+        public PerActorLogger(string filePath, bool enabled = true)
         {
+            _enabled = enabled;
+            if (!_enabled)
+            {
+                _writer = null;
+                return;
+            }
+
             _writer = new RollingLogWriter(filePath, MaxLogBytes);
         }
 
-        public void Write(string line) { lock (_gate) { _writer.WriteLine($"{DateTime.UtcNow:HH:mm:ss.fff}|{line}"); } }
+        public void Write(string line)
+        {
+            if (!_enabled)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                _writer.WriteLine($"{DateTime.UtcNow:HH:mm:ss.fff}|{line}");
+            }
+        }
         public void IncCommit(string activity)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 _commitCount++;
@@ -1326,10 +1349,36 @@ namespace DataDrivenGoap.Execution
                 }
             }
         }
-        public void IncConflict(string activity) { lock (_gate) { _conflictCount++; } }
-        public void AddWait(double waitedMs) { lock (_gate) { _totalWaitMs += waitedMs; } }
+        public void IncConflict(string activity)
+        {
+            if (!_enabled)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                _conflictCount++;
+            }
+        }
+        public void AddWait(double waitedMs)
+        {
+            if (!_enabled)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                _totalWaitMs += waitedMs;
+            }
+        }
         public void IncReservationFailure(string activity)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 if (string.IsNullOrEmpty(activity)) activity = "<unknown>";
@@ -1339,6 +1388,10 @@ namespace DataDrivenGoap.Execution
         }
         public void IncGoalSwitch(string goalId)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 _goalSwitchCount++;
@@ -1352,6 +1405,10 @@ namespace DataDrivenGoap.Execution
         }
         public void IncGoalSelected(string goalId)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 if (string.IsNullOrEmpty(goalId)) goalId = "<none>";
@@ -1361,6 +1418,10 @@ namespace DataDrivenGoap.Execution
         }
         public void IncGoalSatisfied(string goalId)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             if (string.IsNullOrEmpty(goalId)) return;
             lock (_gate)
             {
@@ -1370,6 +1431,10 @@ namespace DataDrivenGoap.Execution
         }
         public void RecordGoalDuration(string goalId, double durationMs)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             if (string.IsNullOrEmpty(goalId) || durationMs <= 0) return;
             lock (_gate)
             {
@@ -1383,6 +1448,10 @@ namespace DataDrivenGoap.Execution
         }
         public void RecordPathSample(double distance, bool blocked, bool detour)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 _pathSampleCount++;
@@ -1394,6 +1463,10 @@ namespace DataDrivenGoap.Execution
 
         public void FlushTick()
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 if (_tickActivityCommits.Count == 0 && _tickReservationFailures.Count == 0 && _tickGoalSelections.Count == 0 && _tickGoalSatisfactions.Count == 0)
@@ -1418,6 +1491,10 @@ namespace DataDrivenGoap.Execution
 
         public void LogCurrencyChange(ThingId actor, double delta, double newBalance, string source, string executionContext)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 string id = actor.Value ?? "<unknown>";
@@ -1428,6 +1505,10 @@ namespace DataDrivenGoap.Execution
 
         public void LogShopTransaction(ThingId shop, ThingId actor, string itemId, int quantity, double totalPrice, ShopTransactionKind kind, string executionContext)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 string shopId = shop.Value ?? "<unknown>";
@@ -1440,6 +1521,10 @@ namespace DataDrivenGoap.Execution
 
         public void LogEffectSummary(Guid planId, string activity, in EffectBatch batch, long snapshotVersion, string worldTime, string worldDay)
         {
+            if (!_enabled)
+            {
+                return;
+            }
             string act = string.IsNullOrWhiteSpace(activity) ? "<unknown>" : activity;
             string wt = string.IsNullOrWhiteSpace(worldTime) ? "<unknown>" : worldTime;
             string wd = string.IsNullOrWhiteSpace(worldDay) ? "<unknown>" : worldDay;
@@ -1571,6 +1656,10 @@ namespace DataDrivenGoap.Execution
 
         public void Dispose()
         {
+            if (!_enabled)
+            {
+                return;
+            }
             lock (_gate)
             {
                 var parts = new System.Collections.Generic.List<string>();
