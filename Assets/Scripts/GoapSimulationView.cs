@@ -119,6 +119,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
         _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
+        if (_selectedPawnId == null)
+        {
+            throw new InvalidOperationException(
+                "Demo configuration must define observer.cameraPawn so the observer camera can track a pawn.");
+        }
 
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
@@ -246,9 +251,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new InvalidOperationException($"World snapshot no longer contains the selected pawn '{selectedId.Value}'.");
         }
 
+        if (!_pawnVisuals.TryGetValue(selectedId, out var visual))
+        {
+            throw new InvalidOperationException($"Visual representation for selected pawn '{selectedId.Value}' is missing.");
+        }
+
         var cameraTransform = observerCamera.transform;
         var currentZ = cameraTransform.position.z;
-        var target = new Vector3(thing.Position.X + 0.5f, thing.Position.Y + 0.5f, currentZ);
+        var pawnWorldPosition = visual.Root.position;
+        var target = new Vector3(pawnWorldPosition.x, pawnWorldPosition.y, currentZ);
         cameraTransform.position = target;
     }
 

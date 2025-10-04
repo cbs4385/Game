@@ -4330,6 +4330,10 @@
     },
     "allowAiFallback": false
   },
+  "observer": {
+    "cameraPawn": "P-0005",
+    "showOnlySelectedPawn": false
+  },
   "simulation": {
     "durationGameDays": 5.0,
     "actorHostSeed": 8675309,
