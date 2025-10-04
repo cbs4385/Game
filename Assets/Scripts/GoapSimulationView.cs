@@ -425,7 +425,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             var maxSize = Mathf.Max(minSize, maxOrthographicSize);
             var step = Mathf.Max(0.01f, orthographicZoomStep);
             _targetOrthographicSize = Mathf.Clamp(
-                _targetOrthographicSize - scrollDelta * step * 0.01f,
+                _targetOrthographicSize - scrollDelta * step,
                 minSize,
                 maxSize);
             observerCamera.orthographicSize = _targetOrthographicSize;
@@ -436,7 +436,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             var maxFov = Mathf.Clamp(Mathf.Max(minFov, maxPerspectiveFieldOfView), 1f, 179f);
             var step = Mathf.Max(0.01f, perspectiveZoomStep);
             _targetPerspectiveFieldOfView = Mathf.Clamp(
-                _targetPerspectiveFieldOfView - scrollDelta * step * 0.01f,
+                _targetPerspectiveFieldOfView - scrollDelta * step,
                 minFov,
                 maxFov);
             observerCamera.fieldOfView = _targetPerspectiveFieldOfView;
@@ -480,6 +480,17 @@ public sealed class GoapSimulationView : MonoBehaviour
         if (float.IsNaN(scroll) || float.IsInfinity(scroll))
         {
             throw new InvalidOperationException("Mouse scroll produced a non-finite value.");
+        }
+
+        if (Mathf.Approximately(scroll, 0f))
+        {
+            return 0f;
+        }
+
+        const float standardScrollStep = 120f;
+        if (Mathf.Abs(scroll) >= standardScrollStep)
+        {
+            return scroll / standardScrollStep;
         }
 
         return scroll;
