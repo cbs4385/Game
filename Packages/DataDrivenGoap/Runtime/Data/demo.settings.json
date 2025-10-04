@@ -59,7 +59,7 @@
           "walkable": false
         },
         "FLOOR": {
-          "walkable": false
+          "walkable": true
         }
       },
       "buildingPrototypes": {
