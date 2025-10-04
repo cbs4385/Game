@@ -9,7 +9,7 @@ using DataDrivenGoap.Core;
 using DataDrivenGoap.Execution;
 using DataDrivenGoap.World;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering.Universal;
+
 using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
@@ -81,7 +81,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private float _targetOrthographicSize;
     private float _targetPerspectiveFieldOfView;
     private bool _zoomInitialized;
-    private PixelPerfectCamera _pixelPerfectCamera;
+    private UnityEngine.Rendering.Universal.PixelPerfectCamera _pixelPerfectCamera;
 
     private void Awake()
     {
@@ -1046,7 +1046,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             _zoomInitialized = false;
         }
 
-        _pixelPerfectCamera = observerCamera.GetComponent<PixelPerfectCamera>();
+        _pixelPerfectCamera = observerCamera.GetComponent<UnityEngine.Rendering.Universal.PixelPerfectCamera>();
 
         if (!_zoomInitialized)
         {
