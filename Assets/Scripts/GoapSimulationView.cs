@@ -18,6 +18,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField] private GoapSimulationBootstrapper bootstrapper;
     [SerializeField] private Transform pawnContainer;
     [SerializeField] private Camera observerCamera;
+    [SerializeField] private PlayerPawnController playerPawnController;
     [SerializeField] private int mapSortingOrder = -100;
     [SerializeField] private int pawnSortingOrder = 0;
     [SerializeField] private Vector2 clockScreenOffset = new Vector2(16f, 16f);
@@ -70,6 +71,10 @@ public sealed class GoapSimulationView : MonoBehaviour
     private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
     private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
     private string[] _selectedPawnPlanSteps = Array.Empty<string>();
+    private ActorPlanStatus _selectedPawnPlanStatus;
+    private readonly List<PlanActionOption> _selectedPawnPlanOptions = new List<PlanActionOption>();
+    private int? _selectedPlanOptionIndex;
+    private string _selectedPlanOptionLabel = string.Empty;
     private string[] _needAttributeNames = Array.Empty<string>();
     private string _selectedPawnPanelText = string.Empty;
     private string _selectedPawnName = string.Empty;
@@ -134,6 +139,14 @@ public sealed class GoapSimulationView : MonoBehaviour
         UpdatePawnDiagnosticsLabel();
 
         var snapshot = _world.Snap();
+        var clickedPawnId = DetectClickedPawn(snapshot);
+        if (clickedPawnId.HasValue)
+        {
+            if (!_selectedPawnId.HasValue || !_selectedPawnId.Value.Equals(clickedPawnId.Value))
+            {
+                SetSelectedPawnId(clickedPawnId, suppressImmediateVisibilityUpdate: false);
+            }
+        }
         ThingView selectedThing = null;
         foreach (var entry in _pawnVisuals)
         {
@@ -174,7 +187,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         UpdateObserverCamera(snapshot);
-        UpdateSelectedPawnInfo(selectedThing);
+        UpdateSelectedPawnInfo(selectedThing, snapshot);
         TryApplySelectedPawnVisibility();
     }
 
@@ -186,6 +199,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         EnsureObserverCamera();
+        EnsurePlayerPawnController();
 
         if (_world != null)
         {
@@ -253,7 +267,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         UpdateClockDisplay();
         UpdatePawnDiagnosticsLabel();
         var selectedThing = _selectedPawnId != null ? snapshot.GetThing(_selectedPawnId.Value) : null;
-        UpdateSelectedPawnInfo(selectedThing);
+        UpdateSelectedPawnInfo(selectedThing, snapshot);
     }
 
     private void UpdateClockDisplay()
@@ -559,7 +573,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             RenderClockLabel(hasClock, hasPawnUpdate);
         }
-        RenderSelectedPawnPanel();
+
+        if (RenderSelectedPawnPanel(out var panelRect))
+        {
+            RenderPlanControls(panelRect);
+        }
     }
 
     private void RenderClockLabel(bool hasClock, bool hasPawnUpdate)
@@ -641,11 +659,12 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockStyle.normal.textColor = clockTextColor;
     }
 
-    private void RenderSelectedPawnPanel()
+    private bool RenderSelectedPawnPanel(out Rect panelRect)
     {
         if (string.IsNullOrEmpty(_selectedPawnPanelText))
         {
-            return;
+            panelRect = default;
+            return false;
         }
 
         EnsureSelectedPawnPanelStyle();
@@ -654,7 +673,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         var content = _selectedPawnGuiContent;
         content.text = _selectedPawnPanelText;
         var height = _selectedPawnPanelStyle.CalcHeight(content, width);
-        var panelRect = new Rect(selectedPawnPanelOffset.x, selectedPawnPanelOffset.y, width, Mathf.Max(0f, height));
+        panelRect = new Rect(selectedPawnPanelOffset.x, selectedPawnPanelOffset.y, width, Mathf.Max(0f, height));
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
@@ -672,6 +691,54 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         GUI.Label(panelRect, content, _selectedPawnPanelStyle);
+        return true;
+    }
+
+    private void RenderPlanControls(Rect panelRect)
+    {
+        if (_selectedPawnId == null)
+        {
+            return;
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!_manualPawnIds.Contains(selectedId))
+        {
+            return;
+        }
+
+        if (_selectedPawnPlanOptions.Count == 0)
+        {
+            return;
+        }
+
+        float startY = panelRect.yMax + Mathf.Max(8f, selectedPawnPanelPadding.y);
+        float width = panelRect.width;
+        const float buttonHeight = 26f;
+        const float spacing = 4f;
+
+        for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
+        {
+            var option = _selectedPawnPlanOptions[i];
+            var buttonRect = new Rect(panelRect.x, startY + i * (buttonHeight + spacing), width, buttonHeight);
+            var previousColor = GUI.backgroundColor;
+            var previousEnabled = GUI.enabled;
+
+            bool isSelected = _selectedPlanOptionIndex.HasValue && option.StepIndex == _selectedPlanOptionIndex.Value;
+            if (isSelected)
+            {
+                GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
+            }
+
+            GUI.enabled = option.IsActionable;
+            if (GUI.Button(buttonRect, option.Label))
+            {
+                HandlePlanOptionInvoked(option);
+            }
+
+            GUI.enabled = previousEnabled;
+            GUI.backgroundColor = previousColor;
+        }
     }
 
     private void EnsureSelectedPawnPanelStyle()
@@ -696,12 +763,17 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPanelStyle.normal.textColor = selectedPawnPanelTextColor;
     }
 
-    private void UpdateSelectedPawnInfo(ThingView selectedThing)
+    private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
     {
         if (_selectedPawnId == null)
         {
             ClearSelectedPawnInfo();
             return;
+        }
+
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
         }
 
         var selectedId = _selectedPawnId.Value;
@@ -720,7 +792,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnGridPosition = selectedThing?.Position;
 
         PopulateSelectedPawnNeeds(selectedThing);
-        PopulateSelectedPawnPlan(selectedId);
+        PopulateSelectedPawnPlan(selectedId, snapshot);
         _selectedPawnPanelText = ComposeSelectedPawnPanelText(selectedId);
     }
 
@@ -760,17 +832,41 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
-    private void PopulateSelectedPawnPlan(ThingId selectedId)
+    private void PopulateSelectedPawnPlan(ThingId selectedId, IWorldSnapshot snapshot)
     {
+        _selectedPawnPlanOptions.Clear();
+        _selectedPawnPlanStatus = null;
+
         if (bootstrapper != null && bootstrapper.TryGetActorPlanStatus(selectedId, out var status) && status != null)
         {
+            _selectedPawnPlanStatus = status;
             _selectedPawnPlanGoal = status.GoalId ?? string.Empty;
             _selectedPawnPlanState = HumanizeIdentifier(status.State);
             _selectedPawnPlanCurrentStep = status.CurrentStep ?? string.Empty;
             _selectedPawnPlanUpdatedUtc = status.UpdatedUtc;
-            _selectedPawnPlanSteps = status.Steps != null
-                ? status.Steps.Where(step => !string.IsNullOrWhiteSpace(step)).Select(step => step.Trim()).ToArray()
-                : Array.Empty<string>();
+            if (status.Steps != null)
+            {
+                var steps = new List<string>(status.Steps.Count);
+                for (int i = 0; i < status.Steps.Count; i++)
+                {
+                    var step = status.Steps[i];
+                    if (string.IsNullOrWhiteSpace(step))
+                    {
+                        continue;
+                    }
+
+                    var trimmed = step.Trim();
+                    steps.Add(trimmed);
+                    var option = BuildPlanActionOption(trimmed, snapshot, i);
+                    _selectedPawnPlanOptions.Add(option);
+                }
+
+                _selectedPawnPlanSteps = steps.ToArray();
+            }
+            else
+            {
+                _selectedPawnPlanSteps = Array.Empty<string>();
+            }
         }
         else
         {
@@ -779,6 +875,16 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanCurrentStep = string.Empty;
             _selectedPawnPlanUpdatedUtc = default;
             _selectedPawnPlanSteps = Array.Empty<string>();
+        }
+
+        if (_selectedPlanOptionIndex.HasValue)
+        {
+            bool stillPresent = _selectedPawnPlanOptions.Any(option => option.StepIndex == _selectedPlanOptionIndex.Value);
+            if (!stillPresent)
+            {
+                _selectedPlanOptionIndex = null;
+                _selectedPlanOptionLabel = string.Empty;
+            }
         }
     }
 
@@ -860,6 +966,12 @@ public sealed class GoapSimulationView : MonoBehaviour
             builder.AppendLine("  <none>");
         }
 
+        if (!string.IsNullOrEmpty(_selectedPlanOptionLabel))
+        {
+            builder.AppendLine();
+            builder.Append("  Manual Selection: ").Append(_selectedPlanOptionLabel).AppendLine();
+        }
+
         return builder.ToString().TrimEnd();
     }
 
@@ -874,6 +986,10 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPlanUpdatedUtc = default;
         _selectedPawnNeeds.Clear();
         _selectedPawnPlanSteps = Array.Empty<string>();
+        _selectedPawnPlanStatus = null;
+        _selectedPawnPlanOptions.Clear();
+        _selectedPlanOptionIndex = null;
+        _selectedPlanOptionLabel = string.Empty;
         _selectedPawnPanelText = string.Empty;
         _selectedPawnPanelBuilder.Clear();
     }
@@ -1220,12 +1336,31 @@ public sealed class GoapSimulationView : MonoBehaviour
                 "Pawn visuals must be initialized before updating the selected pawn.");
         }
 
+        var previous = _selectedPawnId;
         _selectedPawnId = selectedPawnId;
+        if (!NullableThingIdEquals(previous, selectedPawnId))
+        {
+            _selectedPlanOptionIndex = null;
+            _selectedPlanOptionLabel = string.Empty;
+        }
         _selectedPawnVisibilityDirty = true;
 
         if (!suppressImmediateVisibilityUpdate)
         {
             TryApplySelectedPawnVisibility();
+        }
+    }
+
+    private void EnsurePlayerPawnController()
+    {
+        if (playerPawnController == null)
+        {
+            playerPawnController = FindFirstObjectByType<PlayerPawnController>();
+        }
+
+        if (playerPawnController == null)
+        {
+            throw new InvalidOperationException("GoapSimulationView could not locate a PlayerPawnController instance.");
         }
     }
 
@@ -1337,6 +1472,206 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         return null;
+    }
+
+    private ThingId? DetectClickedPawn(IWorldSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (!TryGetClickGrid(snapshot, out var gridPos))
+        {
+            return null;
+        }
+
+        foreach (var entry in _pawnVisuals)
+        {
+            var thing = snapshot.GetThing(entry.Key);
+            if (thing == null)
+            {
+                throw new InvalidOperationException($"World snapshot no longer contains actor '{entry.Key.Value}'.");
+            }
+
+            if (thing.Position.Equals(gridPos))
+            {
+                return entry.Key;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetClickGrid(IWorldSnapshot snapshot, out GridPos gridPos)
+    {
+        gridPos = default;
+        var mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return false;
+        }
+
+        if (!mouse.leftButton.wasPressedThisFrame)
+        {
+            return false;
+        }
+
+        EnsureObserverCamera();
+
+        var screen = mouse.position.ReadValue();
+        var ray = observerCamera.ScreenPointToRay(new Vector3(screen.x, screen.y, 0f));
+        var plane = new Plane(Vector3.forward, Vector3.zero);
+        if (!plane.Raycast(ray, out var distance))
+        {
+            throw new InvalidOperationException("Observer camera ray failed to intersect the world plane during selection.");
+        }
+
+        var worldPoint = ray.GetPoint(distance);
+        if (!float.IsFinite(worldPoint.x) || !float.IsFinite(worldPoint.y))
+        {
+            throw new InvalidOperationException("Mouse click projected to a non-finite world coordinate.");
+        }
+
+        var gridX = Mathf.FloorToInt(worldPoint.x);
+        var gridY = Mathf.FloorToInt(worldPoint.y);
+        if (gridX < 0 || gridY < 0 || gridX >= snapshot.Width || gridY >= snapshot.Height)
+        {
+            return false;
+        }
+
+        gridPos = new GridPos(gridX, gridY);
+        return true;
+    }
+
+    private PlanActionOption BuildPlanActionOption(string stepLabel, IWorldSnapshot snapshot, int stepIndex)
+    {
+        if (string.IsNullOrWhiteSpace(stepLabel))
+        {
+            throw new ArgumentException("Plan step label must be provided.", nameof(stepLabel));
+        }
+
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        var trimmed = stepLabel.Trim();
+        string formattedLabel = string.Format(CultureInfo.InvariantCulture, "{0}. {1}", stepIndex + 1, trimmed);
+        var targetIdRaw = ExtractPlanTargetIdentifier(trimmed);
+        ThingId? targetId = null;
+        GridPos? targetPosition = null;
+        bool actionable = false;
+
+        if (!string.IsNullOrEmpty(targetIdRaw))
+        {
+            var resolvedId = new ThingId(targetIdRaw);
+            var targetThing = snapshot.GetThing(resolvedId);
+            if (targetThing == null)
+            {
+                throw new InvalidOperationException(
+                    $"Plan step '{trimmed}' references target '{targetIdRaw}' that is not present in the world snapshot.");
+            }
+
+            targetId = resolvedId;
+            targetPosition = targetThing.Position;
+            actionable = true;
+        }
+
+        return new PlanActionOption(formattedLabel, targetId, targetPosition, stepIndex, actionable);
+    }
+
+    private static string ExtractPlanTargetIdentifier(string stepLabel)
+    {
+        if (string.IsNullOrWhiteSpace(stepLabel))
+        {
+            return string.Empty;
+        }
+
+        var markerIndex = stepLabel.LastIndexOf("->", StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        var candidate = stepLabel.Substring(markerIndex + 2).Trim();
+        if (string.IsNullOrEmpty(candidate) || string.Equals(candidate, "<none>", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return candidate;
+    }
+
+    private void HandlePlanOptionInvoked(PlanActionOption option)
+    {
+        if (option == null)
+        {
+            throw new ArgumentNullException(nameof(option));
+        }
+
+        if (!option.IsActionable || !option.TargetId.HasValue || !option.TargetPosition.HasValue)
+        {
+            throw new InvalidOperationException(
+                $"Plan option '{option.Label}' does not resolve to a valid actionable target.");
+        }
+
+        EnsurePlayerPawnController();
+
+        if (_selectedPawnId == null)
+        {
+            throw new InvalidOperationException("No pawn is currently selected for manual plan execution.");
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!playerPawnController.ControlledPawnId.HasValue ||
+            !playerPawnController.ControlledPawnId.Value.Equals(selectedId))
+        {
+            throw new InvalidOperationException(
+                $"Selected pawn '{selectedId.Value}' is not controlled by the player pawn controller.");
+        }
+
+        playerPawnController.RequestManualInteract(option.TargetId.Value, option.TargetPosition.Value, option.StepIndex);
+        _selectedPlanOptionIndex = option.StepIndex;
+        _selectedPlanOptionLabel = option.Label;
+    }
+
+    private static bool NullableThingIdEquals(ThingId? left, ThingId? right)
+    {
+        if (!left.HasValue && !right.HasValue)
+        {
+            return true;
+        }
+
+        if (left.HasValue != right.HasValue)
+        {
+            return false;
+        }
+
+        return left.HasValue && left.Value.Equals(right.Value);
+    }
+
+    private sealed class PlanActionOption
+    {
+        public PlanActionOption(string label, ThingId? targetId, GridPos? targetPosition, int stepIndex, bool isActionable)
+        {
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                throw new ArgumentException("Plan option label must be provided.", nameof(label));
+            }
+
+            Label = label;
+            TargetId = targetId;
+            TargetPosition = targetPosition;
+            StepIndex = stepIndex;
+            IsActionable = isActionable;
+        }
+
+        public string Label { get; }
+        public ThingId? TargetId { get; }
+        public GridPos? TargetPosition { get; }
+        public int StepIndex { get; }
+        public bool IsActionable { get; }
     }
 
     private sealed class PawnVisual
