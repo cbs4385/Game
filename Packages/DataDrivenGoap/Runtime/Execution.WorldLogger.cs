@@ -11,9 +11,18 @@ namespace DataDrivenGoap.Execution
 
         private readonly object _gate = new object();
         private readonly RollingLogWriter _writer;
+        private readonly bool _enabled;
 
-        public WorldLogger(string filePath)
+        public WorldLogger(string filePath, bool enabled = true)
         {
+            _enabled = enabled;
+
+            if (!_enabled)
+            {
+                _writer = null;
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentException("World log file path must be provided", nameof(filePath));
 
@@ -239,6 +248,11 @@ namespace DataDrivenGoap.Execution
 
         private void Write(string category, string message)
         {
+            if (!_enabled)
+            {
+                return;
+            }
+
             lock (_gate)
             {
                 _writer.WriteLine($"{DateTime.UtcNow:HH:mm:ss.fff}|{category ?? "LOG"} {message ?? string.Empty}");
@@ -294,6 +308,11 @@ namespace DataDrivenGoap.Execution
 
         public void Dispose()
         {
+            if (!_enabled)
+            {
+                return;
+            }
+
             lock (_gate)
             {
                 _writer?.Dispose();
