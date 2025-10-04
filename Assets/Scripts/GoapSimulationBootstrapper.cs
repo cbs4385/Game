@@ -665,7 +665,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 _foragingSystem,
                 _skillSystem,
                 _questSystem,
-                _worldLogger);
+                _worldLogger,
+                enablePerActorLogging: false);
             _actorHosts.Add(host);
             var diagnostics = host.Diagnostics ?? throw new InvalidOperationException($"Actor host '{entry.Id.Value}' did not expose diagnostics.");
             if (_actorDiagnostics.ContainsKey(entry.Id))
