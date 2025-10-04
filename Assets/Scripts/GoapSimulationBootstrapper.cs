@@ -80,6 +80,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
 
     private readonly List<ActorHost> _actorHosts = new List<ActorHost>();
+    private readonly Dictionary<ThingId, ActorHost> _actorHostById = new Dictionary<ThingId, ActorHost>();
     private readonly List<(ThingId Id, VillagePawn Pawn)> _actorDefinitions = new List<(ThingId, VillagePawn)>();
     private readonly Dictionary<ThingId, ActorHostDiagnostics> _actorDiagnostics = new Dictionary<ThingId, ActorHostDiagnostics>();
     private readonly Dictionary<string, ThingId> _locationToThing = new Dictionary<string, ThingId>(StringComparer.OrdinalIgnoreCase);
@@ -114,6 +115,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private Texture2D _mapTexture;
     private List<ActionConfig> _actionConfigs;
     private List<GoalConfig> _goalConfigs;
+    private string[] _needAttributeNames = Array.Empty<string>();
 
     private void Awake()
     {
@@ -123,6 +125,26 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     public bool HasBootstrapped => _readyEventArgs != null;
 
     public SimulationReadyEventArgs LatestBootstrap => _readyEventArgs ?? throw new InvalidOperationException("Bootstrap has not completed yet.");
+
+    public IReadOnlyList<string> NeedAttributeNames => _needAttributeNames;
+
+    public bool TryGetActorPlanStatus(ThingId actorId, out ActorPlanStatus status)
+    {
+        if (string.IsNullOrWhiteSpace(actorId.Value))
+        {
+            status = null;
+            return false;
+        }
+
+        if (!_actorHostById.TryGetValue(actorId, out var host) || host == null)
+        {
+            status = null;
+            return false;
+        }
+
+        status = host.SnapshotPlanStatus();
+        return status != null;
+    }
 
     private void Start()
     {
@@ -170,6 +192,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
         _actorHosts.Clear();
         _actorDiagnostics.Clear();
+        _actorHostById.Clear();
 
         if (_needScheduler != null)
         {
@@ -190,10 +213,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private void Bootstrap()
     {
         _actorHosts.Clear();
+        _actorHostById.Clear();
         _actorDefinitions.Clear();
         _locationToThing.Clear();
         _seedByThing.Clear();
         _actorDiagnostics.Clear();
+        _needAttributeNames = Array.Empty<string>();
 
         if (_mapTexture != null)
         {
@@ -267,6 +292,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         _socialSystem = new SocialRelationshipSystem(_world, _clock, _demoConfig.social);
         _needScheduler = new NeedScheduler(_world, _clock, _demoConfig.needs);
+        _needAttributeNames = (_demoConfig?.needs?.needs ?? Array.Empty<NeedConfig>())
+            .Where(n => n != null && !string.IsNullOrWhiteSpace(n.attribute))
+            .Select(n => n.attribute.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         _weatherSystem = new WeatherSystem(_world, _cropSystem, _animalSystem, _scheduleService, _demoConfig.weather, _demoConfig.world.rngSeed);
         _calendarSystem = new CalendarEventSystem(_world, _weatherSystem, eventDatabase?.events ?? Array.Empty<CalendarEventConfig>());
         _scheduleService.EventQuery = _calendarSystem;
@@ -544,6 +575,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             }
 
             _actorDiagnostics[entry.Id] = diagnostics;
+            if (_actorHostById.ContainsKey(entry.Id))
+            {
+                throw new InvalidOperationException($"Duplicate actor host registered for '{entry.Id.Value}'.");
+            }
+            _actorHostById[entry.Id] = host;
         }
     }
 
