@@ -4331,7 +4331,7 @@
     "allowAiFallback": false
   },
   "observer": {
-    "cameraPawn": "Player",
+    "cameraPawn": "player",
     "showOnlySelectedPawn": false
   },
   "simulation": {
