@@ -13,6 +13,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 {
     [SerializeField] private GoapSimulationBootstrapper bootstrapper;
     [SerializeField] private Transform pawnContainer;
+    [SerializeField] private Camera observerCamera;
     [SerializeField] private int mapSortingOrder = -100;
     [SerializeField] private int pawnSortingOrder = 0;
     [SerializeField] private Vector2 clockScreenOffset = new Vector2(16f, 16f);
@@ -39,15 +40,18 @@ public sealed class GoapSimulationView : MonoBehaviour
     private WorldClock _clock;
     private string _clockLabel = string.Empty;
     private GUIStyle _clockStyle;
+    private ThingId? _selectedPawnId;
 
     private void Awake()
     {
         EnsureBootstrapperReference();
+        EnsureObserverCamera();
     }
 
     private void OnEnable()
     {
         EnsureBootstrapperReference();
+        EnsureObserverCamera();
         bootstrapper.Bootstrapped += HandleBootstrapped;
         if (bootstrapper.HasBootstrapped && _world == null)
         {
@@ -92,6 +96,8 @@ public sealed class GoapSimulationView : MonoBehaviour
 
             UpdatePawnPosition(entry.Value, thing.Position);
         }
+
+        UpdateObserverCamera(snapshot);
     }
 
     private void HandleBootstrapped(object sender, GoapSimulationBootstrapper.SimulationReadyEventArgs args)
@@ -100,6 +106,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             throw new ArgumentNullException(nameof(args));
         }
+
+        EnsureObserverCamera();
 
         if (_world != null)
         {
@@ -110,6 +118,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _actors = args.ActorDefinitions ?? throw new InvalidOperationException("Bootstrapper emitted null actor definitions.");
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
+        _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
 
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
@@ -117,6 +126,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         var snapshot = _world.Snap();
         LoadMap(args.MapTexture, snapshot.Width, snapshot.Height);
         CreatePawnVisuals(snapshot);
+        ValidateSelectedPawnPresence();
+        UpdateObserverCamera(snapshot);
         UpdateClockDisplay();
     }
 
@@ -196,10 +207,49 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
+    private void ValidateSelectedPawnPresence()
+    {
+        if (_selectedPawnId == null)
+        {
+            return;
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!_pawnVisuals.ContainsKey(selectedId))
+        {
+            throw new InvalidOperationException($"Observer requested camera pawn '{selectedId.Value}' but no matching pawn was initialized.");
+        }
+    }
+
     private void UpdatePawnPosition(PawnVisual visual, GridPos position)
     {
         var translated = new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f);
         visual.Root.localPosition = translated;
+    }
+
+    private void UpdateObserverCamera(IWorldSnapshot snapshot)
+    {
+        if (_selectedPawnId == null)
+        {
+            return;
+        }
+
+        if (observerCamera == null)
+        {
+            throw new InvalidOperationException("Observer camera reference has not been configured for GoapSimulationView.");
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        var thing = snapshot.GetThing(selectedId);
+        if (thing == null)
+        {
+            throw new InvalidOperationException($"World snapshot no longer contains the selected pawn '{selectedId.Value}'.");
+        }
+
+        var cameraTransform = observerCamera.transform;
+        var currentZ = cameraTransform.position.z;
+        var target = new Vector3(thing.Position.X + 0.5f, thing.Position.Y + 0.5f, currentZ);
+        cameraTransform.position = target;
     }
 
     private void OnGUI()
@@ -421,6 +471,19 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
+    private void EnsureObserverCamera()
+    {
+        if (observerCamera == null)
+        {
+            observerCamera = Camera.main;
+        }
+
+        if (observerCamera == null)
+        {
+            throw new InvalidOperationException("GoapSimulationView requires a Camera reference to center on the selected pawn.");
+        }
+    }
+
     private void EnsureBootstrapperReference()
     {
         if (bootstrapper == null)
@@ -502,6 +565,17 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockLabel = string.Empty;
         _clockGuiContent.text = string.Empty;
         _clockStyle = null;
+        _selectedPawnId = null;
+    }
+
+    private static ThingId? ParseSelectedPawnId(string rawId)
+    {
+        if (string.IsNullOrWhiteSpace(rawId))
+        {
+            return null;
+        }
+
+        return new ThingId(rawId.Trim());
     }
 
     private sealed class PawnVisual
