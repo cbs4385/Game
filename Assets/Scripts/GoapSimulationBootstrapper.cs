@@ -514,6 +514,25 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _shopSystem.Tick(bootstrapTime);
 
         var generalStoreId = new ThingId("store_generalstore");
+        var generalStoreInventory = _inventorySystem?.GetInventory(generalStoreId);
+        if (generalStoreInventory == null)
+        {
+            throw new InvalidOperationException(
+                "Inventory for 'store_generalstore' was not initialized after the bootstrap restock tick.");
+        }
+
+        const string breadItemId = "bread_loaf";
+        var inventoryStacks = generalStoreInventory.GetStacks();
+        bool hasBread = inventoryStacks.Any(stack =>
+            stack.Item != null &&
+            stack.Quantity > 0 &&
+            string.Equals(stack.Item.Id, breadItemId, StringComparison.OrdinalIgnoreCase));
+        if (!hasBread)
+        {
+            throw new InvalidOperationException(
+                "Inventory for 'store_generalstore' did not contain item 'bread_loaf' after the bootstrap restock tick.");
+        }
+
         var generalStore = _shopSystem.GetShop(generalStoreId);
         if (generalStore != null)
         {
