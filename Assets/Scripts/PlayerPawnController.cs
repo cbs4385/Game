@@ -11,10 +11,18 @@ public sealed class PlayerPawnController : MonoBehaviour
 {
     [SerializeField] private GoapSimulationBootstrapper bootstrapper;
     [SerializeField, Min(0.01f)] private float moveIntervalSeconds = 0.2f;
+    [SerializeField] private InputActionReference moveAction;
+    [SerializeField] private InputActionReference interactAction;
+    [SerializeField, Range(0f, 0.99f)] private float movementDeadZone = 0.4f;
 
     private IWorld _world;
     private ThingId? _playerPawnId;
     private float _moveCooldown;
+    private InputAction _resolvedMoveAction;
+    private InputAction _resolvedInteractAction;
+    private Vector2Int _lastMoveDirection;
+    private long _interactionSequence;
+    private ThingId? _lastInteractionFactTarget;
 
     private void Awake()
     {
@@ -24,6 +32,7 @@ public sealed class PlayerPawnController : MonoBehaviour
     private void OnEnable()
     {
         EnsureBootstrapperReference();
+        BindInputActions();
         bootstrapper.Bootstrapped += HandleBootstrapped;
         if (bootstrapper.HasBootstrapped)
         {
@@ -38,9 +47,13 @@ public sealed class PlayerPawnController : MonoBehaviour
             bootstrapper.Bootstrapped -= HandleBootstrapped;
         }
 
+        UnbindInputActions();
         _world = null;
         _playerPawnId = null;
         _moveCooldown = 0f;
+        _lastMoveDirection = Vector2Int.zero;
+        _interactionSequence = 0L;
+        _lastInteractionFactTarget = null;
     }
 
     private void Update()
@@ -65,6 +78,8 @@ public sealed class PlayerPawnController : MonoBehaviour
         {
             return;
         }
+
+        _lastMoveDirection = direction;
 
         if (_moveCooldown > 0f)
         {
@@ -99,40 +114,39 @@ public sealed class PlayerPawnController : MonoBehaviour
         _world = args.World;
         _playerPawnId = args.PlayerPawnId.Value;
         _moveCooldown = 0f;
+        _lastInteractionFactTarget = null;
     }
 
     private Vector2Int ReadMovementInput()
     {
-        var keyboard = Keyboard.current;
-        if (keyboard == null)
+        if (_resolvedMoveAction == null)
         {
-            return Vector2Int.zero;
+            throw new InvalidOperationException("PlayerPawnController requires a move action to be bound before reading input.");
         }
 
+        var raw = _resolvedMoveAction.ReadValue<Vector2>();
+        if (float.IsNaN(raw.x) || float.IsNaN(raw.y) || float.IsInfinity(raw.x) || float.IsInfinity(raw.y))
+        {
+            throw new InvalidOperationException("Move action produced a non-finite vector value.");
+        }
+
+        var deadZone = Mathf.Clamp(movementDeadZone, 0f, 0.99f);
         var direction = Vector2Int.zero;
-        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
+        var absX = Mathf.Abs(raw.x);
+        var absY = Mathf.Abs(raw.y);
+        if (absX >= deadZone)
         {
-            direction += Vector2Int.up;
+            direction.x = raw.x > 0f ? 1 : -1;
         }
 
-        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
+        if (absY >= deadZone)
         {
-            direction += Vector2Int.down;
-        }
-
-        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
-        {
-            direction += Vector2Int.left;
-        }
-
-        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
-        {
-            direction += Vector2Int.right;
+            direction.y = raw.y > 0f ? 1 : -1;
         }
 
         if (direction.x != 0 && direction.y != 0)
         {
-            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+            if (absX > absY)
             {
                 direction.y = 0;
             }
@@ -195,6 +209,135 @@ public sealed class PlayerPawnController : MonoBehaviour
         _moveCooldown = moveIntervalSeconds;
     }
 
+    private void ExecuteInteract()
+    {
+        var snapshot = _world.Snap();
+        var playerId = _playerPawnId.Value;
+        var playerThing = snapshot.GetThing(playerId);
+        if (playerThing == null)
+        {
+            throw new InvalidOperationException($"World snapshot no longer contains the player pawn '{playerId.Value}'.");
+        }
+
+        var targetPos = ResolveInteractionTarget(snapshot, playerThing);
+        var targetThing = FindInteractableThing(snapshot, playerId, targetPos);
+        bool hasTarget = targetThing != null;
+
+        var writes = new[]
+        {
+            new WriteSetEntry(playerId, "@manual.interact.seq", (double)++_interactionSequence),
+            new WriteSetEntry(playerId, "@manual.interact.x", targetPos.X),
+            new WriteSetEntry(playerId, "@manual.interact.y", targetPos.Y),
+            new WriteSetEntry(playerId, "@manual.interact.hasTarget", hasTarget ? 1d : 0d)
+        };
+
+        var reads = hasTarget
+            ? new[]
+            {
+                new ReadSetEntry(playerId, null, null),
+                new ReadSetEntry(targetThing.Id, null, null)
+            }
+            : new[] { new ReadSetEntry(playerId, null, null) };
+
+        FactDelta[] factDeltas;
+        if (_lastInteractionFactTarget.HasValue && hasTarget)
+        {
+            var previous = _lastInteractionFactTarget.Value;
+            if (previous.Equals(targetThing.Id))
+            {
+                factDeltas = new[]
+                {
+                    new FactDelta
+                    {
+                        Pred = "manual_interact_target",
+                        A = playerId,
+                        B = targetThing.Id,
+                        Add = true
+                    }
+                };
+            }
+            else
+            {
+                factDeltas = new[]
+                {
+                    new FactDelta
+                    {
+                        Pred = "manual_interact_target",
+                        A = playerId,
+                        B = previous,
+                        Add = false
+                    },
+                    new FactDelta
+                    {
+                        Pred = "manual_interact_target",
+                        A = playerId,
+                        B = targetThing.Id,
+                        Add = true
+                    }
+                };
+            }
+        }
+        else if (_lastInteractionFactTarget.HasValue)
+        {
+            factDeltas = new[]
+            {
+                new FactDelta
+                {
+                    Pred = "manual_interact_target",
+                    A = playerId,
+                    B = _lastInteractionFactTarget.Value,
+                    Add = false
+                }
+            };
+        }
+        else if (hasTarget)
+        {
+            factDeltas = new[]
+            {
+                new FactDelta
+                {
+                    Pred = "manual_interact_target",
+                    A = playerId,
+                    B = targetThing.Id,
+                    Add = true
+                }
+            };
+        }
+        else
+        {
+            factDeltas = Array.Empty<FactDelta>();
+        }
+
+        var batch = new EffectBatch
+        {
+            BaseVersion = snapshot.Version,
+            Reads = reads,
+            Writes = writes,
+            FactDeltas = factDeltas,
+            Spawns = Array.Empty<ThingSpawnRequest>(),
+            PlanCooldowns = Array.Empty<PlanCooldownRequest>(),
+            Despawns = Array.Empty<ThingId>(),
+            InventoryOps = Array.Empty<InventoryDelta>(),
+            CurrencyOps = Array.Empty<CurrencyDelta>(),
+            ShopTransactions = Array.Empty<ShopTransaction>(),
+            RelationshipOps = Array.Empty<RelationshipDelta>(),
+            CropOps = Array.Empty<CropOperation>(),
+            AnimalOps = Array.Empty<AnimalOperation>(),
+            MiningOps = Array.Empty<MiningOperation>(),
+            FishingOps = Array.Empty<FishingOperation>(),
+            ForagingOps = Array.Empty<ForagingOperation>(),
+            QuestOps = Array.Empty<QuestOperation>()
+        };
+
+        var result = _world.TryCommit(batch);
+        if (result == CommitResult.Conflict)
+        {
+            throw new InvalidOperationException($"Player interaction commit conflicted while interacting at ({targetPos.X}, {targetPos.Y}).");
+        }
+
+        _lastInteractionFactTarget = hasTarget ? targetThing?.Id : (ThingId?)null;
+    }
+
     private void EnsureBootstrapperReference()
     {
         if (bootstrapper == null)
@@ -206,5 +349,117 @@ public sealed class PlayerPawnController : MonoBehaviour
         {
             throw new InvalidOperationException("PlayerPawnController could not locate a GoapSimulationBootstrapper in the scene.");
         }
+    }
+
+    private void BindInputActions()
+    {
+        _resolvedMoveAction = ResolveAction(moveAction, nameof(moveAction));
+        _resolvedMoveAction.Enable();
+
+        _resolvedInteractAction = ResolveAction(interactAction, nameof(interactAction));
+        _resolvedInteractAction.performed += HandleInteractPerformed;
+        _resolvedInteractAction.Enable();
+    }
+
+    private void UnbindInputActions()
+    {
+        if (_resolvedInteractAction != null)
+        {
+            _resolvedInteractAction.performed -= HandleInteractPerformed;
+            if (_resolvedInteractAction.enabled)
+            {
+                _resolvedInteractAction.Disable();
+            }
+
+            _resolvedInteractAction = null;
+        }
+
+        if (_resolvedMoveAction != null)
+        {
+            if (_resolvedMoveAction.enabled)
+            {
+                _resolvedMoveAction.Disable();
+            }
+
+            _resolvedMoveAction = null;
+        }
+    }
+
+    private void HandleInteractPerformed(InputAction.CallbackContext context)
+    {
+        if (context.phase != InputActionPhase.Performed)
+        {
+            return;
+        }
+
+        if (_world == null || !_playerPawnId.HasValue)
+        {
+            return;
+        }
+
+        ExecuteInteract();
+    }
+
+    private static InputAction ResolveAction(InputActionReference reference, string fieldName)
+    {
+        if (reference == null)
+        {
+            throw new InvalidOperationException($"PlayerPawnController requires an InputActionReference assigned to '{fieldName}'.");
+        }
+
+        var action = reference.action;
+        if (action == null)
+        {
+            throw new InvalidOperationException($"InputActionReference '{fieldName}' does not resolve to a valid InputAction instance.");
+        }
+
+        return action;
+    }
+
+    private GridPos ResolveInteractionTarget(IWorldSnapshot snapshot, ThingView playerThing)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (playerThing == null)
+        {
+            throw new ArgumentNullException(nameof(playerThing));
+        }
+
+        var basePos = playerThing.Position;
+        if (_lastMoveDirection == Vector2Int.zero)
+        {
+            return basePos;
+        }
+
+        var candidateX = basePos.X + _lastMoveDirection.x;
+        var candidateY = basePos.Y + _lastMoveDirection.y;
+
+        if (candidateX < 0 || candidateX >= snapshot.Width || candidateY < 0 || candidateY >= snapshot.Height)
+        {
+            return basePos;
+        }
+
+        return new GridPos(candidateX, candidateY);
+    }
+
+    private static ThingView FindInteractableThing(IWorldSnapshot snapshot, ThingId playerId, GridPos targetPos)
+    {
+        foreach (var thing in snapshot.AllThings())
+        {
+            if (thing == null || thing.Id.Equals(playerId))
+            {
+                continue;
+            }
+
+            if (thing.Position.Equals(targetPos))
+            {
+                return thing;
+            }
+        }
+
+        return null;
     }
 }
