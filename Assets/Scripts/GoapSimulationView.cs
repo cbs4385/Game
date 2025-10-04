@@ -1063,7 +1063,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             for (int x = 0; x < expectedWidth; x++)
             {
-                int pixelIndex = (expectedHeight - 1 - y) * expectedWidth + x;
+                int pixelIndex = y * expectedWidth + x;
                 var baseColor = basePixels[pixelIndex];
                 outputPixels[pixelIndex] = walkable[x, y] ? baseColor : BlendBuildingTint(baseColor);
             }
