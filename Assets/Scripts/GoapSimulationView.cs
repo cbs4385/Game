@@ -83,6 +83,8 @@ public sealed class GoapSimulationView : MonoBehaviour
     private float _targetPerspectiveFieldOfView;
     private bool _zoomInitialized;
     private UnityEngine.Rendering.Universal.PixelPerfectCamera _pixelPerfectCamera;
+    private bool _showOnlySelectedPawn;
+    private bool _selectedPawnVisibilityDirty;
 
     private void Awake()
     {
@@ -173,6 +175,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         UpdateObserverCamera(snapshot);
         UpdateSelectedPawnInfo(selectedThing);
+        TryApplySelectedPawnVisibility();
     }
 
     private void HandleBootstrapped(object sender, GoapSimulationBootstrapper.SimulationReadyEventArgs args)
@@ -204,12 +207,15 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
-        _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
-        if (_selectedPawnId == null)
+        _showOnlySelectedPawn = args.ShowOnlySelectedPawn;
+        var parsedSelectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
+        if (parsedSelectedPawnId == null)
         {
             throw new InvalidOperationException(
                 "Demo configuration must define observer.cameraPawn so the observer camera can track a pawn.");
         }
+
+        SetSelectedPawnId(parsedSelectedPawnId, suppressImmediateVisibilityUpdate: true);
 
         _pawnDefinitions.Clear();
         foreach (var actor in _actors)
@@ -242,6 +248,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         LoadMap(args.MapTexture, snapshot.Width, snapshot.Height);
         CreatePawnVisuals(snapshot);
         ValidateSelectedPawnPresence();
+        TryApplySelectedPawnVisibility();
         UpdateObserverCamera(snapshot);
         UpdateClockDisplay();
         UpdatePawnDiagnosticsLabel();
@@ -1182,7 +1189,9 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockLabel = string.Empty;
         _clockGuiContent.text = string.Empty;
         _clockStyle = null;
-        _selectedPawnId = null;
+        SetSelectedPawnId(null, suppressImmediateVisibilityUpdate: true);
+        _showOnlySelectedPawn = false;
+        _selectedPawnVisibilityDirty = false;
         _actorDiagnostics = null;
         ClearPawnUpdateLabel();
         _pawnDefinitions.Clear();
@@ -1201,6 +1210,84 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         return new ThingId(rawId.Trim());
+    }
+
+    private void SetSelectedPawnId(ThingId? selectedPawnId, bool suppressImmediateVisibilityUpdate)
+    {
+        if (!suppressImmediateVisibilityUpdate && _pawnVisuals.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Pawn visuals must be initialized before updating the selected pawn.");
+        }
+
+        _selectedPawnId = selectedPawnId;
+        _selectedPawnVisibilityDirty = true;
+
+        if (!suppressImmediateVisibilityUpdate)
+        {
+            TryApplySelectedPawnVisibility();
+        }
+    }
+
+    private void TryApplySelectedPawnVisibility()
+    {
+        if (!_selectedPawnVisibilityDirty)
+        {
+            return;
+        }
+
+        if (_pawnVisuals.Count == 0)
+        {
+            return;
+        }
+
+        ApplyPawnVisibilityRule();
+        _selectedPawnVisibilityDirty = false;
+    }
+
+    private void ApplyPawnVisibilityRule()
+    {
+        if (!_showOnlySelectedPawn)
+        {
+            foreach (var entry in _pawnVisuals)
+            {
+                var visual = entry.Value ?? throw new InvalidOperationException(
+                    $"Pawn visual entry for '{entry.Key.Value}' is missing.");
+                var renderer = visual.Renderer ?? throw new InvalidOperationException(
+                    $"Pawn '{visual.PawnId}' visual is missing its SpriteRenderer component.");
+                renderer.enabled = true;
+            }
+
+            return;
+        }
+
+        if (!_selectedPawnId.HasValue)
+        {
+            throw new InvalidOperationException(
+                "Observer configuration requested hiding all but the selected pawn, but no pawn is currently selected.");
+        }
+
+        var selectedId = _selectedPawnId.Value;
+        if (!_pawnVisuals.TryGetValue(selectedId, out var selectedVisual) || selectedVisual == null)
+        {
+            throw new InvalidOperationException(
+                $"Observer selected pawn '{selectedId.Value}' was not instantiated in the scene.");
+        }
+
+        if (selectedVisual.Renderer == null)
+        {
+            throw new InvalidOperationException(
+                $"Pawn '{selectedVisual.PawnId}' visual is missing its SpriteRenderer component.");
+        }
+
+        foreach (var entry in _pawnVisuals)
+        {
+            var visual = entry.Value ?? throw new InvalidOperationException(
+                $"Pawn visual entry for '{entry.Key.Value}' is missing.");
+            var renderer = visual.Renderer ?? throw new InvalidOperationException(
+                $"Pawn '{visual.PawnId}' visual is missing its SpriteRenderer component.");
+            renderer.enabled = entry.Key.Equals(selectedId);
+        }
     }
 
     private static string ResolveOrientationSpritePath(PawnVisual visual, string orientationKey)
