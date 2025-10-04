@@ -405,8 +405,10 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         ConfigureScheduleDefinitions();
 
         string logRoot = Path.Combine(Application.persistentDataPath, "goap-logs");
+        bool worldLoggingEnabled = _demoConfig?.simulation?.worldLoggingEnabled ?? true;
         Directory.CreateDirectory(logRoot);
-        _worldLogger = new WorldLogger(Path.Combine(logRoot, "world.log.txt"));
+
+        _worldLogger = new WorldLogger(Path.Combine(logRoot, "world.log.txt"), worldLoggingEnabled);
 
         _executors = new ExecutorRegistry();
         _planner = new JsonDrivenPlanner(
