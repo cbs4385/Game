@@ -7,15 +7,18 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
+[RequireComponent(typeof(PlayerInput))]
 public sealed class PlayerPawnController : MonoBehaviour
 {
     [SerializeField] private GoapSimulationBootstrapper bootstrapper;
     [SerializeField, Min(0.01f)] private float moveIntervalSeconds = 0.2f;
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference interactAction;
+    [SerializeField] private InputActionAsset playerControlsAsset;
     [SerializeField] private PlayerInput playerInput;
-    [SerializeField] private string moveActionName;
-    [SerializeField] private string interactActionName;
+    [SerializeField] private string defaultActionMap = "Gameplay";
+    [SerializeField] private string moveActionName = "Move";
+    [SerializeField] private string interactActionName = "Interact";
     [SerializeField, Range(0f, 0.99f)] private float movementDeadZone = 0.4f;
 
     private IWorld _world;
@@ -452,12 +455,49 @@ public sealed class PlayerPawnController : MonoBehaviour
 
     private void EnsurePlayerInputReference()
     {
-        if (playerInput != null)
+        if (playerInput == null)
         {
-            return;
+            playerInput = GetComponent<PlayerInput>();
         }
 
-        playerInput = GetComponent<PlayerInput>();
+        if (playerInput == null)
+        {
+            throw new InvalidOperationException("PlayerPawnController requires a PlayerInput component on the same GameObject.");
+        }
+
+        EnsurePlayerInputConfigured(playerInput);
+    }
+
+    private void EnsurePlayerInputConfigured(PlayerInput input)
+    {
+        if (input == null)
+        {
+            throw new ArgumentNullException(nameof(input));
+        }
+
+        if (playerControlsAsset != null)
+        {
+            if (input.actions != playerControlsAsset)
+            {
+                input.actions = playerControlsAsset;
+            }
+        }
+
+        if (input.actions == null)
+        {
+            throw new InvalidOperationException("PlayerInput must reference an InputActionAsset before the player controller can operate.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(defaultActionMap))
+        {
+            var actionMap = input.actions.FindActionMap(defaultActionMap, false);
+            if (actionMap == null)
+            {
+                throw new InvalidOperationException($"PlayerInput actions asset does not contain an action map named '{defaultActionMap}'.");
+            }
+
+            input.defaultActionMap = defaultActionMap;
+        }
     }
 
     private GridPos ResolveInteractionTarget(IWorldSnapshot snapshot, ThingView playerThing)

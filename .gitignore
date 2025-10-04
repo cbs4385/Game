@@ -146,4 +146,3 @@ Desktop.ini
 # UnityEngine.TestRunner.csproj
 # Unity.RenderPipelines.Core.Runtime.csproj
 /Assets/Scripts/Goap/actions.json.meta
-*.meta
