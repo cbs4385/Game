@@ -213,7 +213,18 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 throw new InvalidOperationException($"Actor host list contains a null reference during shutdown (index {i}).");
             }
 
-            actor.Stop();
+            actor.RequestStop();
+        }
+
+        for (var i = 0; i < _actorHosts.Count; i++)
+        {
+            var actor = _actorHosts[i];
+            if (actor == null)
+            {
+                throw new InvalidOperationException($"Actor host list contains a null reference during shutdown (index {i}).");
+            }
+
+            actor.FinishStop();
         }
 
         if (_needScheduler != null)
