@@ -9,6 +9,7 @@ using DataDrivenGoap.Core;
 using DataDrivenGoap.Execution;
 using DataDrivenGoap.World;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering.Universal;
 using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
@@ -80,6 +81,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private float _targetOrthographicSize;
     private float _targetPerspectiveFieldOfView;
     private bool _zoomInitialized;
+    private PixelPerfectCamera _pixelPerfectCamera;
 
     private void Awake()
     {
@@ -375,6 +377,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             return;
         }
 
+        EnsureObserverCamera();
+
         if (observerCamera == null)
         {
             throw new InvalidOperationException("Observer camera reference has not been configured for GoapSimulationView.");
@@ -403,15 +407,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void ApplyCameraZoom()
     {
-        if (observerCamera == null)
-        {
-            throw new InvalidOperationException("Observer camera reference has not been configured for GoapSimulationView.");
-        }
-
-        if (!_zoomInitialized)
-        {
-            InitializeCameraZoomTargets();
-        }
+        EnsureObserverCamera();
 
         var scrollDelta = ReadMouseScrollDelta();
         if (Mathf.Approximately(scrollDelta, 0f))
@@ -429,6 +425,7 @@ public sealed class GoapSimulationView : MonoBehaviour
                 minSize,
                 maxSize);
             observerCamera.orthographicSize = _targetOrthographicSize;
+            ApplyPixelPerfectZoom(_targetOrthographicSize);
         }
         else
         {
@@ -456,6 +453,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             var maxSize = Mathf.Max(minSize, maxOrthographicSize);
             _targetOrthographicSize = Mathf.Clamp(observerCamera.orthographicSize, minSize, maxSize);
             observerCamera.orthographicSize = _targetOrthographicSize;
+            ApplyPixelPerfectZoom(_targetOrthographicSize);
         }
         else
         {
@@ -466,6 +464,29 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         _zoomInitialized = true;
+    }
+
+    private void ApplyPixelPerfectZoom(float orthographicSize)
+    {
+        if (_pixelPerfectCamera == null)
+        {
+            return;
+        }
+
+        if (orthographicSize <= 0f)
+        {
+            throw new InvalidOperationException("Orthographic size must be positive to compute pixel-perfect zoom parameters.");
+        }
+
+        if (_pixelPerfectCamera.refResolutionY <= 0)
+        {
+            throw new InvalidOperationException("PixelPerfectCamera.refResolutionY must be positive to compute assets PPU.");
+        }
+
+        var denominator = 2f * orthographicSize;
+        var referenceResolutionY = (float)_pixelPerfectCamera.refResolutionY;
+        var assetsPerUnit = Mathf.Max(1, Mathf.RoundToInt(referenceResolutionY / denominator));
+        _pixelPerfectCamera.assetsPPU = assetsPerUnit;
     }
 
     private static float ReadMouseScrollDelta()
@@ -1013,15 +1034,19 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void EnsureObserverCamera()
     {
-        if (observerCamera == null)
-        {
-            observerCamera = Camera.main;
-        }
-
-        if (observerCamera == null)
+        var resolvedCamera = observerCamera ?? Camera.main;
+        if (resolvedCamera == null)
         {
             throw new InvalidOperationException("GoapSimulationView requires a Camera reference to center on the selected pawn.");
         }
+
+        if (!ReferenceEquals(observerCamera, resolvedCamera))
+        {
+            observerCamera = resolvedCamera;
+            _zoomInitialized = false;
+        }
+
+        _pixelPerfectCamera = observerCamera.GetComponent<PixelPerfectCamera>();
 
         if (!_zoomInitialized)
         {
