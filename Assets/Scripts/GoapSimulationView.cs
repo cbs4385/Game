@@ -377,14 +377,17 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         bool hasClock = !string.IsNullOrEmpty(_clockLabel);
         bool hasPawnUpdate = !string.IsNullOrEmpty(_pawnUpdateLabel);
-        if (!hasClock && !hasPawnUpdate)
-        RenderClockLabel();
+
+        if (hasClock || hasPawnUpdate)
+        {
+            RenderClockLabel(hasClock, hasPawnUpdate);
+        }
         RenderSelectedPawnPanel();
     }
 
-    private void RenderClockLabel()
+    private void RenderClockLabel(bool hasClock, bool hasPawnUpdate)
     {
-        if (string.IsNullOrEmpty(_clockLabel))
+        if (!hasClock && !hasPawnUpdate)
         {
             return;
         }
