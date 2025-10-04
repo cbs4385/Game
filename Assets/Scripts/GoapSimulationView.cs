@@ -1034,7 +1034,27 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void EnsureObserverCamera()
     {
-        var resolvedCamera = observerCamera ?? Camera.main;
+        var resolvedCamera = observerCamera;
+        if (resolvedCamera == null)
+        {
+            resolvedCamera = GetComponent<Camera>();
+        }
+
+        if (resolvedCamera == null)
+        {
+            resolvedCamera = GetComponentInChildren<Camera>(true);
+        }
+
+        if (resolvedCamera == null)
+        {
+            resolvedCamera = Camera.main;
+        }
+
+        if (resolvedCamera == null)
+        {
+            resolvedCamera = FindFirstObjectByType<Camera>();
+        }
+
         if (resolvedCamera == null)
         {
             throw new InvalidOperationException("GoapSimulationView requires a Camera reference to center on the selected pawn.");
