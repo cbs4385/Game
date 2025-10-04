@@ -171,9 +171,13 @@ namespace DataDrivenGoap.Execution
         public ActorHostDiagnostics Diagnostics => _diagnostics;
 
         public void Start() { _thread.Start(); }
-        public void Stop()
+        public void RequestStop()
         {
             _stop = true;
+        }
+
+        public void FinishStop()
+        {
             _thread.Join();
             if (!string.IsNullOrEmpty(_currentGoalId))
             {
@@ -186,6 +190,12 @@ namespace DataDrivenGoap.Execution
             _log.Dispose();
             _worldLogger?.LogActorLifecycle(_self, "stop");
             UpdatePlanStatus(string.Empty, "<stopped>", Array.Empty<string>(), string.Empty, "stopped");
+        }
+
+        public void Stop()
+        {
+            RequestStop();
+            FinishStop();
         }
 
         private void RunLoop()
