@@ -30,6 +30,8 @@ public sealed class PlayerPawnController : MonoBehaviour
     private long _interactionSequence;
     private ThingId? _lastInteractionFactTarget;
 
+    public ThingId? ControlledPawnId => _playerPawnId;
+
     private void Awake()
     {
         EnsureBootstrapperReference();
@@ -229,15 +231,95 @@ public sealed class PlayerPawnController : MonoBehaviour
 
         var targetPos = ResolveInteractionTarget(snapshot, playerThing);
         var targetThing = FindInteractableThing(snapshot, playerId, targetPos);
-        bool hasTarget = targetThing != null;
+        var targetId = targetThing != null ? targetThing.Id : default;
+        ExecuteManualInteract(snapshot, targetId, targetPos, planStepIndex: null);
+    }
 
-        var writes = new[]
+    public void RequestManualInteract(ThingId targetId, GridPos targetPos, int? planStepIndex = null)
+    {
+        if (_world == null)
         {
-            new WriteSetEntry(playerId, "@manual.interact.seq", (double)++_interactionSequence),
-            new WriteSetEntry(playerId, "@manual.interact.x", targetPos.X),
-            new WriteSetEntry(playerId, "@manual.interact.y", targetPos.Y),
-            new WriteSetEntry(playerId, "@manual.interact.hasTarget", hasTarget ? 1d : 0d)
-        };
+            throw new InvalidOperationException("PlayerPawnController cannot process manual interactions before the world is available.");
+        }
+
+        if (!_playerPawnId.HasValue)
+        {
+            throw new InvalidOperationException("PlayerPawnController has not been assigned a controlled pawn id.");
+        }
+
+        var snapshot = _world.Snap();
+        ExecuteManualInteract(snapshot, targetId, targetPos, planStepIndex);
+    }
+
+    private void ExecuteManualInteract(IWorldSnapshot snapshot, ThingId targetId, GridPos targetPos, int? planStepIndex)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (!_playerPawnId.HasValue)
+        {
+            throw new InvalidOperationException("PlayerPawnController cannot execute manual interaction without a controlled pawn.");
+        }
+
+        var playerId = _playerPawnId.Value;
+        var playerThing = snapshot.GetThing(playerId);
+        if (playerThing == null)
+        {
+            throw new InvalidOperationException($"World snapshot no longer contains the player pawn '{playerId.Value}'.");
+        }
+
+        if (targetPos.X < 0 || targetPos.X >= snapshot.Width || targetPos.Y < 0 || targetPos.Y >= snapshot.Height)
+        {
+            throw new InvalidOperationException($"Manual interaction target position ({targetPos.X}, {targetPos.Y}) is outside the world bounds {snapshot.Width}x{snapshot.Height}.");
+        }
+
+        var distance = GridPos.Manhattan(playerThing.Position, targetPos);
+        if (distance > 1)
+        {
+            throw new InvalidOperationException(
+                $"Manual interaction target at ({targetPos.X}, {targetPos.Y}) is not adjacent to player position ({playerThing.Position.X}, {playerThing.Position.Y}).");
+        }
+
+        bool hasTarget = !string.IsNullOrWhiteSpace(targetId.Value);
+        ThingView targetThing = null;
+        if (hasTarget)
+        {
+            targetThing = snapshot.GetThing(targetId);
+            if (targetThing == null)
+            {
+                throw new InvalidOperationException(
+                    $"Manual interaction target '{targetId.Value}' does not exist in the current world snapshot.");
+            }
+
+            if (!targetThing.Position.Equals(targetPos))
+            {
+                throw new InvalidOperationException(
+                    $"Manual interaction target '{targetId.Value}' is at ({targetThing.Position.X}, {targetThing.Position.Y}) rather than the requested position ({targetPos.X}, {targetPos.Y}).");
+            }
+
+            if (targetThing.Id.Equals(playerId))
+            {
+                throw new InvalidOperationException("Manual interactions cannot target the player pawn itself.");
+            }
+        }
+
+        if (planStepIndex.HasValue && planStepIndex.Value < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(planStepIndex), "Plan step index must be non-negative when supplied.");
+        }
+
+        var writeCount = planStepIndex.HasValue ? 5 : 4;
+        var writes = new WriteSetEntry[writeCount];
+        writes[0] = new WriteSetEntry(playerId, "@manual.interact.seq", (double)++_interactionSequence);
+        writes[1] = new WriteSetEntry(playerId, "@manual.interact.x", targetPos.X);
+        writes[2] = new WriteSetEntry(playerId, "@manual.interact.y", targetPos.Y);
+        writes[3] = new WriteSetEntry(playerId, "@manual.interact.hasTarget", hasTarget ? 1d : 0d);
+        if (planStepIndex.HasValue)
+        {
+            writes[4] = new WriteSetEntry(playerId, "@manual.interact.planStep", planStepIndex.Value);
+        }
 
         var reads = hasTarget
             ? new[]
@@ -340,7 +422,8 @@ public sealed class PlayerPawnController : MonoBehaviour
         var result = _world.TryCommit(batch);
         if (result == CommitResult.Conflict)
         {
-            throw new InvalidOperationException($"Player interaction commit conflicted while interacting at ({targetPos.X}, {targetPos.Y}).");
+            throw new InvalidOperationException(
+                $"Player interaction commit conflicted while interacting at ({targetPos.X}, {targetPos.Y}).");
         }
 
         _lastInteractionFactTarget = hasTarget ? targetThing?.Id : (ThingId?)null;
