@@ -1,4 +1,7 @@
 {
+  "observer":{
+	"camerPawn": "P-0008"
+  },
   "world": {
     "width": 1000,
     "height": 1000,
