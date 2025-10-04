@@ -408,5 +408,15 @@
       "east": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/P-0104.png",
       "west": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/P-0104.png"
     }
+  },
+  "player": {
+    "name": "Player",
+    "role": "Player",
+    "sprites": {
+      "north": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/player.png",
+      "south": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/player.png",
+      "east": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/player.png",
+      "west": "../Packages/DataDrivenGoap/Runtime/Sprites/pawn/player.png"
+    }
   }
 }
