@@ -119,6 +119,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
         _selectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
+        if (_selectedPawnId == null)
+        {
+            throw new InvalidOperationException(
+                "Demo configuration must define observer.cameraPawn so the observer camera can track a pawn.");
+        }
 
         EnsurePawnContainer();
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
