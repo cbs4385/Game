@@ -42,6 +42,9 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField, Range(1f, 179f)] private float maxPerspectiveFieldOfView = 80f;
     [SerializeField, Min(0.01f)] private float perspectiveZoomStep = 10f;
 
+    private static readonly Color BuildingTintColor = new Color(0.75f, 0.24f, 0.24f, 1f);
+    private const float BuildingTintBlend = 0.65f;
+
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
     private readonly Dictionary<ThingId, GridPos> _pawnPreviousGridPositions = new Dictionary<ThingId, GridPos>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
@@ -59,6 +62,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private Sprite _mapSprite;
     private Texture2D _mapTexture;
     private bool _ownsMapTexture;
+    private GoapSimulationBootstrapper.SimulationReadyEventArgs.TileClassificationSnapshot _tileClassification;
     private Transform _pawnRoot;
     private WorldClock _clock;
     private string _clockLabel = string.Empty;
@@ -221,6 +225,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
+        _tileClassification = args.TileClassification ?? throw new InvalidOperationException("Bootstrapper emitted a null tile classification snapshot.");
         _showOnlySelectedPawn = args.ShowOnlySelectedPawn;
         var parsedSelectedPawnId = ParseSelectedPawnId(args.CameraPawnId);
         if (parsedSelectedPawnId == null)
@@ -259,7 +264,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
 
         var snapshot = _world.Snap();
-        LoadMap(args.MapTexture, snapshot.Width, snapshot.Height);
+        LoadMap(args.MapTexture, _tileClassification, snapshot.Width, snapshot.Height);
         CreatePawnVisuals(snapshot);
         ValidateSelectedPawnPresence();
         TryApplySelectedPawnVisibility();
@@ -1020,23 +1025,58 @@ public sealed class GoapSimulationView : MonoBehaviour
         return value.Value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
-    private void LoadMap(Texture2D mapTexture, int expectedWidth, int expectedHeight)
+    private void LoadMap(
+        Texture2D baseMapTexture,
+        GoapSimulationBootstrapper.SimulationReadyEventArgs.TileClassificationSnapshot tileClassification,
+        int expectedWidth,
+        int expectedHeight)
     {
-        if (mapTexture == null)
+        if (baseMapTexture == null)
         {
-            throw new ArgumentNullException(nameof(mapTexture));
+            throw new ArgumentNullException(nameof(baseMapTexture));
         }
 
-        if (mapTexture.width != expectedWidth || mapTexture.height != expectedHeight)
+        if (tileClassification == null)
         {
-            throw new InvalidDataException($"Preloaded world map texture dimensions {mapTexture.width}x{mapTexture.height} do not match world {expectedWidth}x{expectedHeight}.");
+            throw new ArgumentNullException(nameof(tileClassification));
         }
 
-        _mapTexture = mapTexture;
-        _ownsMapTexture = false;
+        if (baseMapTexture.width != expectedWidth || baseMapTexture.height != expectedHeight)
+        {
+            throw new InvalidDataException($"Preloaded world map texture dimensions {baseMapTexture.width}x{baseMapTexture.height} do not match world {expectedWidth}x{expectedHeight}.");
+        }
 
-        _mapTexture.filterMode = FilterMode.Point;
-        _mapTexture.wrapMode = TextureWrapMode.Clamp;
+        if (tileClassification.Width != expectedWidth || tileClassification.Height != expectedHeight)
+        {
+            throw new InvalidDataException($"Tile classification dimensions {tileClassification.Width}x{tileClassification.Height} do not match world {expectedWidth}x{expectedHeight}.");
+        }
+
+        var basePixels = baseMapTexture.GetPixels32();
+        if (basePixels.Length != expectedWidth * expectedHeight)
+        {
+            throw new InvalidDataException("Base world map texture pixel count does not match expected grid size.");
+        }
+
+        var outputPixels = new Color32[basePixels.Length];
+        var walkable = tileClassification.Walkable;
+        for (int y = 0; y < expectedHeight; y++)
+        {
+            for (int x = 0; x < expectedWidth; x++)
+            {
+                int pixelIndex = (expectedHeight - 1 - y) * expectedWidth + x;
+                var baseColor = basePixels[pixelIndex];
+                outputPixels[pixelIndex] = walkable[x, y] ? baseColor : BlendBuildingTint(baseColor);
+            }
+        }
+
+        var generatedTexture = new Texture2D(expectedWidth, expectedHeight, TextureFormat.RGBA32, false, true);
+        generatedTexture.SetPixels32(outputPixels);
+        generatedTexture.filterMode = FilterMode.Point;
+        generatedTexture.wrapMode = TextureWrapMode.Clamp;
+        generatedTexture.Apply(false, false);
+
+        _mapTexture = generatedTexture;
+        _ownsMapTexture = true;
 
         _mapSprite = Sprite.Create(_mapTexture, new Rect(0f, 0f, _mapTexture.width, _mapTexture.height), new Vector2(0f, 0f), 1f);
         _mapSprite.name = "GoapWorldMap";
@@ -1049,6 +1089,14 @@ public sealed class GoapSimulationView : MonoBehaviour
         renderer.drawMode = SpriteDrawMode.Simple;
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         renderer.receiveShadows = false;
+    }
+
+    private static Color32 BlendBuildingTint(Color32 baseColor)
+    {
+        var baseLinear = (Color)baseColor;
+        var blended = Color.Lerp(baseLinear, BuildingTintColor, Mathf.Clamp01(BuildingTintBlend));
+        blended.a = baseLinear.a;
+        return (Color32)blended;
     }
 
     private void LoadSpriteManifest(string manifestPath)
@@ -1316,6 +1364,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnGuiContent.text = string.Empty;
         ClearSelectedPawnInfo();
         _manualPawnIds.Clear();
+        _tileClassification = null;
     }
 
     private static ThingId? ParseSelectedPawnId(string rawId)
