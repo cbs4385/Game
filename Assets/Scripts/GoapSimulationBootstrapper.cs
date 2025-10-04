@@ -56,6 +56,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             string datasetRoot,
             Texture2D mapTexture,
             WorldClock clock,
+            IReadOnlyDictionary<ThingId, ActorHostDiagnostics> actorDiagnostics,
             string cameraPawnId)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
@@ -63,6 +64,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             DatasetRoot = datasetRoot ?? throw new ArgumentNullException(nameof(datasetRoot));
             MapTexture = mapTexture ?? throw new ArgumentNullException(nameof(mapTexture));
             Clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            ActorDiagnostics = actorDiagnostics ?? throw new ArgumentNullException(nameof(actorDiagnostics));
             CameraPawnId = string.IsNullOrWhiteSpace(cameraPawnId) ? null : cameraPawnId.Trim();
         }
 
@@ -71,6 +73,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public string DatasetRoot { get; }
         public Texture2D MapTexture { get; }
         public WorldClock Clock { get; }
+        public IReadOnlyDictionary<ThingId, ActorHostDiagnostics> ActorDiagnostics { get; }
         public string CameraPawnId { get; }
     }
 
@@ -79,6 +82,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private readonly List<ActorHost> _actorHosts = new List<ActorHost>();
     private readonly Dictionary<ThingId, ActorHost> _actorHostById = new Dictionary<ThingId, ActorHost>();
     private readonly List<(ThingId Id, VillagePawn Pawn)> _actorDefinitions = new List<(ThingId, VillagePawn)>();
+    private readonly Dictionary<ThingId, ActorHostDiagnostics> _actorDiagnostics = new Dictionary<ThingId, ActorHostDiagnostics>();
     private readonly Dictionary<string, ThingId> _locationToThing = new Dictionary<string, ThingId>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ThingId, ThingSeed> _seedByThing = new Dictionary<ThingId, ThingSeed>();
 
@@ -187,6 +191,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             actor.Stop();
         }
         _actorHosts.Clear();
+        _actorDiagnostics.Clear();
         _actorHostById.Clear();
 
         if (_needScheduler != null)
@@ -212,6 +217,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _actorDefinitions.Clear();
         _locationToThing.Clear();
         _seedByThing.Clear();
+        _actorDiagnostics.Clear();
         _needAttributeNames = Array.Empty<string>();
 
         if (_mapTexture != null)
@@ -354,6 +360,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             datasetRoot,
             _mapTexture,
             _clock,
+            new Dictionary<ThingId, ActorHostDiagnostics>(_actorDiagnostics),
             _demoConfig?.observer?.cameraPawn);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
@@ -561,6 +568,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 _questSystem,
                 _worldLogger);
             _actorHosts.Add(host);
+            var diagnostics = host.Diagnostics ?? throw new InvalidOperationException($"Actor host '{entry.Id.Value}' did not expose diagnostics.");
+            if (_actorDiagnostics.ContainsKey(entry.Id))
+            {
+                throw new InvalidOperationException($"Duplicate diagnostics registration detected for actor '{entry.Id.Value}'.");
+            }
+
+            _actorDiagnostics[entry.Id] = diagnostics;
             if (_actorHostById.ContainsKey(entry.Id))
             {
                 throw new InvalidOperationException($"Duplicate actor host registered for '{entry.Id.Value}'.");
