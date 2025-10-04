@@ -406,7 +406,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         string logRoot = Path.Combine(Application.persistentDataPath, "goap-logs");
         string worldLogPath = Path.Combine(logRoot, "world.log.txt");
-        bool worldLoggingEnabled = _demoConfig?.simulation?.worldLoggingEnabled ?? true;
+        bool worldLoggingEnabled = _demoConfig?.simulation?.worldLoggingEnabled ?? false;
 
         if (worldLoggingEnabled)
         {
