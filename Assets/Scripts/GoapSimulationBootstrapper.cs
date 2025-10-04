@@ -1614,7 +1614,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             {
                 for (int x = 0; x < width; x++)
                 {
-                    var pixel = pixels[(height - 1 - y) * width + x];
+                    var pixel = pixels[y * width + x];
                     if (!colorMap.TryGetValue(pixel, out var tileId))
                     {
                         throw new InvalidDataException($"Map tile color {pixel} at {x},{y} does not match any key entry.");
