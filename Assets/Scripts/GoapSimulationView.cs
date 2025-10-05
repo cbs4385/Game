@@ -1466,31 +1466,33 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         var trimmed = manifestPath.Trim();
-
-        if (Path.IsPathRooted(trimmed))
+        if (trimmed.Length == 0)
         {
-            if (File.Exists(trimmed))
+            return false;
+        }
+
+        var normalizedForRootCheck = NormalizeManifestPathForRootCheck(trimmed);
+
+        if (Path.IsPathRooted(normalizedForRootCheck))
+        {
+            if (File.Exists(normalizedForRootCheck))
             {
-                absolutePath = Path.GetFullPath(trimmed);
+                absolutePath = Path.GetFullPath(normalizedForRootCheck);
                 return true;
             }
 
-            var root = Path.GetPathRoot(trimmed);
+            var root = Path.GetPathRoot(normalizedForRootCheck);
             if (string.IsNullOrEmpty(root))
             {
                 return false;
             }
 
-            var remainder = trimmed.Substring(root.Length);
+            var remainder = normalizedForRootCheck.Substring(root.Length);
             return TryResolveRelativePathCaseInsensitive(root, remainder, out absolutePath);
         }
 
-        if (trimmed.StartsWith("/", StringComparison.Ordinal) || trimmed.StartsWith("\\", StringComparison.Ordinal))
-        {
-            trimmed = trimmed.Substring(1);
-        }
-
-        var normalizedRelative = trimmed.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        var normalizedRelative = normalizedForRootCheck.Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
         foreach (var root in EnumerateSpriteSearchRoots())
         {
             if (TryResolveRelativePathCaseInsensitive(root, normalizedRelative, out var resolved))
@@ -1501,6 +1503,45 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         return false;
+    }
+
+    private static string NormalizeManifestPathForRootCheck(string trimmed)
+    {
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return trimmed;
+        }
+
+        if (IsUncPath(trimmed) || IsDriveQualifiedPath(trimmed))
+        {
+            return trimmed;
+        }
+
+        if (trimmed.Length > 0 && (trimmed[0] == '/' || trimmed[0] == '\\'))
+        {
+            if (trimmed.Length == 1)
+            {
+                return string.Empty;
+            }
+
+            if (trimmed[1] != '/' && trimmed[1] != '\\')
+            {
+                return trimmed.Substring(1);
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsUncPath(string path)
+    {
+        return path.Length >= 2 &&
+               ((path[0] == '/' && path[1] == '/') || (path[0] == '\\' && path[1] == '\\'));
+    }
+
+    private static bool IsDriveQualifiedPath(string path)
+    {
+        return path.Length >= 2 && path[1] == ':' && char.IsLetter(path[0]);
     }
 
     private IEnumerable<string> EnumerateSpriteSearchRoots()
