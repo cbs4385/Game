@@ -239,7 +239,8 @@ public sealed class PlayerPawnController : MonoBehaviour
         ThingId targetId,
         GridPos targetPos,
         int? planStepIndex = null,
-        long? expectedSnapshotVersion = null)
+        long? expectedSnapshotVersion = null,
+        string planStepActivity = null)
     {
         if (_world == null)
         {
@@ -254,6 +255,7 @@ public sealed class PlayerPawnController : MonoBehaviour
         EnsureBootstrapperReference();
 
         bool hasTarget = !string.IsNullOrWhiteSpace(targetId.Value);
+        long? updatedSnapshotVersion = null;
         if (planStepIndex.HasValue)
         {
             if (!expectedSnapshotVersion.HasValue)
@@ -262,17 +264,35 @@ public sealed class PlayerPawnController : MonoBehaviour
                     "Manual plan execution requires the snapshot version that produced the selected plan option.");
             }
 
+            if (string.IsNullOrWhiteSpace(planStepActivity))
+            {
+                throw new InvalidOperationException(
+                    "Manual plan execution requires the activity identifier associated with the selected plan option.");
+            }
+
             var expectedTarget = hasTarget ? (ThingId?)targetId : null;
             var expectedPosition = hasTarget ? (GridPos?)targetPos : null;
-            bootstrapper.ExecuteManualPlanStep(
+            updatedSnapshotVersion = bootstrapper.ExecuteManualPlanStepSequence(
                 _playerPawnId.Value,
                 planStepIndex.Value,
+                planStepActivity,
                 expectedTarget,
                 expectedPosition,
                 expectedSnapshotVersion.Value);
         }
 
         var snapshot = _world.Snap();
+        if (snapshot == null)
+        {
+            throw new InvalidOperationException("World snapshot could not be captured while issuing a manual interaction.");
+        }
+
+        if (updatedSnapshotVersion.HasValue && snapshot.Version != updatedSnapshotVersion.Value)
+        {
+            throw new InvalidOperationException(
+                $"World snapshot version {snapshot.Version} no longer matches the manual plan execution result {updatedSnapshotVersion.Value}.");
+        }
+
         ExecuteManualInteract(snapshot, targetId, targetPos, planStepIndex);
     }
 

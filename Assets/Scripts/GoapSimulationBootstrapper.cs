@@ -340,18 +340,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return status != null;
     }
 
-    public void ExecuteManualPlanStep(
+    public long ExecuteManualPlanStep(
         ThingId actorId,
         int planStepIndex,
         ThingId? expectedTargetId,
         GridPos? expectedTargetPosition,
         long expectedSnapshotVersion)
     {
-        if (string.IsNullOrWhiteSpace(actorId.Value))
-        {
-            throw new ArgumentException("Manual actor id must be provided.", nameof(actorId));
-        }
-
         if (planStepIndex < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(planStepIndex), "Plan step index must be non-negative.");
@@ -362,22 +357,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new ArgumentOutOfRangeException(nameof(expectedSnapshotVersion), "Snapshot version must be non-negative.");
         }
 
-        if (_readyEventArgs == null)
-        {
-            throw new InvalidOperationException("Manual plan execution cannot occur before the simulation bootstrap completes.");
-        }
-
-        if (_world == null || _planner == null || _executors == null || _reservations == null)
-        {
-            throw new InvalidOperationException(
-                "Manual plan execution requires the world, planner, executor registry, and reservation service to be initialized.");
-        }
-
-        if (!_manualPawnIds.Contains(actorId))
-        {
-            throw new InvalidOperationException($"Actor '{actorId.Value}' is not configured for manual plan execution.");
-        }
-
+        var (state, priorityJitter) = PrepareManualPlanExecution(actorId);
         var snapshot = _world.Snap();
         if (snapshot == null)
         {
@@ -396,8 +376,6 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException($"Manual actor '{actorId.Value}' is not present in the current world snapshot.");
         }
 
-        double priorityJitter = _demoConfig?.simulation?.priorityJitter ?? 0.0;
-        var state = GetManualActorState(actorId);
         var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
         if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
         {
@@ -411,6 +389,205 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 $"Manual actor '{actorId.Value}' plan does not contain a step at index {planStepIndex}.");
         }
 
+        return ExecuteManualPlanStepInternal(
+            actorId,
+            planStepIndex,
+            expectedTargetId,
+            expectedTargetPosition,
+            snapshot,
+            plan,
+            state,
+            expectedActivityName: null);
+    }
+
+    public long ExecuteManualPlanStepSequence(
+        ThingId actorId,
+        int planStepIndex,
+        string expectedActivity,
+        ThingId? expectedTargetId,
+        GridPos? expectedTargetPosition,
+        long expectedSnapshotVersion,
+        int guardIterationLimit = 16)
+    {
+        if (planStepIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(planStepIndex), "Plan step index must be non-negative.");
+        }
+
+        if (expectedSnapshotVersion < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expectedSnapshotVersion), "Snapshot version must be non-negative.");
+        }
+
+        if (guardIterationLimit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(guardIterationLimit), "Guard iteration limit must be positive.");
+        }
+
+        if (string.IsNullOrWhiteSpace(expectedActivity))
+        {
+            throw new ArgumentException("Manual plan execution requires the expected activity identifier.", nameof(expectedActivity));
+        }
+
+        var (state, priorityJitter) = PrepareManualPlanExecution(actorId);
+        long currentExpectedVersion = expectedSnapshotVersion;
+
+        for (int iteration = 0; iteration < guardIterationLimit; iteration++)
+        {
+            var snapshot = _world.Snap();
+            if (snapshot == null)
+            {
+                throw new InvalidOperationException("World snapshot could not be captured for manual plan execution.");
+            }
+
+            if (snapshot.Version != currentExpectedVersion)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan snapshot version mismatch. Expected {currentExpectedVersion}, but world reports {snapshot.Version}.");
+            }
+
+            var actorThing = snapshot.GetThing(actorId);
+            if (actorThing == null)
+            {
+                throw new InvalidOperationException($"Manual actor '{actorId.Value}' is not present in the current world snapshot.");
+            }
+
+            var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
+            if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
+            {
+                throw new InvalidOperationException($"Manual actor '{actorId.Value}' does not have a valid plan to execute.");
+            }
+
+            int resolvedIndex = ResolveManualPlanStepIndex(
+                plan,
+                planStepIndex,
+                expectedActivity,
+                expectedTargetId,
+                expectedTargetPosition,
+                snapshot);
+
+            planStepIndex = resolvedIndex;
+            var targetStep = plan.Steps[resolvedIndex];
+            if (targetStep == null)
+            {
+                throw new InvalidOperationException(
+                    $"Manual actor '{actorId.Value}' plan step at index {resolvedIndex} is null.");
+            }
+
+            if (targetStep.Preconditions == null || targetStep.Preconditions(snapshot))
+            {
+                return snapshot.Version;
+            }
+
+            if (resolvedIndex == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{expectedActivity}' preconditions are not satisfied and there are no prior steps to execute.");
+            }
+
+            bool executedPrefixStep = false;
+            for (int prefixIndex = 0; prefixIndex < resolvedIndex; prefixIndex++)
+            {
+                var prefixStep = plan.Steps[prefixIndex];
+                if (prefixStep == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Manual plan contains a null step at index {prefixIndex} while preparing to execute '{expectedActivity}'.");
+                }
+
+                if (prefixStep.Preconditions != null && !prefixStep.Preconditions(snapshot))
+                {
+                    continue;
+                }
+
+                ThingId? prefixTarget = string.IsNullOrWhiteSpace(prefixStep.Target.Value)
+                    ? (ThingId?)null
+                    : prefixStep.Target;
+
+                long postVersion = ExecuteManualPlanStepInternal(
+                    actorId,
+                    prefixIndex,
+                    prefixTarget,
+                    expectedTargetPosition: null,
+                    snapshot,
+                    plan,
+                    state,
+                    prefixStep.ActivityName);
+
+                currentExpectedVersion = postVersion;
+                executedPrefixStep = true;
+                break;
+            }
+
+            if (!executedPrefixStep)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{expectedActivity}' preconditions remain unsatisfied because no prior steps were executable.");
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Manual plan step '{expectedActivity}' preconditions were not satisfied within {guardIterationLimit} sequential execution attempts.");
+    }
+
+    private (ManualActorState State, double PriorityJitter) PrepareManualPlanExecution(ThingId actorId)
+    {
+        if (string.IsNullOrWhiteSpace(actorId.Value))
+        {
+            throw new ArgumentException("Manual actor id must be provided.", nameof(actorId));
+        }
+
+        if (_readyEventArgs == null)
+        {
+            throw new InvalidOperationException("Manual plan execution cannot occur before the simulation bootstrap completes.");
+        }
+
+        if (_world == null || _planner == null || _executors == null || _reservations == null)
+        {
+            throw new InvalidOperationException(
+                "Manual plan execution requires the world, planner, executor registry, and reservation service to be initialized.");
+        }
+
+        if (!_manualPawnIds.Contains(actorId))
+        {
+            throw new InvalidOperationException($"Actor '{actorId.Value}' is not configured for manual plan execution.");
+        }
+
+        double priorityJitter = _demoConfig?.simulation?.priorityJitter ?? 0.0;
+        var state = GetManualActorState(actorId);
+        return (state, priorityJitter);
+    }
+
+    private long ExecuteManualPlanStepInternal(
+        ThingId actorId,
+        int planStepIndex,
+        ThingId? expectedTargetId,
+        GridPos? expectedTargetPosition,
+        IWorldSnapshot snapshot,
+        Plan plan,
+        ManualActorState state,
+        string expectedActivityName)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (plan == null)
+        {
+            throw new ArgumentNullException(nameof(plan));
+        }
+
+        if (state == null)
+        {
+            throw new ArgumentNullException(nameof(state));
+        }
+
+        if (planStepIndex < 0 || planStepIndex >= plan.Steps.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(planStepIndex));
+        }
+
         var step = plan.Steps[planStepIndex];
         if (step == null)
         {
@@ -422,6 +599,13 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             throw new InvalidOperationException(
                 $"Manual actor '{actorId.Value}' plan step at index {planStepIndex} targets actor '{step.Actor.Value ?? "<unknown>"}'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedActivityName) &&
+            !string.Equals(step.ActivityName ?? string.Empty, expectedActivityName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Manual plan step at index {planStepIndex} resolved to activity '{step.ActivityName ?? "<unknown>"}', expected '{expectedActivityName}'.");
         }
 
         EnsureManualPlanNotOnCooldown(state, step);
@@ -540,10 +724,105 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             ApplyManualPostCommitEffects(actorId, step.ActivityName, planId, batch, executionContext);
             _worldLogger?.LogEffectSummary(actorId, planId, step.ActivityName, batch, snapshot.Version, worldTime, worldDay);
             RegisterManualPlanCooldowns(state, step, durationSeconds, batch.PlanCooldowns);
+
+            return postSnapshot.Version;
         }
         finally
         {
             _reservations.ReleaseAll(step.Reservations, planId, actorId);
+        }
+    }
+
+    private int ResolveManualPlanStepIndex(
+        Plan plan,
+        int hintedIndex,
+        string expectedActivity,
+        ThingId? expectedTargetId,
+        GridPos? expectedTargetPosition,
+        IWorldSnapshot snapshot)
+    {
+        if (plan == null)
+        {
+            throw new ArgumentNullException(nameof(plan));
+        }
+
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (plan.Steps == null || plan.Steps.Count == 0)
+        {
+            throw new InvalidOperationException("Plan does not contain any steps.");
+        }
+
+        bool MatchesDescriptor(PlanStep candidate)
+        {
+            if (candidate == null)
+            {
+                return false;
+            }
+
+            if (!string.Equals(candidate.ActivityName ?? string.Empty, expectedActivity, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!expectedTargetId.HasValue)
+            {
+                return true;
+            }
+
+            return candidate.Target.Equals(expectedTargetId.Value);
+        }
+
+        if (hintedIndex >= 0 && hintedIndex < plan.Steps.Count)
+        {
+            var hintedStep = plan.Steps[hintedIndex];
+            if (MatchesDescriptor(hintedStep))
+            {
+                ValidateTargetLocation(expectedTargetId, expectedTargetPosition, snapshot);
+                return hintedIndex;
+            }
+        }
+
+        for (int i = 0; i < plan.Steps.Count; i++)
+        {
+            if (MatchesDescriptor(plan.Steps[i]))
+            {
+                ValidateTargetLocation(expectedTargetId, expectedTargetPosition, snapshot);
+                return i;
+            }
+        }
+
+        string targetText = expectedTargetId.HasValue ? expectedTargetId.Value.Value ?? "<none>" : "<none>";
+        throw new InvalidOperationException(
+            $"Manual plan step '{expectedActivity}' targeting '{targetText}' could not be located in the current plan.");
+    }
+
+    private static void ValidateTargetLocation(
+        ThingId? expectedTargetId,
+        GridPos? expectedTargetPosition,
+        IWorldSnapshot snapshot)
+    {
+        if (!expectedTargetId.HasValue || !expectedTargetPosition.HasValue)
+        {
+            return;
+        }
+
+        var targetThing = snapshot.GetThing(expectedTargetId.Value);
+        if (targetThing == null)
+        {
+            throw new InvalidOperationException(
+                $"Manual plan target '{expectedTargetId.Value.Value ?? "<unknown>"}' is not present in the current world snapshot.");
+        }
+
+        if (!targetThing.Position.Equals(expectedTargetPosition.Value))
+        {
+            var expected = expectedTargetPosition.Value;
+            var actual = targetThing.Position;
+            throw new InvalidOperationException(
+                $"Manual plan target '{expectedTargetId.Value.Value ?? "<unknown>"}' moved from ({actual.X}, {actual.Y}) to ({expected.X}, {expected.Y}).");
         }
     }
 

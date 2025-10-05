@@ -2534,6 +2534,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var trimmed = stepLabel.Trim();
         string formattedLabel = string.Format(CultureInfo.InvariantCulture, "{0}. {1}", stepIndex + 1, trimmed);
+        string activityId = ExtractPlanActivityIdentifier(trimmed);
         var targetIdRaw = ExtractPlanTargetIdentifier(trimmed);
         ThingId? targetId = null;
         GridPos? targetPosition = null;
@@ -2554,7 +2555,25 @@ public sealed class GoapSimulationView : MonoBehaviour
             actionable = true;
         }
 
-        return new PlanActionOption(formattedLabel, targetId, targetPosition, stepIndex, actionable);
+        return new PlanActionOption(formattedLabel, trimmed, activityId, targetId, targetPosition, stepIndex, actionable);
+    }
+
+    private static string ExtractPlanActivityIdentifier(string stepLabel)
+    {
+        if (string.IsNullOrWhiteSpace(stepLabel))
+        {
+            throw new ArgumentException("Plan step label must be provided to extract an activity identifier.", nameof(stepLabel));
+        }
+
+        var separator = stepLabel.IndexOf("->", StringComparison.Ordinal);
+        string candidate = separator >= 0 ? stepLabel.Substring(0, separator) : stepLabel;
+        candidate = candidate.Trim();
+        if (string.IsNullOrEmpty(candidate))
+        {
+            throw new InvalidOperationException($"Plan step '{stepLabel}' does not include a valid activity identifier.");
+        }
+
+        return candidate;
     }
 
     private static string ExtractPlanTargetIdentifier(string stepLabel)
@@ -2611,7 +2630,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             option.TargetId.Value,
             option.TargetPosition.Value,
             option.StepIndex,
-            _selectedPawnPlanSnapshotVersion);
+            _selectedPawnPlanSnapshotVersion,
+            option.ActivityId);
         _selectedPlanOptionIndex = option.StepIndex;
         _selectedPlanOptionLabel = option.Label;
     }
@@ -2633,14 +2653,33 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private sealed class PlanActionOption
     {
-        public PlanActionOption(string label, ThingId? targetId, GridPos? targetPosition, int stepIndex, bool isActionable)
+        public PlanActionOption(
+            string label,
+            string rawLabel,
+            string activityId,
+            ThingId? targetId,
+            GridPos? targetPosition,
+            int stepIndex,
+            bool isActionable)
         {
             if (string.IsNullOrWhiteSpace(label))
             {
                 throw new ArgumentException("Plan option label must be provided.", nameof(label));
             }
 
+            if (string.IsNullOrWhiteSpace(rawLabel))
+            {
+                throw new ArgumentException("Plan option raw label must be provided.", nameof(rawLabel));
+            }
+
+            if (string.IsNullOrWhiteSpace(activityId))
+            {
+                throw new ArgumentException("Plan option activity identifier must be provided.", nameof(activityId));
+            }
+
             Label = label;
+            RawLabel = rawLabel;
+            ActivityId = activityId;
             TargetId = targetId;
             TargetPosition = targetPosition;
             StepIndex = stepIndex;
@@ -2648,6 +2687,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         public string Label { get; }
+        public string RawLabel { get; }
+        public string ActivityId { get; }
         public ThingId? TargetId { get; }
         public GridPos? TargetPosition { get; }
         public int StepIndex { get; }
