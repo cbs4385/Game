@@ -1,256 +1,567 @@
 [
   {
     "id": "bread_loaf",
-    "tags": ["food", "edible", "gift"],
+    "tags": [
+      "food",
+      "edible",
+      "gift"
+    ],
     "stackSize": 12,
-    "price": {"buy": 3.0, "sell": 1.5},
-    "gifts": ["friendship:0.15"],
-    "effects": []
+    "price": {
+      "buy": 3.0,
+      "sell": 1.5
+    },
+    "gifts": [
+      "friendship:0.15"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_bread_loaf.png"
   },
   {
     "id": "flower_bouquet",
-    "tags": ["gift", "decor"],
+    "tags": [
+      "gift",
+      "decor"
+    ],
     "stackSize": 8,
-    "price": {"buy": 4.5, "sell": 2.25},
-    "gifts": ["friendship:0.25"],
-    "effects": []
+    "price": {
+      "buy": 4.5,
+      "sell": 2.25
+    },
+    "gifts": [
+      "friendship:0.25"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_flower_bouquet.png"
   },
   {
     "id": "turnip",
-    "tags": ["food", "edible", "produce"],
+    "tags": [
+      "food",
+      "edible",
+      "produce"
+    ],
     "stackSize": 20,
-    "price": {"buy": 5.0, "sell": 2.5},
-    "effects": []
+    "price": {
+      "buy": 5.0,
+      "sell": 2.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_turnip.png"
   },
   {
     "id": "strawberry",
-    "tags": ["food", "edible", "produce"],
+    "tags": [
+      "food",
+      "edible",
+      "produce"
+    ],
     "stackSize": 20,
-    "price": {"buy": 6.0, "sell": 3.0},
-    "effects": []
+    "price": {
+      "buy": 6.0,
+      "sell": 3.0
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_strawberry.png"
   },
   {
     "id": "sungrain",
-    "tags": ["food", "edible", "produce", "ingredient"],
+    "tags": [
+      "food",
+      "edible",
+      "produce",
+      "ingredient"
+    ],
     "stackSize": 30,
-    "price": {"buy": 7.0, "sell": 3.4},
-    "effects": []
+    "price": {
+      "buy": 7.0,
+      "sell": 3.4
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_sungrain.png"
   },
   {
     "id": "lavender",
-    "tags": ["produce", "herb", "artisan"],
+    "tags": [
+      "produce",
+      "herb",
+      "artisan"
+    ],
     "stackSize": 24,
-    "price": {"buy": 8.5, "sell": 4.2},
-    "gifts": ["friendship:0.18"],
-    "effects": []
+    "price": {
+      "buy": 8.5,
+      "sell": 4.2
+    },
+    "gifts": [
+      "friendship:0.18"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_lavender.png"
   },
   {
     "id": "turnip_seed",
-    "tags": ["seed", "farming"],
+    "tags": [
+      "seed",
+      "farming"
+    ],
     "stackSize": 50,
-    "price": {"buy": 1.0, "sell": 0.4},
-    "effects": []
+    "price": {
+      "buy": 1.0,
+      "sell": 0.4
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_turnip_seed.png"
   },
   {
     "id": "strawberry_seed",
-    "tags": ["seed", "farming"],
+    "tags": [
+      "seed",
+      "farming"
+    ],
     "stackSize": 50,
-    "price": {"buy": 2.5, "sell": 1.0},
-    "effects": []
+    "price": {
+      "buy": 2.5,
+      "sell": 1.0
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_strawberry_seed.png"
   },
   {
     "id": "sungrain_seed",
-    "tags": ["seed", "farming"],
+    "tags": [
+      "seed",
+      "farming"
+    ],
     "stackSize": 50,
-    "price": {"buy": 3.2, "sell": 1.2},
-    "effects": []
+    "price": {
+      "buy": 3.2,
+      "sell": 1.2
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_sungrain_seed.png"
   },
   {
     "id": "lavender_seed",
-    "tags": ["seed", "farming"],
+    "tags": [
+      "seed",
+      "farming"
+    ],
     "stackSize": 50,
-    "price": {"buy": 4.0, "sell": 1.5},
-    "effects": []
+    "price": {
+      "buy": 4.0,
+      "sell": 1.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_lavender_seed.png"
   },
   {
     "id": "animal_feed",
-    "tags": ["feed", "animal_feed", "resource"],
+    "tags": [
+      "feed",
+      "animal_feed",
+      "resource"
+    ],
     "stackSize": 40,
-    "price": {"buy": 3.5, "sell": 1.5},
-    "effects": []
+    "price": {
+      "buy": 3.5,
+      "sell": 1.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_animal_feed.png"
   },
   {
     "id": "milk_jug",
-    "tags": ["food", "edible", "produce", "animal_product"],
+    "tags": [
+      "food",
+      "edible",
+      "produce",
+      "animal_product"
+    ],
     "stackSize": 12,
-    "price": {"buy": 7.5, "sell": 3.5},
-    "effects": []
+    "price": {
+      "buy": 7.5,
+      "sell": 3.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_milk_jug.png"
   },
   {
     "id": "egg",
-    "tags": ["food", "edible", "produce", "animal_product"],
+    "tags": [
+      "food",
+      "edible",
+      "produce",
+      "animal_product"
+    ],
     "stackSize": 24,
-    "price": {"buy": 2.0, "sell": 0.9},
-    "effects": []
+    "price": {
+      "buy": 2.0,
+      "sell": 0.9
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_egg.png"
   },
   {
     "id": "wool_bundle",
-    "tags": ["animal_product", "fiber", "crafting"],
+    "tags": [
+      "animal_product",
+      "fiber",
+      "crafting"
+    ],
     "stackSize": 16,
-    "price": {"buy": 9.0, "sell": 4.0},
-    "effects": []
+    "price": {
+      "buy": 9.0,
+      "sell": 4.0
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_wool_bundle.png"
   },
   {
     "id": "river_bait",
-    "tags": ["bait", "resource"],
+    "tags": [
+      "bait",
+      "resource"
+    ],
     "stackSize": 50,
-    "price": {"buy": 1.5, "sell": 0.5},
-    "effects": []
+    "price": {
+      "buy": 1.5,
+      "sell": 0.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_river_bait.png"
   },
   {
     "id": "silver_perch",
-    "tags": ["fish", "food", "edible", "produce"],
+    "tags": [
+      "fish",
+      "food",
+      "edible",
+      "produce"
+    ],
     "stackSize": 20,
-    "price": {"buy": 5.5, "sell": 2.7},
-    "gifts": ["friendship:0.08"],
-    "effects": []
+    "price": {
+      "buy": 5.5,
+      "sell": 2.7
+    },
+    "gifts": [
+      "friendship:0.08"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_silver_perch.png"
   },
   {
     "id": "sunset_salmon",
-    "tags": ["fish", "food", "edible", "produce"],
+    "tags": [
+      "fish",
+      "food",
+      "edible",
+      "produce"
+    ],
     "stackSize": 20,
-    "price": {"buy": 7.5, "sell": 3.6},
-    "gifts": ["friendship:0.1"],
-    "effects": []
+    "price": {
+      "buy": 7.5,
+      "sell": 3.6
+    },
+    "gifts": [
+      "friendship:0.1"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_sunset_salmon.png"
   },
   {
     "id": "wild_berry",
-    "tags": ["food", "edible", "forage", "ingredient"],
+    "tags": [
+      "food",
+      "edible",
+      "forage",
+      "ingredient"
+    ],
     "stackSize": 30,
-    "price": {"buy": 3.2, "sell": 1.4},
-    "gifts": ["friendship:0.05"],
-    "effects": []
+    "price": {
+      "buy": 3.2,
+      "sell": 1.4
+    },
+    "gifts": [
+      "friendship:0.05"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_wild_berry.png"
   },
   {
     "id": "forest_mushroom",
-    "tags": ["food", "edible", "forage", "ingredient"],
+    "tags": [
+      "food",
+      "edible",
+      "forage",
+      "ingredient"
+    ],
     "stackSize": 24,
-    "price": {"buy": 4.4, "sell": 2.0},
-    "gifts": ["friendship:0.07"],
-    "effects": []
+    "price": {
+      "buy": 4.4,
+      "sell": 2.0
+    },
+    "gifts": [
+      "friendship:0.07"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_forest_mushroom.png"
   },
   {
     "id": "frost_lichen",
-    "tags": ["forage", "herb", "ingredient"],
+    "tags": [
+      "forage",
+      "herb",
+      "ingredient"
+    ],
     "stackSize": 20,
-    "price": {"buy": 4.8, "sell": 2.2},
-    "effects": []
+    "price": {
+      "buy": 4.8,
+      "sell": 2.2
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_frost_lichen.png"
   },
   {
     "id": "sea_shell",
-    "tags": ["forage", "collectible", "gift"],
+    "tags": [
+      "forage",
+      "collectible",
+      "gift"
+    ],
     "stackSize": 16,
-    "price": {"buy": 5.0, "sell": 2.6},
-    "gifts": ["friendship:0.12"],
-    "effects": []
+    "price": {
+      "buy": 5.0,
+      "sell": 2.6
+    },
+    "gifts": [
+      "friendship:0.12"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_sea_shell.png"
   },
   {
     "id": "driftwood_bundle",
-    "tags": ["forage", "resource", "crafting"],
+    "tags": [
+      "forage",
+      "resource",
+      "crafting"
+    ],
     "stackSize": 20,
-    "price": {"buy": 2.8, "sell": 1.3},
-    "effects": []
+    "price": {
+      "buy": 2.8,
+      "sell": 1.3
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_driftwood_bundle.png"
   },
   {
     "id": "basic_pickaxe",
-    "tags": ["tool", "equipment", "mining_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "mining_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 25.0, "sell": 12.5},
-    "tools": ["pickaxe", "pickaxe_tier0"],
-    "effects": []
+    "price": {
+      "buy": 25.0,
+      "sell": 12.5
+    },
+    "tools": [
+      "pickaxe",
+      "pickaxe_tier0"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_basic_pickaxe.png"
   },
   {
     "id": "copper_pickaxe",
-    "tags": ["tool", "equipment", "mining_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "mining_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 60.0, "sell": 30.0},
-    "tools": ["pickaxe", "pickaxe_tier1"],
-    "effects": []
+    "price": {
+      "buy": 60.0,
+      "sell": 30.0
+    },
+    "tools": [
+      "pickaxe",
+      "pickaxe_tier1"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_copper_pickaxe.png"
   },
   {
     "id": "iron_pickaxe",
-    "tags": ["tool", "equipment", "mining_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "mining_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 110.0, "sell": 55.0},
-    "tools": ["pickaxe", "pickaxe_tier2"],
-    "effects": []
+    "price": {
+      "buy": 110.0,
+      "sell": 55.0
+    },
+    "tools": [
+      "pickaxe",
+      "pickaxe_tier2"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_iron_pickaxe.png"
   },
   {
     "id": "basic_fishing_rod",
-    "tags": ["tool", "equipment", "fishing_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "fishing_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 28.0, "sell": 14.0},
-    "tools": ["fishing_rod", "fishing_rod_tier0"],
-    "effects": []
+    "price": {
+      "buy": 28.0,
+      "sell": 14.0
+    },
+    "tools": [
+      "fishing_rod",
+      "fishing_rod_tier0"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_basic_fishing_rod.png"
   },
   {
     "id": "reinforced_fishing_rod",
-    "tags": ["tool", "equipment", "fishing_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "fishing_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 65.0, "sell": 32.5},
-    "tools": ["fishing_rod", "fishing_rod_tier1"],
-    "effects": []
+    "price": {
+      "buy": 65.0,
+      "sell": 32.5
+    },
+    "tools": [
+      "fishing_rod",
+      "fishing_rod_tier1"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_reinforced_fishing_rod.png"
   },
   {
     "id": "ocean_fishing_rod",
-    "tags": ["tool", "equipment", "fishing_tool"],
+    "tags": [
+      "tool",
+      "equipment",
+      "fishing_tool"
+    ],
     "stackSize": 1,
-    "price": {"buy": 120.0, "sell": 60.0},
-    "tools": ["fishing_rod", "fishing_rod_tier2"],
-    "effects": []
+    "price": {
+      "buy": 120.0,
+      "sell": 60.0
+    },
+    "tools": [
+      "fishing_rod",
+      "fishing_rod_tier2"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_ocean_fishing_rod.png"
   },
   {
     "id": "copper_ore",
-    "tags": ["ore", "resource", "crafting"],
+    "tags": [
+      "ore",
+      "resource",
+      "crafting"
+    ],
     "stackSize": 40,
-    "price": {"buy": 6.0, "sell": 2.8},
-    "effects": []
+    "price": {
+      "buy": 6.0,
+      "sell": 2.8
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_copper_ore.png"
   },
   {
     "id": "iron_ore",
-    "tags": ["ore", "resource", "crafting"],
+    "tags": [
+      "ore",
+      "resource",
+      "crafting"
+    ],
     "stackSize": 40,
-    "price": {"buy": 8.0, "sell": 3.6},
-    "effects": []
+    "price": {
+      "buy": 8.0,
+      "sell": 3.6
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_iron_ore.png"
   },
   {
     "id": "coal_chunk",
-    "tags": ["ore", "resource", "fuel"],
+    "tags": [
+      "ore",
+      "resource",
+      "fuel"
+    ],
     "stackSize": 40,
-    "price": {"buy": 4.0, "sell": 1.9},
-    "effects": []
+    "price": {
+      "buy": 4.0,
+      "sell": 1.9
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_coal_chunk.png"
   },
   {
     "id": "forest_salad",
-    "tags": ["food", "edible", "meal"],
+    "tags": [
+      "food",
+      "edible",
+      "meal"
+    ],
     "stackSize": 12,
-    "price": {"buy": 8.5, "sell": 4.0},
-    "gifts": ["friendship:0.2"],
-    "effects": []
+    "price": {
+      "buy": 8.5,
+      "sell": 4.0
+    },
+    "gifts": [
+      "friendship:0.2"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_forest_salad.png"
   },
   {
     "id": "sungrain_flour",
-    "tags": ["ingredient", "crafting", "artisan"],
+    "tags": [
+      "ingredient",
+      "crafting",
+      "artisan"
+    ],
     "stackSize": 20,
-    "price": {"buy": 9.0, "sell": 4.5},
-    "effects": []
+    "price": {
+      "buy": 9.0,
+      "sell": 4.5
+    },
+    "effects": [],
+    "icon": "/Sprites/items/item_sungrain_flour.png"
   },
   {
     "id": "lavender_oil",
-    "tags": ["artisan", "crafting", "gift"],
+    "tags": [
+      "artisan",
+      "crafting",
+      "gift"
+    ],
     "stackSize": 16,
-    "price": {"buy": 14.0, "sell": 6.5},
-    "gifts": ["friendship:0.3"],
-    "effects": []
+    "price": {
+      "buy": 14.0,
+      "sell": 6.5
+    },
+    "gifts": [
+      "friendship:0.3"
+    ],
+    "effects": [],
+    "icon": "/Sprites/items/item_lavender_oil.png"
   }
 ]
