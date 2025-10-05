@@ -330,14 +330,177 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return false;
         }
 
-        if (!_actorHostById.TryGetValue(actorId, out var host) || host == null)
+        if (_actorHostById.TryGetValue(actorId, out var host) && host != null)
         {
-            status = null;
-            return false;
+            status = host.SnapshotPlanStatus();
+            return status != null;
         }
 
-        status = host.SnapshotPlanStatus();
-        return status != null;
+        if (_manualPawnIds.Contains(actorId))
+        {
+            status = SnapshotManualPlanStatus(actorId);
+            return status != null;
+        }
+
+        status = null;
+        return false;
+    }
+
+    private ActorPlanStatus SnapshotManualPlanStatus(ThingId actorId)
+    {
+        if (!_manualPawnIds.Contains(actorId))
+        {
+            return null;
+        }
+
+        var (state, priorityJitter) = PrepareManualPlanExecution(actorId);
+        if (state == null)
+        {
+            return null;
+        }
+
+        var snapshot = _world?.Snap();
+        if (snapshot == null)
+        {
+            return null;
+        }
+
+        if (snapshot.GetThing(actorId) == null)
+        {
+            return null;
+        }
+
+        var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
+        if (plan?.Steps == null || plan.Steps.Count == 0)
+        {
+            return null;
+        }
+
+        var steps = BuildPlanStepDescriptions(plan);
+        if (steps.Length == 0)
+        {
+            return null;
+        }
+
+        var (currentStepLabel, stateLabel) = SelectManualPlanStepLabel(plan, snapshot);
+        string planSummary = SummarizePlan(plan);
+
+        return new ActorPlanStatus(
+            actorId.Value ?? string.Empty,
+            plan.GoalId ?? string.Empty,
+            planSummary,
+            steps,
+            currentStepLabel,
+            stateLabel,
+            DateTime.UtcNow);
+    }
+
+    private static (string StepLabel, string StateLabel) SelectManualPlanStepLabel(Plan plan, IWorldSnapshot snapshot)
+    {
+        if (plan?.Steps == null || snapshot == null)
+        {
+            return (string.Empty, "manual-plan");
+        }
+
+        PlanStep fallback = null;
+        for (int i = 0; i < plan.Steps.Count; i++)
+        {
+            var step = plan.Steps[i];
+            if (step == null)
+            {
+                continue;
+            }
+
+            if (fallback == null)
+            {
+                fallback = step;
+            }
+
+            bool ready = step.Preconditions == null || step.Preconditions(snapshot);
+            if (ready)
+            {
+                return (FormatStepForStatus(step), "manual-ready");
+            }
+        }
+
+        if (fallback != null)
+        {
+            return (FormatStepForStatus(fallback), "manual-waiting");
+        }
+
+        return (string.Empty, "manual-plan");
+    }
+
+    private static string[] BuildPlanStepDescriptions(Plan plan)
+    {
+        if (plan?.Steps == null || plan.Steps.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var result = new string[plan.Steps.Count];
+        for (int i = 0; i < plan.Steps.Count; i++)
+        {
+            result[i] = FormatStepForStatus(plan.Steps[i]);
+        }
+
+        return result;
+    }
+
+    private static string SummarizePlan(Plan plan)
+    {
+        if (plan == null)
+        {
+            return "<null>";
+        }
+
+        var steps = plan.Steps;
+        if (steps == null || steps.Count == 0)
+        {
+            return $"{plan.GoalId ?? "<no-goal>"}|<empty>";
+        }
+
+        var parts = new string[steps.Count];
+        for (int i = 0; i < steps.Count; i++)
+        {
+            var step = steps[i];
+            if (step == null)
+            {
+                parts[i] = "<none>";
+                continue;
+            }
+
+            string activity = step.ActivityName ?? "<unknown>";
+            string target = FormatThingId(step.Target);
+            parts[i] = string.IsNullOrEmpty(target)
+                ? activity
+                : string.Concat(activity, "->", target);
+        }
+
+        return $"{plan.GoalId ?? "<no-goal>"}|{string.Join("|", parts)}";
+    }
+
+    private static string FormatStepForStatus(PlanStep step)
+    {
+        if (step == null)
+        {
+            return "<none>";
+        }
+
+        string activity = step.ActivityName ?? "<unknown>";
+        string target = FormatThingId(step.Target);
+        if (string.IsNullOrWhiteSpace(target) || string.Equals(target, "<none>", StringComparison.Ordinal))
+        {
+            return activity;
+        }
+
+        return string.Concat(activity, " -> ", target);
+    }
+
+    private static string FormatThingId(ThingId thing)
+    {
+        var value = thing.Value;
+        return string.IsNullOrEmpty(value) ? "<none>" : value;
     }
 
     public long ExecuteManualPlanStep(
