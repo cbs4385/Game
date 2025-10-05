@@ -1222,6 +1222,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingId = thing.Id;
         _selectedThingParticipation = entries;
         _selectedThingPlanLines = formatted;
+
+        SyncPlanSelectionToThing();
     }
 
     private void ClearSelectedThingPlan()
@@ -1459,6 +1461,33 @@ public sealed class GoapSimulationView : MonoBehaviour
         return null;
     }
 
+    private void SyncPlanSelectionToThing()
+    {
+        if (_selectedThingId == null || _selectedThingParticipation.Length == 0)
+        {
+            _selectedPlanOptionIndex = null;
+            _selectedPlanOptionLabel = string.Empty;
+            return;
+        }
+
+        for (int i = 0; i < _selectedThingParticipation.Length; i++)
+        {
+            var participation = _selectedThingParticipation[i];
+            var matchedOption = FindMatchingPlanOption(participation);
+            if (matchedOption == null)
+            {
+                continue;
+            }
+
+            _selectedPlanOptionIndex = matchedOption.StepIndex;
+            _selectedPlanOptionLabel = matchedOption.Label;
+            return;
+        }
+
+        _selectedPlanOptionIndex = null;
+        _selectedPlanOptionLabel = string.Empty;
+    }
+
     private void PopulateSelectedPawnPlan(ThingId selectedId, IWorldSnapshot snapshot)
     {
         _selectedPawnPlanSnapshotVersion = snapshot?.Version ?? -1;
@@ -1514,6 +1543,8 @@ public sealed class GoapSimulationView : MonoBehaviour
                 _selectedPlanOptionLabel = string.Empty;
             }
         }
+
+        SyncPlanSelectionToThing();
     }
 
     private string ComposeSelectedPawnPanelText(ThingId selectedId)
