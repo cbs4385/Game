@@ -588,7 +588,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         int planStepIndex,
         ThingId? expectedTargetId,
         GridPos? expectedTargetPosition,
-        long expectedSnapshotVersion)
+        long expectedSnapshotVersion,
+        string expectedGoalId)
     {
         if (planStepIndex < 0)
         {
@@ -599,6 +600,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             throw new ArgumentOutOfRangeException(nameof(expectedSnapshotVersion), "Snapshot version must be non-negative.");
         }
+
+        var normalizedGoalId = string.IsNullOrWhiteSpace(expectedGoalId) ? null : expectedGoalId.Trim();
+        var requestedGoal = normalizedGoalId != null ? new Goal(normalizedGoalId) : null;
 
         var (state, priorityJitter) = PrepareManualPlanExecution(actorId);
         var snapshot = _world.Snap();
@@ -619,11 +623,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidOperationException($"Manual actor '{actorId.Value}' is not present in the current world snapshot.");
         }
 
-        var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
-        if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
-        {
-            throw new InvalidOperationException($"Manual actor '{actorId.Value}' does not have a valid plan to execute.");
-        }
+        var plan = _planner.Plan(snapshot, actorId, requestedGoal, priorityJitter, state.Rng);
+        EnsureManualPlanIsValid(plan, actorId, normalizedGoalId);
 
         if (planStepIndex >= plan.Steps.Count)
         {
@@ -650,6 +651,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         ThingId? expectedTargetId,
         GridPos? expectedTargetPosition,
         long expectedSnapshotVersion,
+        string expectedGoalId,
         int guardIterationLimit = 16)
     {
         if (planStepIndex < 0)
@@ -671,6 +673,9 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             throw new ArgumentException("Manual plan execution requires the expected activity identifier.", nameof(expectedActivity));
         }
+
+        var normalizedGoalId = string.IsNullOrWhiteSpace(expectedGoalId) ? null : expectedGoalId.Trim();
+        var requestedGoal = normalizedGoalId != null ? new Goal(normalizedGoalId) : null;
 
         var (state, priorityJitter) = PrepareManualPlanExecution(actorId);
         long currentExpectedVersion = expectedSnapshotVersion;
@@ -700,11 +705,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 throw new InvalidOperationException($"Manual actor '{actorId.Value}' is not present in the current world snapshot.");
             }
 
-            var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
-            if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
-            {
-                throw new InvalidOperationException($"Manual actor '{actorId.Value}' does not have a valid plan to execute.");
-            }
+            var plan = _planner.Plan(snapshot, actorId, requestedGoal, priorityJitter, state.Rng);
+            EnsureManualPlanIsValid(plan, actorId, normalizedGoalId);
 
             int resolvedIndex = ResolveManualPlanStepIndex(
                 plan,
@@ -804,6 +806,44 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         throw new InvalidOperationException(
             $"Manual plan step '{expectedActivity}' preconditions were not satisfied within {guardIterationLimit} sequential execution attempts.");
+    }
+
+
+    private static void EnsureManualPlanIsValid(Plan plan, ThingId actorId, string expectedGoalId)
+    {
+        if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
+        {
+            var expectation = string.IsNullOrWhiteSpace(expectedGoalId)
+                ? string.Empty
+                : string.Format(CultureInfo.InvariantCulture, " Expected goal '{0}'.", expectedGoalId);
+            throw new InvalidOperationException(
+                string.Format(CultureInfo.InvariantCulture,
+                    "Manual actor '{0}' does not have a valid plan to execute.{1}",
+                    actorId.Value,
+                    expectation));
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedGoalId))
+        {
+            if (string.IsNullOrWhiteSpace(plan.GoalId))
+            {
+                throw new InvalidOperationException(
+                    string.Format(CultureInfo.InvariantCulture,
+                        "Manual actor '{0}' plan did not report a goal while '{1}' was expected.",
+                        actorId.Value,
+                        expectedGoalId));
+            }
+
+            if (!string.Equals(plan.GoalId, expectedGoalId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    string.Format(CultureInfo.InvariantCulture,
+                        "Manual actor '{0}' plan goal '{1}' does not match expected '{2}'.",
+                        actorId.Value,
+                        plan.GoalId,
+                        expectedGoalId));
+            }
+        }
     }
 
     private (ManualActorState State, double PriorityJitter) PrepareManualPlanExecution(ThingId actorId)
