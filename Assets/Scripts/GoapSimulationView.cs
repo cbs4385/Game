@@ -2756,6 +2756,13 @@ public sealed class GoapSimulationView : MonoBehaviour
                 $"Plan option '{option.Label}' is missing the associated goal identifier required for manual execution.");
         }
 
+        var participationGoalId = participation.GoalId?.Trim();
+        if (string.IsNullOrEmpty(participationGoalId))
+        {
+            throw new InvalidOperationException(
+                $"Participation entry '{participation}' is missing the associated goal identifier required for manual execution.");
+        }
+
         EnsurePlayerPawnController();
 
         if (_selectedPawnId == null)
@@ -2777,7 +2784,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             option.StepIndex,
             _selectedPawnPlanSnapshotVersion,
             option.ActivityId,
-            option.GoalId);
+            participationGoalId);
         _selectedPlanOptionIndex = participationIndex;
         _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
             ? _selectedThingPlanLines[participationIndex]
