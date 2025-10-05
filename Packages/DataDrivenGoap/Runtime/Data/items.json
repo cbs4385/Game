@@ -15,7 +15,7 @@
       "friendship:0.15"
     ],
     "effects": [],
-    "icon": "/Sprites/items/bread_loaf.png"
+    "icon": "Sprites/items/bread_loaf.png"
   },
   {
     "id": "flower_bouquet",
@@ -32,7 +32,7 @@
       "friendship:0.25"
     ],
     "effects": [],
-    "icon": "/Sprites/items/flower_bouquet.png"
+    "icon": "Sprites/items/flower_bouquet.png"
   },
   {
     "id": "turnip",
@@ -47,7 +47,7 @@
       "sell": 2.5
     },
     "effects": [],
-    "icon": "/Sprites/items/turnip.png"
+    "icon": "Sprites/items/turnip.png"
   },
   {
     "id": "strawberry",
@@ -62,7 +62,7 @@
       "sell": 3.0
     },
     "effects": [],
-    "icon": "/Sprites/items/strawberry.png"
+    "icon": "Sprites/items/strawberry.png"
   },
   {
     "id": "sungrain",
@@ -78,7 +78,7 @@
       "sell": 3.4
     },
     "effects": [],
-    "icon": "/Sprites/items/sungrain.png"
+    "icon": "Sprites/items/sungrain.png"
   },
   {
     "id": "lavender",
@@ -96,7 +96,7 @@
       "friendship:0.18"
     ],
     "effects": [],
-    "icon": "/Sprites/items/lavender.png"
+    "icon": "Sprites/items/lavender.png"
   },
   {
     "id": "turnip_seed",
@@ -110,7 +110,7 @@
       "sell": 0.4
     },
     "effects": [],
-    "icon": "/Sprites/items/turnip_seed.png"
+    "icon": "Sprites/items/turnip_seed.png"
   },
   {
     "id": "strawberry_seed",
@@ -124,7 +124,7 @@
       "sell": 1.0
     },
     "effects": [],
-    "icon": "/Sprites/items/strawberry_seed.png"
+    "icon": "Sprites/items/strawberry_seed.png"
   },
   {
     "id": "sungrain_seed",
@@ -138,7 +138,7 @@
       "sell": 1.2
     },
     "effects": [],
-    "icon": "/Sprites/items/sungrain_seed.png"
+    "icon": "Sprites/items/sungrain_seed.png"
   },
   {
     "id": "lavender_seed",
@@ -152,7 +152,7 @@
       "sell": 1.5
     },
     "effects": [],
-    "icon": "/Sprites/items/lavender_seed.png"
+    "icon": "Sprites/items/lavender_seed.png"
   },
   {
     "id": "animal_feed",
@@ -167,7 +167,7 @@
       "sell": 1.5
     },
     "effects": [],
-    "icon": "/Sprites/items/animal_feed.png"
+    "icon": "Sprites/items/animal_feed.png"
   },
   {
     "id": "milk_jug",
@@ -183,7 +183,7 @@
       "sell": 3.5
     },
     "effects": [],
-    "icon": "/Sprites/items/milk_jug.png"
+    "icon": "Sprites/items/milk_jug.png"
   },
   {
     "id": "egg",
@@ -199,7 +199,7 @@
       "sell": 0.9
     },
     "effects": [],
-    "icon": "/Sprites/items/egg.png"
+    "icon": "Sprites/items/egg.png"
   },
   {
     "id": "wool_bundle",
@@ -214,7 +214,7 @@
       "sell": 4.0
     },
     "effects": [],
-    "icon": "/Sprites/items/wool_bundle.png"
+    "icon": "Sprites/items/wool_bundle.png"
   },
   {
     "id": "river_bait",
@@ -228,7 +228,7 @@
       "sell": 0.5
     },
     "effects": [],
-    "icon": "/Sprites/items/river_bait.png"
+    "icon": "Sprites/items/river_bait.png"
   },
   {
     "id": "silver_perch",
@@ -247,7 +247,7 @@
       "friendship:0.08"
     ],
     "effects": [],
-    "icon": "/Sprites/items/silver_perch.png"
+    "icon": "Sprites/items/silver_perch.png"
   },
   {
     "id": "sunset_salmon",
@@ -266,7 +266,7 @@
       "friendship:0.1"
     ],
     "effects": [],
-    "icon": "/Sprites/items/sunset_salmon.png"
+    "icon": "Sprites/items/sunset_salmon.png"
   },
   {
     "id": "wild_berry",
@@ -285,7 +285,7 @@
       "friendship:0.05"
     ],
     "effects": [],
-    "icon": "/Sprites/items/wild_berry.png"
+    "icon": "Sprites/items/wild_berry.png"
   },
   {
     "id": "forest_mushroom",
@@ -304,7 +304,7 @@
       "friendship:0.07"
     ],
     "effects": [],
-    "icon": "/Sprites/items/forest_mushroom.png"
+    "icon": "Sprites/items/forest_mushroom.png"
   },
   {
     "id": "frost_lichen",
@@ -319,7 +319,7 @@
       "sell": 2.2
     },
     "effects": [],
-    "icon": "/Sprites/items/frost_lichen.png"
+    "icon": "Sprites/items/frost_lichen.png"
   },
   {
     "id": "sea_shell",
@@ -337,7 +337,7 @@
       "friendship:0.12"
     ],
     "effects": [],
-    "icon": "/Sprites/items/sea_shell.png"
+    "icon": "Sprites/items/sea_shell.png"
   },
   {
     "id": "driftwood_bundle",
@@ -352,7 +352,7 @@
       "sell": 1.3
     },
     "effects": [],
-    "icon": "/Sprites/items/driftwood_bundle.png"
+    "icon": "Sprites/items/driftwood_bundle.png"
   },
   {
     "id": "basic_pickaxe",
@@ -371,7 +371,7 @@
       "pickaxe_tier0"
     ],
     "effects": [],
-    "icon": "/Sprites/items/basic_pickaxe.png"
+    "icon": "Sprites/items/basic_pickaxe.png"
   },
   {
     "id": "copper_pickaxe",
@@ -390,7 +390,7 @@
       "pickaxe_tier1"
     ],
     "effects": [],
-    "icon": "/Sprites/items/copper_pickaxe.png"
+    "icon": "Sprites/items/copper_pickaxe.png"
   },
   {
     "id": "iron_pickaxe",
@@ -409,7 +409,7 @@
       "pickaxe_tier2"
     ],
     "effects": [],
-    "icon": "/Sprites/items/iron_pickaxe.png"
+    "icon": "Sprites/items/iron_pickaxe.png"
   },
   {
     "id": "basic_fishing_rod",
@@ -428,7 +428,7 @@
       "fishing_rod_tier0"
     ],
     "effects": [],
-    "icon": "/Sprites/items/basic_fishing_rod.png"
+    "icon": "Sprites/items/basic_fishing_rod.png"
   },
   {
     "id": "reinforced_fishing_rod",
@@ -447,7 +447,7 @@
       "fishing_rod_tier1"
     ],
     "effects": [],
-    "icon": "/Sprites/items/reinforced_fishing_rod.png"
+    "icon": "Sprites/items/reinforced_fishing_rod.png"
   },
   {
     "id": "ocean_fishing_rod",
@@ -466,7 +466,7 @@
       "fishing_rod_tier2"
     ],
     "effects": [],
-    "icon": "/Sprites/items/ocean_fishing_rod.png"
+    "icon": "Sprites/items/ocean_fishing_rod.png"
   },
   {
     "id": "copper_ore",
@@ -481,7 +481,7 @@
       "sell": 2.8
     },
     "effects": [],
-    "icon": "/Sprites/items/copper_ore.png"
+    "icon": "Sprites/items/copper_ore.png"
   },
   {
     "id": "iron_ore",
@@ -496,7 +496,7 @@
       "sell": 3.6
     },
     "effects": [],
-    "icon": "/Sprites/items/iron_ore.png"
+    "icon": "Sprites/items/iron_ore.png"
   },
   {
     "id": "coal_chunk",
@@ -511,7 +511,7 @@
       "sell": 1.9
     },
     "effects": [],
-    "icon": "/Sprites/items/coal_chunk.png"
+    "icon": "Sprites/items/coal_chunk.png"
   },
   {
     "id": "forest_salad",
@@ -529,7 +529,7 @@
       "friendship:0.2"
     ],
     "effects": [],
-    "icon": "/Sprites/items/forest_salad.png"
+    "icon": "Sprites/items/forest_salad.png"
   },
   {
     "id": "sungrain_flour",
@@ -544,7 +544,7 @@
       "sell": 4.5
     },
     "effects": [],
-    "icon": "/Sprites/items/sungrain_flour.png"
+    "icon": "Sprites/items/sungrain_flour.png"
   },
   {
     "id": "lavender_oil",
@@ -562,6 +562,6 @@
       "friendship:0.3"
     ],
     "effects": [],
-    "icon": "/Sprites/items/lavender_oil.png"
+    "icon": "Sprites/items/lavender_oil.png"
   }
 ]
