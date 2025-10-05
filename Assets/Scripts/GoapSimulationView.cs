@@ -100,6 +100,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private readonly GUIContent _pawnUpdateGuiContent = new GUIContent();
     private readonly GUIContent _selectedPawnGuiContent = new GUIContent();
     private readonly GUIContent _thingHoverGuiContent = new GUIContent();
+    private readonly GUIContent _selectedThingGuiContent = new GUIContent();
     
     private ShardedWorld _world;
     private IReadOnlyList<(ThingId Id, VillagePawn Pawn)> _actors;
@@ -147,6 +148,11 @@ public sealed class GoapSimulationView : MonoBehaviour
     private GUIStyle _thingHoverStyle;
     private string _hoveredThingLabel = string.Empty;
     private Vector2 _hoveredThingScreenPosition = Vector2.zero;
+    private ThingId? _selectedThingId;
+    private ThingPlanParticipation[] _selectedThingParticipation = Array.Empty<ThingPlanParticipation>();
+    private string[] _selectedThingPlanLines = Array.Empty<string>();
+    private string _selectedThingHeader = string.Empty;
+    private readonly StringBuilder _selectedThingPanelBuilder = new StringBuilder();
 
     private void Awake()
     {
@@ -190,7 +196,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             ClearPawnUpdateLabel();
             ClearSelectedPawnInfo();
-            ClearThingHover();
+            ClearThingHover(clearThingSelection: true);
             return;
         }
 
@@ -198,13 +204,46 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var snapshot = _world.Snap();
         EnsureThingVisuals(snapshot);
-        UpdateThingHover(snapshot);
-        var clickedPawnId = DetectClickedPawn(snapshot);
-        if (clickedPawnId.HasValue)
+        if (_selectedThingId.HasValue)
         {
-            if (!_selectedPawnId.HasValue || !_selectedPawnId.Value.Equals(clickedPawnId.Value))
+            var existingThing = snapshot.GetThing(_selectedThingId.Value);
+            if (existingThing == null || _pawnDefinitions.ContainsKey(_selectedThingId.Value))
             {
-                SetSelectedPawnId(clickedPawnId, suppressImmediateVisibilityUpdate: false);
+                ClearSelectedThingPlan();
+            }
+        }
+
+        UpdateThingHover(snapshot);
+        if (TryGetClickGrid(snapshot, out var clickGrid))
+        {
+            var clickedPawnId = DetectClickedPawn(snapshot, clickGrid);
+            if (clickedPawnId.HasValue)
+            {
+                if (!_selectedPawnId.HasValue || !_selectedPawnId.Value.Equals(clickedPawnId.Value))
+                {
+                    SetSelectedPawnId(clickedPawnId, suppressImmediateVisibilityUpdate: false);
+                }
+
+                ClearSelectedThingPlan();
+            }
+            else
+            {
+                var clickedThingId = DetectClickedThing(snapshot, clickGrid);
+                if (clickedThingId.HasValue)
+                {
+                    var clickedThing = snapshot.GetThing(clickedThingId.Value);
+                    if (clickedThing == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"World snapshot no longer contains thing '{clickedThingId.Value.Value}'.");
+                    }
+
+                    UpdateSelectedThingPlan(clickedThing);
+                }
+                else
+                {
+                    ClearSelectedThingPlan();
+                }
             }
         }
         ThingView selectedThing = null;
@@ -260,6 +299,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         EnsureObserverCamera();
         EnsurePlayerPawnController();
+        ClearSelectedThingPlan();
 
         if (_world != null)
         {
@@ -815,11 +855,13 @@ public sealed class GoapSimulationView : MonoBehaviour
             RenderClockLabel(hasClock, hasPawnUpdate);
         }
 
-        if (RenderSelectedPawnPanel(out var panelRect))
+        var hasPawnPanel = RenderSelectedPawnPanel(out var panelRect);
+        if (hasPawnPanel)
         {
             RenderPlanControls(panelRect);
         }
 
+        RenderThingPlanPanel(panelRect, hasPawnPanel);
         RenderThingHover();
     }
 
@@ -1041,11 +1083,15 @@ public sealed class GoapSimulationView : MonoBehaviour
         _thingHoverStyle.normal.textColor = thingHoverTextColor;
     }
 
-    private void ClearThingHover()
+    private void ClearThingHover(bool clearThingSelection = false)
     {
         _hoveredThingLabel = string.Empty;
         _thingHoverGuiContent.text = string.Empty;
         _hoveredThingScreenPosition = Vector2.zero;
+        if (clearThingSelection)
+        {
+            ClearSelectedThingPlan();
+        }
     }
 
     private void EnsureSelectedPawnPanelStyle()
@@ -1068,6 +1114,79 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         _selectedPawnPanelStyle.normal.textColor = selectedPawnPanelTextColor;
+    }
+
+    private void UpdateSelectedThingPlan(ThingView thing)
+    {
+        if (thing == null)
+        {
+            ClearSelectedThingPlan();
+            return;
+        }
+
+        if (bootstrapper == null)
+        {
+            throw new InvalidOperationException("Thing selection requires an attached GoapSimulationBootstrapper instance.");
+        }
+
+        var participation = bootstrapper.GetThingPlanParticipation(thing.Id, thing.Tags ?? Array.Empty<string>());
+        ThingPlanParticipation[] entries;
+        if (participation.Count == 0)
+        {
+            entries = Array.Empty<ThingPlanParticipation>();
+        }
+        else
+        {
+            entries = new ThingPlanParticipation[participation.Count];
+            for (int i = 0; i < participation.Count; i++)
+            {
+                entries[i] = participation[i];
+            }
+        }
+
+        string[] formatted;
+        if (entries.Length == 0)
+        {
+            formatted = new[] { "<none>" };
+        }
+        else
+        {
+            formatted = new string[entries.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                var entry = entries[i];
+                var activityLabel = string.IsNullOrEmpty(entry.Activity) ? "<none>" : entry.Activity;
+                var moveLabel = entry.MoveToTarget ? "Yes" : "No";
+                formatted[i] = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Goal: {0} — Action: {1} (Activity {2}, MoveToTarget: {3})",
+                    entry.GoalId,
+                    entry.ActionId,
+                    activityLabel,
+                    moveLabel);
+            }
+        }
+
+        var identifier = thing.Id.Value ?? string.Empty;
+        var formattedLabel = FormatThingHoverLabel(thing);
+        _selectedThingHeader = string.Format(
+            CultureInfo.InvariantCulture,
+            "{0} (ID: {1})",
+            formattedLabel,
+            identifier);
+        _selectedThingId = thing.Id;
+        _selectedThingParticipation = entries;
+        _selectedThingPlanLines = formatted;
+    }
+
+    private void ClearSelectedThingPlan()
+    {
+        _selectedThingId = null;
+        _selectedThingParticipation = Array.Empty<ThingPlanParticipation>();
+        _selectedThingPlanLines = Array.Empty<string>();
+        _selectedThingHeader = string.Empty;
+        _selectedThingPanelBuilder.Clear();
+        _selectedThingGuiContent.text = string.Empty;
     }
 
     private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
@@ -1137,6 +1256,63 @@ public sealed class GoapSimulationView : MonoBehaviour
                 _selectedPawnNeeds.Add((entry.Key, entry.Value));
             }
         }
+    }
+
+    private void RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel)
+    {
+        if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return;
+        }
+
+        EnsureSelectedPawnPanelStyle();
+
+        float width = Mathf.Max(16f, selectedPawnPanelWidth);
+        float horizontalPosition = hasPawnPanel ? pawnPanelRect.x : selectedPawnPanelOffset.x;
+        float verticalSpacing = Mathf.Max(8f, selectedPawnPanelPadding.y);
+        float verticalPosition = hasPawnPanel
+            ? pawnPanelRect.yMax + verticalSpacing
+            : selectedPawnPanelOffset.y;
+
+        var builder = _selectedThingPanelBuilder;
+        builder.Clear();
+        builder.AppendLine(_selectedThingHeader);
+        int entryCount = _selectedThingParticipation.Length;
+        var label = entryCount == 1 ? "Plan Participation (1 entry):" : string.Format(CultureInfo.InvariantCulture, "Plan Participation ({0} entries):", entryCount);
+        builder.AppendLine(label);
+        for (int i = 0; i < _selectedThingPlanLines.Length; i++)
+        {
+            builder.Append("  ").Append(_selectedThingPlanLines[i]).AppendLine();
+        }
+
+        var panelText = builder.ToString();
+        builder.Clear();
+        if (string.IsNullOrEmpty(panelText))
+        {
+            return;
+        }
+
+        var content = _selectedThingGuiContent;
+        content.text = panelText;
+        float height = _selectedPawnPanelStyle.CalcHeight(content, width);
+        var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, height));
+
+        if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
+        {
+            float padX = Mathf.Max(0f, selectedPawnPanelPadding.x);
+            float padY = Mathf.Max(0f, selectedPawnPanelPadding.y);
+            var backgroundRect = new Rect(
+                panelRect.x - padX * 0.5f,
+                panelRect.y - padY * 0.5f,
+                panelRect.width + padX,
+                panelRect.height + padY);
+            var previous = GUI.color;
+            GUI.color = selectedPawnPanelBackgroundColor;
+            GUI.DrawTexture(backgroundRect, Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        GUI.Label(panelRect, content, _selectedPawnPanelStyle);
     }
 
     private void PopulateSelectedPawnPlan(ThingId selectedId, IWorldSnapshot snapshot)
@@ -1823,7 +1999,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         _thingUpdateScratch.Clear();
         _thingRemovalScratch.Clear();
-        ClearThingHover();
+        ClearThingHover(clearThingSelection: true);
     }
 
     private void EnsureObserverCamera()
@@ -1883,7 +2059,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void DisposeVisuals()
     {
-        ClearThingHover();
+        ClearThingHover(clearThingSelection: true);
         ClearThingVisuals();
         foreach (var visual in _pawnVisuals.Values)
         {
@@ -2008,6 +2184,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             _selectedPlanOptionIndex = null;
             _selectedPlanOptionLabel = string.Empty;
+            ClearSelectedThingPlan();
         }
         _selectedPawnVisibilityDirty = true;
 
@@ -2140,16 +2317,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         return null;
     }
 
-    private ThingId? DetectClickedPawn(IWorldSnapshot snapshot)
+    private ThingId? DetectClickedPawn(IWorldSnapshot snapshot, GridPos gridPos)
     {
         if (snapshot == null)
         {
             throw new ArgumentNullException(nameof(snapshot));
-        }
-
-        if (!TryGetClickGrid(snapshot, out var gridPos))
-        {
-            return null;
         }
 
         foreach (var entry in _pawnVisuals)
@@ -2158,6 +2330,30 @@ public sealed class GoapSimulationView : MonoBehaviour
             if (thing == null)
             {
                 throw new InvalidOperationException($"World snapshot no longer contains actor '{entry.Key.Value}'.");
+            }
+
+            if (thing.Position.Equals(gridPos))
+            {
+                return entry.Key;
+            }
+        }
+
+        return null;
+    }
+
+    private ThingId? DetectClickedThing(IWorldSnapshot snapshot, GridPos gridPos)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        foreach (var entry in _thingVisuals)
+        {
+            var thing = snapshot.GetThing(entry.Key);
+            if (thing == null)
+            {
+                throw new InvalidOperationException($"World snapshot no longer contains thing '{entry.Key.Value}'.");
             }
 
             if (thing.Position.Equals(gridPos))

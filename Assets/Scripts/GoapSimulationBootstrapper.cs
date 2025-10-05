@@ -15,6 +15,68 @@ using DataDrivenGoap.World;
 using UnityEngine;
 using RectInt = DataDrivenGoap.Core.RectInt;
 
+public readonly struct ThingPlanParticipation : IEquatable<ThingPlanParticipation>
+{
+    public ThingPlanParticipation(string goalId, string actionId, string activity, bool moveToTarget)
+    {
+        if (string.IsNullOrWhiteSpace(goalId))
+        {
+            throw new ArgumentException("Goal id must be provided for plan participation entries.", nameof(goalId));
+        }
+
+        if (string.IsNullOrWhiteSpace(actionId))
+        {
+            throw new ArgumentException("Action id must be provided for plan participation entries.", nameof(actionId));
+        }
+
+        GoalId = goalId.Trim();
+        ActionId = actionId.Trim();
+        Activity = activity?.Trim() ?? string.Empty;
+        MoveToTarget = moveToTarget;
+    }
+
+    public string GoalId { get; }
+    public string ActionId { get; }
+    public string Activity { get; }
+    public bool MoveToTarget { get; }
+
+    public bool Equals(ThingPlanParticipation other)
+    {
+        return MoveToTarget == other.MoveToTarget &&
+               string.Equals(GoalId, other.GoalId, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(ActionId, other.ActionId, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(Activity, other.Activity, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is ThingPlanParticipation other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = StringComparer.OrdinalIgnoreCase.GetHashCode(GoalId ?? string.Empty);
+            hash = (hash * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(ActionId ?? string.Empty);
+            hash = (hash * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(Activity ?? string.Empty);
+            hash = (hash * 397) ^ MoveToTarget.GetHashCode();
+            return hash;
+        }
+    }
+
+    public override string ToString()
+    {
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "Goal: {0} — Action: {1} (Activity {2}, MoveToTarget: {3})",
+            GoalId,
+            ActionId,
+            string.IsNullOrEmpty(Activity) ? "<none>" : Activity,
+            MoveToTarget);
+    }
+}
+
 public sealed class GoapSimulationBootstrapper : MonoBehaviour
 {
     [SerializeField] private string datasetRelativePath = "Packages/DataDrivenGoap/Runtime/Data";
@@ -173,6 +235,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private Texture2D _mapTexture;
     private List<ActionConfig> _actionConfigs;
     private List<GoalConfig> _goalConfigs;
+    private Dictionary<string, ThingPlanParticipation[]> _thingPlanParticipationByTag =
+        new Dictionary<string, ThingPlanParticipation[]>(StringComparer.Ordinal);
     private string[] _needAttributeNames = Array.Empty<string>();
     private ThingId? _playerPawnId;
     private VillageConfig _villageConfig;
@@ -189,6 +253,59 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     public SimulationReadyEventArgs LatestBootstrap => _readyEventArgs ?? throw new InvalidOperationException("Bootstrap has not completed yet.");
 
     public IReadOnlyList<string> NeedAttributeNames => _needAttributeNames;
+
+    public IReadOnlyList<ThingPlanParticipation> GetThingPlanParticipation(ThingId thingId, IReadOnlyCollection<string> tags)
+    {
+        if (_readyEventArgs == null)
+        {
+            throw new InvalidOperationException("GetThingPlanParticipation cannot be used before the simulation bootstrap completes.");
+        }
+
+        if (string.IsNullOrWhiteSpace(thingId.Value))
+        {
+            throw new ArgumentException("A valid thing id must be supplied to query plan participation.", nameof(thingId));
+        }
+
+        if (tags == null || tags.Count == 0)
+        {
+            return Array.Empty<ThingPlanParticipation>();
+        }
+
+        var index = _thingPlanParticipationByTag ?? throw new InvalidOperationException("Plan participation index has not been constructed.");
+        var results = new List<ThingPlanParticipation>();
+        var dedupe = new HashSet<ThingPlanParticipation>();
+
+        foreach (var tag in tags)
+        {
+            var normalized = NormalizeParticipationTag(tag);
+            if (normalized == null)
+            {
+                continue;
+            }
+
+            if (!index.TryGetValue(normalized, out var entries) || entries == null)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < entries.Length; i++)
+            {
+                var entry = entries[i];
+                if (dedupe.Add(entry))
+                {
+                    results.Add(entry);
+                }
+            }
+        }
+
+        if (results.Count == 0)
+        {
+            return Array.Empty<ThingPlanParticipation>();
+        }
+
+        results.Sort(CompareParticipation);
+        return results.ToArray();
+    }
 
     public bool TryGetActorPlanStatus(ThingId actorId, out ActorPlanStatus status)
     {
@@ -359,6 +476,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _tiles = null;
         _actionConfigs = null;
         _goalConfigs = null;
+        _thingPlanParticipationByTag.Clear();
         _villageConfig = null;
 
         Bootstrapped = null;
@@ -380,6 +498,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _needAttributeNames = Array.Empty<string>();
         _manualPawnIds.Clear();
         _playerPawnId = null;
+        _thingPlanParticipationByTag.Clear();
 
         if (_mapTexture != null)
         {
@@ -401,6 +520,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _demoConfig = ConfigLoader.LoadDemoConfig(demoPath);
         _actionConfigs = ConfigLoader.LoadActions(actionsPath);
         _goalConfigs = ConfigLoader.LoadGoals(goalsPath);
+        _thingPlanParticipationByTag = BuildThingPlanParticipationIndex(_goalConfigs, _actionConfigs);
         var itemConfigs = ConfigLoader.LoadItems(RequireFile(datasetRoot, _demoConfig.items?.catalog, "items.catalog"));
         var recipeConfigs = ConfigLoader.LoadRecipes(RequireFile(datasetRoot, _demoConfig.items?.recipes, "items.recipes"));
         var cropConfigs = ConfigLoader.LoadCrops(RequireFile(datasetRoot, _demoConfig.farming?.crops, "farming.crops"));
@@ -503,6 +623,109 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         PerformInitialShopRestock();
         NotifyBootstrapped(datasetRoot);
         StartSimulation();
+    }
+
+    private static Dictionary<string, ThingPlanParticipation[]> BuildThingPlanParticipationIndex(
+        IEnumerable<GoalConfig> goals,
+        IEnumerable<ActionConfig> actions)
+    {
+        var result = new Dictionary<string, ThingPlanParticipation[]>(StringComparer.Ordinal);
+        if (goals == null)
+        {
+            return result;
+        }
+
+        var actionById = (actions ?? Enumerable.Empty<ActionConfig>())
+            .Where(action => action != null && !string.IsNullOrWhiteSpace(action.id))
+            .ToDictionary(action => action.id.Trim(), StringComparer.OrdinalIgnoreCase);
+
+        var working = new Dictionary<string, List<ThingPlanParticipation>>(StringComparer.Ordinal);
+
+        foreach (var goal in goals)
+        {
+            if (goal == null || string.IsNullOrWhiteSpace(goal.id) || goal.actions == null)
+            {
+                continue;
+            }
+
+            var goalId = goal.id.Trim();
+            foreach (var goalAction in goal.actions)
+            {
+                if (goalAction == null)
+                {
+                    continue;
+                }
+
+                var normalizedTag = NormalizeParticipationTag(goalAction.target?.tag);
+                if (normalizedTag == null)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(goalAction.id))
+                {
+                    continue;
+                }
+
+                var actionId = goalAction.id.Trim();
+                actionById.TryGetValue(actionId, out var actionConfig);
+                var activity = actionConfig?.activity;
+                var participation = new ThingPlanParticipation(goalId, actionId, activity, goalAction.moveToTarget);
+
+                if (!working.TryGetValue(normalizedTag, out var list))
+                {
+                    list = new List<ThingPlanParticipation>();
+                    working[normalizedTag] = list;
+                }
+
+                if (!list.Contains(participation))
+                {
+                    list.Add(participation);
+                }
+            }
+        }
+
+        foreach (var entry in working)
+        {
+            var items = entry.Value;
+            items.Sort(CompareParticipation);
+            result[entry.Key] = items.ToArray();
+        }
+
+        return result;
+    }
+
+    private static string NormalizeParticipationTag(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag))
+        {
+            return null;
+        }
+
+        return tag.Trim().ToLowerInvariant();
+    }
+
+    private static int CompareParticipation(ThingPlanParticipation x, ThingPlanParticipation y)
+    {
+        int goalCompare = string.Compare(x.GoalId, y.GoalId, StringComparison.OrdinalIgnoreCase);
+        if (goalCompare != 0)
+        {
+            return goalCompare;
+        }
+
+        int actionCompare = string.Compare(x.ActionId, y.ActionId, StringComparison.OrdinalIgnoreCase);
+        if (actionCompare != 0)
+        {
+            return actionCompare;
+        }
+
+        int activityCompare = string.Compare(x.Activity, y.Activity, StringComparison.OrdinalIgnoreCase);
+        if (activityCompare != 0)
+        {
+            return activityCompare;
+        }
+
+        return x.MoveToTarget.CompareTo(y.MoveToTarget);
     }
 
     private void PerformInitialShopRestock()
