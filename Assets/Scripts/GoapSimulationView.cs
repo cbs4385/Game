@@ -1497,7 +1497,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         if (bootstrapper != null && bootstrapper.TryGetActorPlanStatus(selectedId, out var status) && status != null)
         {
             _selectedPawnPlanStatus = status;
-            _selectedPawnPlanGoal = status.GoalId ?? string.Empty;
+            var resolvedGoalId = status.GoalId;
+            _selectedPawnPlanGoal = string.IsNullOrWhiteSpace(resolvedGoalId) ? string.Empty : resolvedGoalId.Trim();
             _selectedPawnPlanState = HumanizeIdentifier(status.State);
             _selectedPawnPlanCurrentStep = status.CurrentStep ?? string.Empty;
             _selectedPawnPlanUpdatedUtc = status.UpdatedUtc;
@@ -1514,7 +1515,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
                     var trimmed = step.Trim();
                     steps.Add(trimmed);
-                    var option = BuildPlanActionOption(trimmed, snapshot, i);
+                    var option = BuildPlanActionOption(trimmed, snapshot, i, _selectedPawnPlanGoal);
                     _selectedPawnPlanOptions.Add(option);
                 }
 
@@ -2650,7 +2651,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         return TryProjectScreenToGrid(snapshot, screen, out gridPos);
     }
 
-    private PlanActionOption BuildPlanActionOption(string stepLabel, IWorldSnapshot snapshot, int stepIndex)
+    private PlanActionOption BuildPlanActionOption(
+        string stepLabel,
+        IWorldSnapshot snapshot,
+        int stepIndex,
+        string planGoalId)
     {
         if (string.IsNullOrWhiteSpace(stepLabel))
         {
@@ -2663,6 +2668,19 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         var trimmed = stepLabel.Trim();
+        if (string.IsNullOrWhiteSpace(planGoalId))
+        {
+            throw new InvalidOperationException(
+                $"Plan step '{trimmed}' cannot be constructed because its goal identifier is missing.");
+        }
+
+        var normalizedGoalId = planGoalId.Trim();
+        if (normalizedGoalId.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"Plan step '{trimmed}' cannot be constructed because its goal identifier is empty after trimming.");
+        }
+
         string formattedLabel = string.Format(CultureInfo.InvariantCulture, "{0}. {1}", stepIndex + 1, trimmed);
         string activityId = ExtractPlanActivityIdentifier(trimmed);
         var targetIdRaw = ExtractPlanTargetIdentifier(trimmed);
@@ -2685,7 +2703,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             actionable = true;
         }
 
-        return new PlanActionOption(formattedLabel, trimmed, activityId, targetId, targetPosition, stepIndex, actionable);
+        return new PlanActionOption(
+            formattedLabel,
+            trimmed,
+            activityId,
+            targetId,
+            targetPosition,
+            stepIndex,
+            actionable,
+            normalizedGoalId);
     }
 
     private static string ExtractPlanActivityIdentifier(string stepLabel)
@@ -2741,6 +2767,12 @@ public sealed class GoapSimulationView : MonoBehaviour
                 $"Plan option '{option.Label}' does not resolve to a valid actionable target.");
         }
 
+        if (string.IsNullOrWhiteSpace(option.GoalId))
+        {
+            throw new InvalidOperationException(
+                $"Plan option '{option.Label}' is missing the associated goal identifier required for manual execution.");
+        }
+
         EnsurePlayerPawnController();
 
         if (_selectedPawnId == null)
@@ -2761,7 +2793,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             option.TargetPosition.Value,
             option.StepIndex,
             _selectedPawnPlanSnapshotVersion,
-            option.ActivityId);
+            option.ActivityId,
+            option.GoalId);
         _selectedPlanOptionIndex = option.StepIndex;
         _selectedPlanOptionLabel = option.Label;
     }
@@ -2790,7 +2823,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             ThingId? targetId,
             GridPos? targetPosition,
             int stepIndex,
-            bool isActionable)
+            bool isActionable,
+            string goalId)
         {
             if (string.IsNullOrWhiteSpace(label))
             {
@@ -2807,6 +2841,11 @@ public sealed class GoapSimulationView : MonoBehaviour
                 throw new ArgumentException("Plan option activity identifier must be provided.", nameof(activityId));
             }
 
+            if (string.IsNullOrWhiteSpace(goalId))
+            {
+                throw new ArgumentException("Plan option goal identifier must be provided.", nameof(goalId));
+            }
+
             Label = label;
             RawLabel = rawLabel;
             ActivityId = activityId;
@@ -2814,6 +2853,12 @@ public sealed class GoapSimulationView : MonoBehaviour
             TargetPosition = targetPosition;
             StepIndex = stepIndex;
             IsActionable = isActionable;
+            GoalId = goalId.Trim();
+            if (GoalId.Length == 0)
+            {
+                throw new ArgumentException(
+                    "Plan option goal identifier must contain at least one non-whitespace character.", nameof(goalId));
+            }
         }
 
         public string Label { get; }
@@ -2823,6 +2868,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         public GridPos? TargetPosition { get; }
         public int StepIndex { get; }
         public bool IsActionable { get; }
+        public string GoalId { get; }
     }
 
     private sealed class ThingVisual

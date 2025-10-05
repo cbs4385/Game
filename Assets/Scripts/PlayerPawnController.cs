@@ -241,7 +241,8 @@ public sealed class PlayerPawnController : MonoBehaviour
         GridPos targetPos,
         int? planStepIndex = null,
         long? expectedSnapshotVersion = null,
-        string planStepActivity = null)
+        string planStepActivity = null,
+        string planGoalId = null)
     {
         if (_world == null)
         {
@@ -271,6 +272,19 @@ public sealed class PlayerPawnController : MonoBehaviour
                     "Manual plan execution requires the activity identifier associated with the selected plan option.");
             }
 
+            if (string.IsNullOrWhiteSpace(planGoalId))
+            {
+                throw new InvalidOperationException(
+                    "Manual plan execution requires the goal identifier associated with the selected plan option.");
+            }
+
+            var normalizedGoalId = planGoalId.Trim();
+            if (normalizedGoalId.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Manual plan execution requires a non-empty goal identifier after trimming.");
+            }
+
             var expectedTarget = hasTarget ? (ThingId?)targetId : null;
             var expectedPosition = hasTarget ? (GridPos?)targetPos : null;
             updatedSnapshotVersion = bootstrapper.ExecuteManualPlanStepSequence(
@@ -279,7 +293,8 @@ public sealed class PlayerPawnController : MonoBehaviour
                 planStepActivity,
                 expectedTarget,
                 expectedPosition,
-                expectedSnapshotVersion.Value);
+                expectedSnapshotVersion.Value,
+                normalizedGoalId);
         }
 
         IWorldSnapshot snapshot = null;
