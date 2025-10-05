@@ -200,12 +200,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private sealed class ManualActorState
     {
-        public ManualActorState(Random rng)
+        public ManualActorState(System.Random rng)
         {
             Rng = rng ?? throw new ArgumentNullException(nameof(rng));
         }
 
-        public Random Rng { get; }
+        public System.Random Rng { get; }
         public Dictionary<string, DateTime> PlanCooldownUntil { get; } =
             new Dictionary<string, DateTime>(StringComparer.Ordinal);
     }
@@ -552,7 +552,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         if (!_manualActorStates.TryGetValue(key, out var state) || state == null)
         {
             int seed = _demoConfig?.simulation?.actorHostSeed ?? 0;
-            state = new ManualActorState(new Random(seed ^ actorId.GetHashCode()));
+            state = new ManualActorState(new System.Random(seed ^ actorId.GetHashCode()));
             _manualActorStates[key] = state;
         }
 
