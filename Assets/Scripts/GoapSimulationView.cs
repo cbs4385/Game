@@ -124,11 +124,14 @@ public sealed class GoapSimulationView : MonoBehaviour
     private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
     private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
     private string[] _selectedPawnPlanSteps = Array.Empty<string>();
+    private string[] _selectedPawnPlanStepLines = Array.Empty<string>();
     private ActorPlanStatus _selectedPawnPlanStatus;
     private readonly List<PlanActionOption> _selectedPawnPlanOptions = new List<PlanActionOption>();
     private int? _selectedPlanOptionIndex;
     private string _selectedPlanOptionLabel = string.Empty;
     private string[] _needAttributeNames = Array.Empty<string>();
+    private string _selectedPawnPanelTextBeforePlanSteps = string.Empty;
+    private string _selectedPawnPanelTextAfterPlanSteps = string.Empty;
     private string _selectedPawnPanelText = string.Empty;
     private string _selectedPawnName = string.Empty;
     private string _selectedPawnRole = string.Empty;
@@ -856,11 +859,6 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         var hasPawnPanel = RenderSelectedPawnPanel(out var panelRect);
-        if (hasPawnPanel)
-        {
-            RenderPlanControls(panelRect);
-        }
-
         RenderThingPlanPanel(panelRect, hasPawnPanel);
         RenderThingHover();
     }
@@ -946,7 +944,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private bool RenderSelectedPawnPanel(out Rect panelRect)
     {
-        if (string.IsNullOrEmpty(_selectedPawnPanelText))
+        bool hasContent =
+            !string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps) ||
+            !string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps) ||
+            _selectedPawnPlanStepLines.Length > 0;
+
+        if (!hasContent)
         {
             panelRect = default;
             return false;
@@ -954,16 +957,57 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         EnsureSelectedPawnPanelStyle();
 
-        var width = Mathf.Max(16f, selectedPawnPanelWidth);
+        float width = Mathf.Max(16f, selectedPawnPanelWidth);
+        float x = selectedPawnPanelOffset.x;
+        float y = selectedPawnPanelOffset.y;
         var content = _selectedPawnGuiContent;
-        content.text = _selectedPawnPanelText;
-        var height = _selectedPawnPanelStyle.CalcHeight(content, width);
-        panelRect = new Rect(selectedPawnPanelOffset.x, selectedPawnPanelOffset.y, width, Mathf.Max(0f, height));
+
+        float beforeHeight = 0f;
+        if (!string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps))
+        {
+            content.text = _selectedPawnPanelTextBeforePlanSteps;
+            beforeHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
+        }
+
+        float[] stepHeights = Array.Empty<float>();
+        if (_selectedPawnPlanStepLines.Length > 0)
+        {
+            stepHeights = new float[_selectedPawnPlanStepLines.Length];
+            for (int i = 0; i < _selectedPawnPlanStepLines.Length; i++)
+            {
+                content.text = _selectedPawnPlanStepLines[i];
+                stepHeights[i] = _selectedPawnPanelStyle.CalcHeight(content, width);
+            }
+        }
+
+        float afterHeight = 0f;
+        if (!string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps))
+        {
+            content.text = _selectedPawnPanelTextAfterPlanSteps;
+            afterHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
+        }
+
+        float totalHeight = beforeHeight + afterHeight;
+        if (stepHeights.Length > 0)
+        {
+            for (int i = 0; i < stepHeights.Length; i++)
+            {
+                totalHeight += stepHeights[i];
+            }
+        }
+
+        if (totalHeight <= 0f)
+        {
+            panelRect = default;
+            return false;
+        }
+
+        panelRect = new Rect(x, y, width, Mathf.Max(0f, totalHeight));
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
-            var padX = Mathf.Max(0f, selectedPawnPanelPadding.x);
-            var padY = Mathf.Max(0f, selectedPawnPanelPadding.y);
+            float padX = Mathf.Max(0f, selectedPawnPanelPadding.x);
+            float padY = Mathf.Max(0f, selectedPawnPanelPadding.y);
             var backgroundRect = new Rect(
                 panelRect.x - padX * 0.5f,
                 panelRect.y - padY * 0.5f,
@@ -975,55 +1019,55 @@ public sealed class GoapSimulationView : MonoBehaviour
             GUI.color = previous;
         }
 
-        GUI.Label(panelRect, content, _selectedPawnPanelStyle);
+        float currentY = y;
+        if (beforeHeight > 0f)
+        {
+            content.text = _selectedPawnPanelTextBeforePlanSteps;
+            var beforeRect = new Rect(x, currentY, width, beforeHeight);
+            GUI.Label(beforeRect, content, _selectedPawnPanelStyle);
+            currentY += beforeHeight;
+        }
+
+        if (_selectedPawnPlanStepLines.Length > 0)
+        {
+            bool allowManual = _selectedPawnId.HasValue && _manualPawnIds.Contains(_selectedPawnId.Value);
+            for (int i = 0; i < _selectedPawnPlanStepLines.Length; i++)
+            {
+                float stepHeight = stepHeights[i];
+                var buttonRect = new Rect(x, currentY, width, stepHeight);
+                var previousColor = GUI.backgroundColor;
+                var previousEnabled = GUI.enabled;
+
+                PlanActionOption option = i < _selectedPawnPlanOptions.Count ? _selectedPawnPlanOptions[i] : null;
+                bool isSelected = option != null && _selectedPlanOptionIndex.HasValue &&
+                    option.StepIndex == _selectedPlanOptionIndex.Value;
+                if (isSelected)
+                {
+                    GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
+                }
+
+                bool isActionable = allowManual && option != null && option.IsActionable;
+                GUI.enabled = isActionable;
+
+                if (GUI.Button(buttonRect, _selectedPawnPlanStepLines[i]) && option != null)
+                {
+                    HandlePlanOptionInvoked(option);
+                }
+
+                GUI.enabled = previousEnabled;
+                GUI.backgroundColor = previousColor;
+                currentY += stepHeight;
+            }
+        }
+
+        if (afterHeight > 0f)
+        {
+            content.text = _selectedPawnPanelTextAfterPlanSteps;
+            var afterRect = new Rect(x, currentY, width, afterHeight);
+            GUI.Label(afterRect, content, _selectedPawnPanelStyle);
+        }
+
         return true;
-    }
-
-    private void RenderPlanControls(Rect panelRect)
-    {
-        if (_selectedPawnId == null)
-        {
-            return;
-        }
-
-        var selectedId = _selectedPawnId.Value;
-        if (!_manualPawnIds.Contains(selectedId))
-        {
-            return;
-        }
-
-        if (_selectedPawnPlanOptions.Count == 0)
-        {
-            return;
-        }
-
-        float startY = panelRect.yMax + Mathf.Max(8f, selectedPawnPanelPadding.y);
-        float width = panelRect.width;
-        const float buttonHeight = 26f;
-        const float spacing = 4f;
-
-        for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
-        {
-            var option = _selectedPawnPlanOptions[i];
-            var buttonRect = new Rect(panelRect.x, startY + i * (buttonHeight + spacing), width, buttonHeight);
-            var previousColor = GUI.backgroundColor;
-            var previousEnabled = GUI.enabled;
-
-            bool isSelected = _selectedPlanOptionIndex.HasValue && option.StepIndex == _selectedPlanOptionIndex.Value;
-            if (isSelected)
-            {
-                GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
-            }
-
-            GUI.enabled = option.IsActionable;
-            if (GUI.Button(buttonRect, option.Label))
-            {
-                HandlePlanOptionInvoked(option);
-            }
-
-            GUI.enabled = previousEnabled;
-            GUI.backgroundColor = previousColor;
-        }
     }
 
     private void RenderThingHover()
@@ -1430,18 +1474,36 @@ public sealed class GoapSimulationView : MonoBehaviour
             builder.Append("  Current: ").Append(_selectedPawnPlanCurrentStep).AppendLine();
             hasPlanContent = true;
         }
+
+        string beforeStepsText;
         if (_selectedPawnPlanSteps.Length > 0)
         {
             builder.AppendLine("  Steps:");
+            hasPlanContent = true;
+            beforeStepsText = builder.ToString();
+
+            var formattedSteps = new string[_selectedPawnPlanSteps.Length];
             for (int i = 0; i < _selectedPawnPlanSteps.Length; i++)
             {
-                builder.Append("    ").Append(i + 1).Append(". ").Append(_selectedPawnPlanSteps[i]).AppendLine();
+                formattedSteps[i] = string.Format(CultureInfo.InvariantCulture, "    {0}. {1}", i + 1, _selectedPawnPlanSteps[i]);
             }
-            hasPlanContent = true;
+
+            _selectedPawnPlanStepLines = formattedSteps;
         }
+        else
+        {
+            beforeStepsText = builder.ToString();
+            _selectedPawnPlanStepLines = Array.Empty<string>();
+        }
+
+        builder.Clear();
+
         if (_selectedPawnPlanUpdatedUtc != default)
         {
-            builder.Append("  Updated: ").Append(_selectedPawnPlanUpdatedUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)).Append("Z").AppendLine();
+            builder.Append("  Updated: ")
+                .Append(_selectedPawnPlanUpdatedUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture))
+                .Append("Z")
+                .AppendLine();
             hasPlanContent = true;
         }
         if (!hasPlanContent)
@@ -1455,7 +1517,14 @@ public sealed class GoapSimulationView : MonoBehaviour
             builder.Append("  Manual Selection: ").Append(_selectedPlanOptionLabel).AppendLine();
         }
 
-        return builder.ToString().TrimEnd();
+        var afterStepsText = builder.ToString();
+        builder.Clear();
+
+        _selectedPawnPanelTextBeforePlanSteps = beforeStepsText;
+        _selectedPawnPanelTextAfterPlanSteps = afterStepsText;
+        var combined = string.Concat(beforeStepsText, afterStepsText);
+        _selectedPawnPanelText = combined.TrimEnd('\r', '\n');
+        return _selectedPawnPanelText;
     }
 
     private void ClearSelectedPawnInfo()
@@ -1469,10 +1538,13 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPlanUpdatedUtc = default;
         _selectedPawnNeeds.Clear();
         _selectedPawnPlanSteps = Array.Empty<string>();
+        _selectedPawnPlanStepLines = Array.Empty<string>();
         _selectedPawnPlanStatus = null;
         _selectedPawnPlanOptions.Clear();
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
+        _selectedPawnPanelTextBeforePlanSteps = string.Empty;
+        _selectedPawnPanelTextAfterPlanSteps = string.Empty;
         _selectedPawnPanelText = string.Empty;
         _selectedPawnPanelBuilder.Clear();
     }
