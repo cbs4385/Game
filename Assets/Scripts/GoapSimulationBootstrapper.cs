@@ -505,16 +505,26 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void PerformInitialShopRestock()
     {
-        if (_shopSystem == null || _clock == null)
+        if (_clock == null)
         {
-            return;
+            throw new InvalidOperationException("World clock must be initialized before performing the bootstrap restock.");
+        }
+
+        if (_shopSystem == null)
+        {
+            throw new InvalidOperationException("Shop system must be initialized before performing the bootstrap restock.");
+        }
+
+        if (_inventorySystem == null)
+        {
+            throw new InvalidOperationException("Inventory system must be initialized before performing the bootstrap restock.");
         }
 
         var bootstrapTime = _clock.Snapshot();
         _shopSystem.Tick(bootstrapTime);
 
         var generalStoreId = new ThingId("store_generalstore");
-        var generalStoreInventory = _inventorySystem?.GetInventory(generalStoreId);
+        var generalStoreInventory = _inventorySystem.GetInventory(generalStoreId);
         if (generalStoreInventory == null)
         {
             throw new InvalidOperationException(
@@ -534,14 +544,17 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         }
 
         var generalStore = _shopSystem.GetShop(generalStoreId);
-        if (generalStore != null)
+        if (generalStore == null)
         {
-            bool hasStock = generalStore.Stock.Any(entry => entry != null && entry.Quantity > 0);
-            if (!hasStock)
-            {
-                throw new InvalidOperationException(
-                    "Shop 'store_generalstore' did not report stocked inventory after the bootstrap restock tick.");
-            }
+            throw new InvalidOperationException(
+                "Shop 'store_generalstore' was not registered after the bootstrap restock tick.");
+        }
+
+        bool hasStock = generalStore.Stock.Any(entry => entry != null && entry.Quantity > 0);
+        if (!hasStock)
+        {
+            throw new InvalidOperationException(
+                "Shop 'store_generalstore' did not report stocked inventory after the bootstrap restock tick.");
         }
     }
 
@@ -1094,47 +1107,87 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private void AddConfiguredThings(WorldConfig worldConfig, List<ThingSeed> seeds)
     {
-        foreach (var thing in worldConfig.things ?? Array.Empty<ThingSpawnConfig>())
+        if (worldConfig == null)
         {
-            if (thing == null || string.IsNullOrWhiteSpace(thing.id))
+            throw new ArgumentNullException(nameof(worldConfig));
+        }
+
+        var configuredThings = worldConfig.things ?? Array.Empty<ThingSpawnConfig>();
+        for (int i = 0; i < configuredThings.Length; i++)
+        {
+            var thing = configuredThings[i];
+            if (thing == null)
             {
-                continue;
+                throw new InvalidDataException($"World configuration contains a null thing entry at index {i}.");
             }
 
-            var id = new ThingId(thing.id.Trim());
+            if (string.IsNullOrWhiteSpace(thing.id))
+            {
+                throw new InvalidDataException($"World configuration thing entry at index {i} must declare an id.");
+            }
+
+            var trimmedId = thing.id.Trim();
+            if (string.IsNullOrWhiteSpace(thing.type))
+            {
+                throw new InvalidDataException($"Thing '{trimmedId}' must declare a type in the world configuration.");
+            }
+
+            var id = new ThingId(trimmedId);
             var seed = new ThingSeed
             {
                 Id = id,
-                Type = thing.type ?? string.Empty,
+                Type = thing.type.Trim(),
                 Position = new GridPos(ClampCoordinate(thing.x, _demoConfig.world.width), ClampCoordinate(thing.y, _demoConfig.world.height)),
                 Building = BuildBuildingInfo(thing.building, thing.building?.service_points, thing.building?.area)
             };
 
             foreach (var tag in thing.tags ?? Array.Empty<string>())
             {
-                if (!string.IsNullOrWhiteSpace(tag))
+                if (string.IsNullOrWhiteSpace(tag))
                 {
-                    seed.Tags.Add(tag.Trim());
+                    throw new InvalidDataException($"Thing '{trimmedId}' includes an invalid tag entry.");
                 }
+
+                seed.Tags.Add(tag.Trim());
             }
 
             foreach (var kv in thing.attributes ?? new Dictionary<string, double>())
             {
+                if (string.IsNullOrWhiteSpace(kv.Key))
+                {
+                    throw new InvalidDataException($"Thing '{trimmedId}' attributes contain a blank key.");
+                }
+
                 seed.Attributes[kv.Key.Trim()] = kv.Value;
             }
 
             if (thing.container?.inventory != null)
             {
+                if (_inventorySystem == null)
+                {
+                    throw new InvalidOperationException($"Inventory system must be initialized before configuring container inventory for '{trimmedId}'.");
+                }
+
                 _inventorySystem.ConfigureInventory(id, thing.container.inventory);
             }
 
             if (thing.currency.HasValue)
             {
+                if (_inventorySystem == null)
+                {
+                    throw new InvalidOperationException($"Inventory system must be initialized before assigning currency to '{trimmedId}'.");
+                }
+
                 _inventorySystem.SetCurrency(id, thing.currency.Value);
             }
 
             if (thing.building?.shop != null)
             {
+                if (_shopSystem == null)
+                {
+                    throw new InvalidOperationException($"Shop system must be initialized before registering shop for '{trimmedId}'.");
+                }
+
                 _shopSystem.RegisterShop(id, thing.building.shop);
             }
 

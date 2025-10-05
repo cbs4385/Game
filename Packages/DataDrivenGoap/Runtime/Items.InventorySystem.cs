@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
@@ -260,18 +261,42 @@ namespace DataDrivenGoap.Items
 
         public InventoryComponent ConfigureInventory(ThingId owner, InventoryConfig cfg)
         {
+            var ownerId = owner.Value;
+            if (string.IsNullOrWhiteSpace(ownerId))
+                throw new InvalidDataException("Inventory owner must have a valid identifier before configuration.");
+
+            ownerId = ownerId.Trim();
+
             var definition = InventoryDefinition.FromConfig(cfg);
             var component = new InventoryComponent(owner, definition, _catalog);
             lock (_gate)
             {
                 _inventories[owner] = component;
-                foreach (var entry in cfg?.start ?? Array.Empty<InventoryItemConfig>())
+
+                var startEntries = cfg?.start ?? Array.Empty<InventoryItemConfig>();
+                for (int i = 0; i < startEntries.Length; i++)
                 {
-                    if (entry == null || string.IsNullOrWhiteSpace(entry.id) || entry.quantity <= 0)
-                        continue;
-                    component.TryAddItem(entry.id, entry.quantity, entry.quality ?? 0);
+                    var entry = startEntries[i];
+                    if (entry == null)
+                        throw new InvalidDataException($"Inventory '{ownerId}' start entry at index {i} is null.");
+
+                    var itemId = entry.id?.Trim();
+                    if (string.IsNullOrWhiteSpace(itemId))
+                        throw new InvalidDataException($"Inventory '{ownerId}' start entry at index {i} must declare an item id.");
+
+                    if (entry.quantity <= 0)
+                        throw new InvalidDataException($"Inventory '{ownerId}' start entry '{itemId}' must declare a positive quantity.");
+
+                    int quality = entry.quality ?? 0;
+                    if (quality < 0)
+                        throw new InvalidDataException($"Inventory '{ownerId}' start entry '{itemId}' quality must be non-negative.");
+
+                    int remainder = component.TryAddItem(itemId, entry.quantity, quality);
+                    if (remainder != 0)
+                        throw new InvalidDataException($"Inventory '{ownerId}' start entry '{itemId}' could not be stocked; remaining quantity: {remainder}.");
                 }
             }
+
             return component;
         }
 
