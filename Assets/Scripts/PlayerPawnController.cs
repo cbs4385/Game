@@ -275,13 +275,6 @@ public sealed class PlayerPawnController : MonoBehaviour
             throw new InvalidOperationException($"Manual interaction target position ({targetPos.X}, {targetPos.Y}) is outside the world bounds {snapshot.Width}x{snapshot.Height}.");
         }
 
-        var distance = GridPos.Manhattan(playerThing.Position, targetPos);
-        if (distance > 1)
-        {
-            throw new InvalidOperationException(
-                $"Manual interaction target at ({targetPos.X}, {targetPos.Y}) is not adjacent to player position ({playerThing.Position.X}, {playerThing.Position.Y}).");
-        }
-
         bool hasTarget = !string.IsNullOrWhiteSpace(targetId.Value);
         ThingView targetThing = null;
         if (hasTarget)
