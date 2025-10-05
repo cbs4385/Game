@@ -2511,18 +2511,30 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new ArgumentNullException(nameof(snapshot));
         }
 
-        foreach (var entry in _thingVisuals)
+        foreach (var thing in snapshot.AllThings())
         {
-            var thing = snapshot.GetThing(entry.Key);
             if (thing == null)
             {
-                throw new InvalidOperationException($"World snapshot no longer contains thing '{entry.Key.Value}'.");
+                throw new InvalidOperationException("World snapshot returned a null thing entry while detecting clicked thing.");
             }
 
-            if (thing.Position.Equals(gridPos))
+            if (_pawnDefinitions.ContainsKey(thing.Id))
             {
-                return entry.Key;
+                continue;
             }
+
+            if (!thing.Position.Equals(gridPos))
+            {
+                continue;
+            }
+
+            var confirmed = snapshot.GetThing(thing.Id);
+            if (confirmed == null)
+            {
+                throw new InvalidOperationException($"World snapshot no longer contains thing '{thing.Id.Value}'.");
+            }
+
+            return thing.Id;
         }
 
         return null;
