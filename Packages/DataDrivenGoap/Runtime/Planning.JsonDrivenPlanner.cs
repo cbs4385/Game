@@ -2079,6 +2079,9 @@ namespace DataDrivenGoap.Planning
 
         private Plan BuildPlanForGoal(GoalModel goal, IWorldSnapshot snap, ThingId self)
         {
+            var plan = new Plan();
+            var goalIdAssigned = false;
+
             foreach (var action in goal.Actions)
             {
                 if (action?.Action == null) continue;
@@ -2087,25 +2090,36 @@ namespace DataDrivenGoap.Planning
                 if (action.Target != null && !targetId.HasValue)
                     continue;
 
-                var plan = new Plan();
+                var mainTarget = targetId ?? self;
+                var mainStep = CreatePlanStep(action.Action, self, mainTarget);
+                if (mainStep == null)
+                    continue;
+
                 if (action.MoveToTarget && targetId.HasValue && _moveAction != null)
                 {
                     var moveStep = CreatePlanStep(_moveAction, self, targetId.Value);
-                    if (moveStep != null) plan.Add(moveStep);
-                }
-
-                var mainTarget = targetId ?? self;
-                var mainStep = CreatePlanStep(action.Action, self, mainTarget);
-                if (mainStep != null)
-                {
-                    plan.Add(mainStep);
-                    if (!plan.IsEmpty)
+                    if (moveStep != null)
                     {
-                        plan.GoalId = goal.Config.id;
-                        return plan;
+                        plan.Add(moveStep);
+                        if (!goalIdAssigned)
+                        {
+                            plan.GoalId = goal.Config.id;
+                            goalIdAssigned = true;
+                        }
                     }
                 }
+
+                plan.Add(mainStep);
+                if (!goalIdAssigned)
+                {
+                    plan.GoalId = goal.Config.id;
+                    goalIdAssigned = true;
+                }
             }
+
+            if (!plan.IsEmpty)
+                return plan;
+
             return new Plan();
         }
 
