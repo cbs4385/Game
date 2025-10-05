@@ -440,10 +440,15 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 throw new InvalidOperationException("World snapshot could not be captured for manual plan execution.");
             }
 
-            if (snapshot.Version != currentExpectedVersion)
+            if (snapshot.Version < currentExpectedVersion)
             {
                 throw new InvalidOperationException(
-                    $"Manual plan snapshot version mismatch. Expected {currentExpectedVersion}, but world reports {snapshot.Version}.");
+                    $"Manual plan snapshot version regressed. Expected at least {currentExpectedVersion}, but world reports {snapshot.Version}.");
+            }
+
+            if (snapshot.Version > currentExpectedVersion)
+            {
+                currentExpectedVersion = snapshot.Version;
             }
 
             var actorThing = snapshot.GetThing(actorId);
