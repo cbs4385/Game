@@ -39,6 +39,11 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField, Min(1)] private int selectedPawnPanelFontSize = 14;
     [SerializeField] private string selectedPawnPanelNeedsHeader = "Needs";
     [SerializeField] private string selectedPawnPanelPlanHeader = "Plan";
+    [SerializeField] private Vector2 thingHoverScreenOffset = new Vector2(16f, -16f);
+    [SerializeField] private Vector2 thingHoverBackgroundPadding = new Vector2(12f, 6f);
+    [SerializeField] private Color thingHoverTextColor = Color.white;
+    [SerializeField] private Color thingHoverBackgroundColor = new Color(0f, 0f, 0f, 0.75f);
+    [SerializeField, Min(1)] private int thingHoverFontSize = 14;
     [SerializeField, Min(0.01f)] private float minOrthographicSize = 2.5f;
     [SerializeField, Min(0.01f)] private float maxOrthographicSize = 40f;
     [SerializeField, Min(0.01f)] private float orthographicZoomStep = 1.5f;
@@ -94,7 +99,8 @@ public sealed class GoapSimulationView : MonoBehaviour
     private readonly GUIContent _clockGuiContent = new GUIContent();
     private readonly GUIContent _pawnUpdateGuiContent = new GUIContent();
     private readonly GUIContent _selectedPawnGuiContent = new GUIContent();
-
+    private readonly GUIContent _thingHoverGuiContent = new GUIContent();
+    
     private ShardedWorld _world;
     private IReadOnlyList<(ThingId Id, VillagePawn Pawn)> _actors;
     private IReadOnlyDictionary<ThingId, ActorHostDiagnostics> _actorDiagnostics;
@@ -138,6 +144,9 @@ public sealed class GoapSimulationView : MonoBehaviour
     private bool _selectedPawnVisibilityDirty;
     private readonly HashSet<ThingId> _thingUpdateScratch = new HashSet<ThingId>();
     private readonly List<ThingId> _thingRemovalScratch = new List<ThingId>();
+    private GUIStyle _thingHoverStyle;
+    private string _hoveredThingLabel = string.Empty;
+    private Vector2 _hoveredThingScreenPosition = Vector2.zero;
 
     private void Awake()
     {
@@ -181,6 +190,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             ClearPawnUpdateLabel();
             ClearSelectedPawnInfo();
+            ClearThingHover();
             return;
         }
 
@@ -188,6 +198,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var snapshot = _world.Snap();
         EnsureThingVisuals(snapshot);
+        UpdateThingHover(snapshot);
         var clickedPawnId = DetectClickedPawn(snapshot);
         if (clickedPawnId.HasValue)
         {
@@ -480,6 +491,59 @@ public sealed class GoapSimulationView : MonoBehaviour
         _thingUpdateScratch.Clear();
     }
 
+    private void UpdateThingHover(IWorldSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        var mouse = Mouse.current;
+        if (mouse == null)
+        {
+            ClearThingHover();
+            return;
+        }
+
+        var screen = mouse.position.ReadValue();
+        if (!TryProjectScreenToGrid(snapshot, screen, out var gridPos))
+        {
+            ClearThingHover();
+            return;
+        }
+
+        ThingView hoveredThing = null;
+        foreach (var thing in snapshot.AllThings())
+        {
+            if (thing == null)
+            {
+                throw new InvalidOperationException("World snapshot returned a null thing entry while computing hover tooltip.");
+            }
+
+            if (_pawnDefinitions.ContainsKey(thing.Id))
+            {
+                continue;
+            }
+
+            if (thing.Position.Equals(gridPos))
+            {
+                hoveredThing = thing;
+                break;
+            }
+        }
+
+        if (hoveredThing == null)
+        {
+            ClearThingHover();
+            return;
+        }
+
+        var label = FormatThingHoverLabel(hoveredThing);
+        _hoveredThingLabel = label;
+        _thingHoverGuiContent.text = label;
+        _hoveredThingScreenPosition = screen;
+    }
+
     private void CreatePawnVisuals(IWorldSnapshot snapshot)
     {
         foreach (var actor in _actors)
@@ -755,6 +819,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             RenderPlanControls(panelRect);
         }
+
+        RenderThingHover();
     }
 
     private void RenderClockLabel(bool hasClock, bool hasPawnUpdate)
@@ -916,6 +982,70 @@ public sealed class GoapSimulationView : MonoBehaviour
             GUI.enabled = previousEnabled;
             GUI.backgroundColor = previousColor;
         }
+    }
+
+    private void RenderThingHover()
+    {
+        if (string.IsNullOrEmpty(_hoveredThingLabel))
+        {
+            return;
+        }
+
+        EnsureThingHoverStyle();
+
+        var content = _thingHoverGuiContent;
+        content.text = _hoveredThingLabel;
+        var contentSize = _thingHoverStyle.CalcSize(content);
+        var offset = thingHoverScreenOffset;
+        var screenPoint = _hoveredThingScreenPosition + offset;
+        var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+        var labelRect = new Rect(guiPoint, contentSize);
+
+        if (thingHoverBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
+        {
+            var padding = thingHoverBackgroundPadding;
+            var backgroundRect = new Rect(
+                labelRect.x - padding.x * 0.5f,
+                labelRect.y - padding.y * 0.5f,
+                labelRect.width + padding.x,
+                labelRect.height + padding.y);
+
+            var previousColor = GUI.color;
+            GUI.color = thingHoverBackgroundColor;
+            GUI.DrawTexture(backgroundRect, Texture2D.whiteTexture);
+            GUI.color = previousColor;
+        }
+
+        GUI.Label(labelRect, content, _thingHoverStyle);
+    }
+
+    private void EnsureThingHoverStyle()
+    {
+        var desiredFontSize = Mathf.Max(1, thingHoverFontSize);
+        if (_thingHoverStyle == null)
+        {
+            _thingHoverStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.UpperLeft,
+                wordWrap = false,
+                richText = false,
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+        }
+
+        if (_thingHoverStyle.fontSize != desiredFontSize)
+        {
+            _thingHoverStyle.fontSize = desiredFontSize;
+        }
+
+        _thingHoverStyle.normal.textColor = thingHoverTextColor;
+    }
+
+    private void ClearThingHover()
+    {
+        _hoveredThingLabel = string.Empty;
+        _thingHoverGuiContent.text = string.Empty;
+        _hoveredThingScreenPosition = Vector2.zero;
     }
 
     private void EnsureSelectedPawnPanelStyle()
@@ -1693,6 +1823,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         _thingUpdateScratch.Clear();
         _thingRemovalScratch.Clear();
+        ClearThingHover();
     }
 
     private void EnsureObserverCamera()
@@ -1752,6 +1883,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void DisposeVisuals()
     {
+        ClearThingHover();
         ClearThingVisuals();
         foreach (var visual in _pawnVisuals.Values)
         {
@@ -2037,23 +2169,44 @@ public sealed class GoapSimulationView : MonoBehaviour
         return null;
     }
 
-    private bool TryGetClickGrid(IWorldSnapshot snapshot, out GridPos gridPos)
+    private string FormatThingHoverLabel(ThingView thing)
     {
-        gridPos = default;
-        var mouse = Mouse.current;
-        if (mouse == null)
+        if (thing == null)
         {
-            return false;
+            throw new ArgumentNullException(nameof(thing));
         }
 
-        if (!mouse.leftButton.wasPressedThisFrame)
+        if (thing.Type == null)
         {
-            return false;
+            throw new InvalidOperationException($"Thing '{thing.Id.Value}' type is missing; cannot build hover label.");
+        }
+
+        var trimmed = thing.Type.Trim();
+        if (trimmed.Length == 0)
+        {
+            throw new InvalidOperationException($"Thing '{thing.Id.Value}' type is empty; cannot build hover label.");
+        }
+
+        var normalized = trimmed.Replace('_', ' ');
+        var lower = normalized.ToLowerInvariant();
+        var textInfo = CultureInfo.InvariantCulture.TextInfo;
+        return textInfo.ToTitleCase(lower);
+    }
+
+    private bool TryProjectScreenToGrid(IWorldSnapshot snapshot, Vector2 screen, out GridPos gridPos)
+    {
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        if (!float.IsFinite(screen.x) || !float.IsFinite(screen.y))
+        {
+            throw new InvalidOperationException("Mouse position produced a non-finite value.");
         }
 
         EnsureObserverCamera();
 
-        var screen = mouse.position.ReadValue();
         var ray = observerCamera.ScreenPointToRay(new Vector3(screen.x, screen.y, 0f));
         var plane = new Plane(Vector3.forward, Vector3.zero);
         if (!plane.Raycast(ray, out var distance))
@@ -2071,11 +2224,30 @@ public sealed class GoapSimulationView : MonoBehaviour
         var gridY = Mathf.FloorToInt(worldPoint.y);
         if (gridX < 0 || gridY < 0 || gridX >= snapshot.Width || gridY >= snapshot.Height)
         {
+            gridPos = default;
             return false;
         }
 
         gridPos = new GridPos(gridX, gridY);
         return true;
+    }
+
+    private bool TryGetClickGrid(IWorldSnapshot snapshot, out GridPos gridPos)
+    {
+        gridPos = default;
+        var mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return false;
+        }
+
+        if (!mouse.leftButton.wasPressedThisFrame)
+        {
+            return false;
+        }
+
+        var screen = mouse.position.ReadValue();
+        return TryProjectScreenToGrid(snapshot, screen, out gridPos);
     }
 
     private PlanActionOption BuildPlanActionOption(string stepLabel, IWorldSnapshot snapshot, int stepIndex)
