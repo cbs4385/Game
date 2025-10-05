@@ -7,6 +7,7 @@ using DataDrivenGoap.Config;
 using DataDrivenGoap.Concurrency;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Execution;
+using DataDrivenGoap.Effects;
 using DataDrivenGoap.Items;
 using DataDrivenGoap.Planning;
 using DataDrivenGoap.Simulation;
