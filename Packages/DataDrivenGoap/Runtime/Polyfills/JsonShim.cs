@@ -892,3 +892,19 @@ namespace System.Text.Json
         }
     }
 }
+
+namespace System.Text.Json.Serialization
+{
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = false)]
+    public sealed class JsonPropertyNameAttribute : Attribute
+    {
+        public JsonPropertyNameAttribute(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Property name must be provided.", nameof(name));
+            Name = name;
+        }
+
+        public string Name { get; }
+    }
+}
