@@ -1,6 +1,6 @@
 # AGENTS.md — Unity Agents Rules & Enforcement
 
-> **Scope:** This document governs how _agents_ (AI-driven entities) are declared, loaded, and executed in this Unity project. It is intentionally strict. If something violates a rule, the correct response is to **fail fast** and fix the data or code — not to add a fallback.
+> **Scope:** This document governs how _agents_ (AI‑driven entities) are declared, loaded, and executed in this Unity project. It is intentionally strict. If something violates a rule, the correct response is to **fail fast** and fix the data or code — not to add a fallback.
 
 ---
 
@@ -15,7 +15,7 @@
 
 ---
 
-## Non‑Negotiable Rules (Enforced Culturally & via Tests)
+## Non‑Negotiable Rules (Culturally Enforced & Build‑Reviewed)
 
 1) **Never create fail‑safe or fallback routines.**
    - If data is missing, malformed, or incompatible: **throw** and stop the run.
@@ -43,6 +43,15 @@
 5) **Target Unity 6 and .NET Standard 2.1.**
    - Avoid APIs not present in .NET Standard 2.1.
    - If a third‑party package requires a higher API profile, it is **not permitted**.
+
+6) **Absolute prohibition on test code and test projects.**
+   - **No test projects** of any kind (no new `.csproj`/solutions, no “Tests” asmdefs).
+   - **No test classes**. In particular: **when a class `N` is created, a matching `NTests` (or `NTest`) **must not** be created**.
+   - **No test frameworks** referenced or used: **NUnit**, **Unity Test Framework** (`UnityEngine.TestTools`), **xUnit**, **MSTest**, etc.
+   - **No attributes** such as `[Test]`, `[UnityTest]`, `[TestCase]`, `[SetUp]`, `[TearDown]`.
+   - **No namespaces or folders** named `Tests`, `Test`, `EditorTests`, `PlayModeTests` (or similar).
+   - **No asmdefs** whose name contains `Test` or `Tests`, and no asmdef references to `UnityEditor.TestRunner` or `UnityEngine.TestRunner`.
+   - **PRs that introduce any of the above are rejected** on sight.
 
 ---
 
@@ -151,9 +160,11 @@ public sealed class SimulationBootstrapper : MonoBehaviour
 
 ---
 
-## Enforcement: Review, Tests, and Runtime Contracts
+## Enforcement: Review & Runtime Contracts (No Tests)
 
 ### Pull Request Checklist (copy into PR template)
+- [ ] **No test code** added: no classes named `*Test`/`*Tests`, no `[Test]`/`[UnityTest]` attributes, no NUnit/xUnit/MSTest references.
+- [ ] **No test assemblies** or asmdefs named with `Test`/`Tests`; no `Unity Test Framework` in asmdef references.
 - [ ] No new projects (.csproj/solutions) added.
 - [ ] No preprocessor directives (`#if`, `#define`, etc.).
 - [ ] All simulation objects (agents, actions, goals, items, time, stations) are defined in **DataDrivenGoap** data.
@@ -165,27 +176,7 @@ public sealed class SimulationBootstrapper : MonoBehaviour
 - Loader APIs must **throw** on missing or malformed sections. Do not return partial objects.
 - The Agent Host must assume **valid** inputs; any inconsistency should throw immediately with a clear message.
 - All exceptions must **preserve context** (wrap with additional data, then rethrow). No suppression.
-
-### Test Expectations (Unity Test Runner)
-- **Editor/PlayMode Test:** Attempt to load a dataset missing one required section (e.g., time). The test passes only if the loader **throws** a specific exception (e.g., `InvalidDataException`).
-- **Integration Test:** Start simulation with a fully valid dataset, tick for N frames, assert that:
-  - All agents present in the scene correspond to **declared** DataDrivenGoap agent definitions.
-  - No “unknown” agent/action types appear at runtime.
-  - Logs contain **no warnings** about auto‑created defaults.
-
-> Tests live in the Unity project under `Assets/Tests` using asmdefs; they do **not** add external projects.
-
----
-
-## Project Setup Notes (Unity 6 + .NET Standard 2.1)
-
-1. **Player Settings → Api Compatibility Level:** `.NET Standard 2.1`  
-2. **Scripting Runtime:** Use Unity’s default for Unity 6 (compatible with C# 8 usage).  
-3. **Assembly Definitions:**  
-   - `Assets/Plugins/DataDrivenGoap/` (provided by the plugin/vendor).  
-   - `Assets/Scripts/Agents/` references the plugin asmdef; **no other new projects**.  
-4. **Content Location:** All behavior definitions live in DataDrivenGoap JSON (or equivalent), committed to version control.  
-5. **Logging:** Log deterministically; do not guard behavior with `#if`. Fail on inconsistencies.
+- No testing hooks, no conditional paths for “test builds,” and no code that exists solely to support tests.
 
 ---
 
@@ -200,6 +191,9 @@ public sealed class SimulationBootstrapper : MonoBehaviour
 **Reviewer:** “I don’t see any `#if` guards for editor vs player?”  
 **Developer:** “Correct. Variability is in data. The same loader runs everywhere; if data’s invalid, it fails the same way.”
 
+**Reviewer:** “Where are the tests for class `N`?”  
+**Developer:** “Per project policy, **no tests** are created. In particular, **no `NTests` is ever created for class `N`.**”
+
 ---
 
 ## Summary
@@ -208,6 +202,5 @@ public sealed class SimulationBootstrapper : MonoBehaviour
 - **All simulation objects from DataDrivenGoap.**  
 - **No new projects.**  
 - **No preprocessor directives.**  
-- **Unity 6 + .NET Standard 2.1 only.**
-
-If any rule is hard to follow on a task, the task itself must be re‑shaped rather than bending the rules.
+- **Unity 6 + .NET Standard 2.1 only.**  
+- **No tests — ever (no projects, no classes, no frameworks).**
