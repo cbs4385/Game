@@ -198,6 +198,18 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
 
+    private sealed class ManualActorState
+    {
+        public ManualActorState(Random rng)
+        {
+            Rng = rng ?? throw new ArgumentNullException(nameof(rng));
+        }
+
+        public Random Rng { get; }
+        public Dictionary<string, DateTime> PlanCooldownUntil { get; } =
+            new Dictionary<string, DateTime>(StringComparer.Ordinal);
+    }
+
     private readonly List<ActorHost> _actorHosts = new List<ActorHost>();
     private readonly Dictionary<ThingId, ActorHost> _actorHostById = new Dictionary<ThingId, ActorHost>();
     private readonly List<(ThingId Id, VillagePawn Pawn)> _actorDefinitions = new List<(ThingId, VillagePawn)>();
@@ -205,6 +217,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private readonly Dictionary<string, ThingId> _locationToThing = new Dictionary<string, ThingId>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ThingId, ThingSeed> _seedByThing = new Dictionary<ThingId, ThingSeed>();
     private readonly HashSet<ThingId> _manualPawnIds = new HashSet<ThingId>();
+    private readonly Dictionary<string, ManualActorState> _manualActorStates =
+        new Dictionary<string, ManualActorState>(StringComparer.OrdinalIgnoreCase);
 
     private SimulationReadyEventArgs _readyEventArgs;
     private ShardedWorld _world;
@@ -323,6 +337,666 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         status = host.SnapshotPlanStatus();
         return status != null;
+    }
+
+    public void ExecuteManualPlanStep(
+        ThingId actorId,
+        int planStepIndex,
+        ThingId? expectedTargetId,
+        GridPos? expectedTargetPosition,
+        long expectedSnapshotVersion)
+    {
+        if (string.IsNullOrWhiteSpace(actorId.Value))
+        {
+            throw new ArgumentException("Manual actor id must be provided.", nameof(actorId));
+        }
+
+        if (planStepIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(planStepIndex), "Plan step index must be non-negative.");
+        }
+
+        if (expectedSnapshotVersion < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expectedSnapshotVersion), "Snapshot version must be non-negative.");
+        }
+
+        if (_readyEventArgs == null)
+        {
+            throw new InvalidOperationException("Manual plan execution cannot occur before the simulation bootstrap completes.");
+        }
+
+        if (_world == null || _planner == null || _executors == null || _reservations == null)
+        {
+            throw new InvalidOperationException(
+                "Manual plan execution requires the world, planner, executor registry, and reservation service to be initialized.");
+        }
+
+        if (!_manualPawnIds.Contains(actorId))
+        {
+            throw new InvalidOperationException($"Actor '{actorId.Value}' is not configured for manual plan execution.");
+        }
+
+        var snapshot = _world.Snap();
+        if (snapshot == null)
+        {
+            throw new InvalidOperationException("World snapshot could not be captured for manual plan execution.");
+        }
+
+        if (snapshot.Version != expectedSnapshotVersion)
+        {
+            throw new InvalidOperationException(
+                $"Manual plan snapshot version mismatch. Expected {expectedSnapshotVersion}, but world reports {snapshot.Version}.");
+        }
+
+        var actorThing = snapshot.GetThing(actorId);
+        if (actorThing == null)
+        {
+            throw new InvalidOperationException($"Manual actor '{actorId.Value}' is not present in the current world snapshot.");
+        }
+
+        double priorityJitter = _demoConfig?.simulation?.priorityJitter ?? 0.0;
+        var state = GetManualActorState(actorId);
+        var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
+        if (plan == null || plan.Steps == null || plan.Steps.Count == 0)
+        {
+            throw new InvalidOperationException($"Manual actor '{actorId.Value}' does not have a valid plan to execute.");
+        }
+
+        if (planStepIndex >= plan.Steps.Count)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(planStepIndex),
+                $"Manual actor '{actorId.Value}' plan does not contain a step at index {planStepIndex}.");
+        }
+
+        var step = plan.Steps[planStepIndex];
+        if (step == null)
+        {
+            throw new InvalidOperationException(
+                $"Manual actor '{actorId.Value}' plan step at index {planStepIndex} is null.");
+        }
+
+        if (!step.Actor.Equals(actorId))
+        {
+            throw new InvalidOperationException(
+                $"Manual actor '{actorId.Value}' plan step at index {planStepIndex} targets actor '{step.Actor.Value ?? "<unknown>"}'.");
+        }
+
+        EnsureManualPlanNotOnCooldown(state, step);
+
+        var stepTarget = step.Target;
+        bool targetSpecified = !string.IsNullOrWhiteSpace(stepTarget.Value);
+        ThingView targetThing = null;
+        if (targetSpecified)
+        {
+            targetThing = snapshot.GetThing(stepTarget);
+            if (targetThing == null)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan target '{stepTarget.Value}' is not present in the snapshot used to generate the plan.");
+            }
+        }
+
+        if (expectedTargetId.HasValue)
+        {
+            if (!targetSpecified)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' does not declare a target but the caller expected '{expectedTargetId.Value.Value}'.");
+            }
+
+            if (!stepTarget.Equals(expectedTargetId.Value))
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step target mismatch. Planner selected '{stepTarget.Value}', but caller expected '{expectedTargetId.Value.Value}'.");
+            }
+        }
+
+        if (expectedTargetPosition.HasValue)
+        {
+            if (!targetSpecified)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' does not have a target position to validate.");
+            }
+
+            if (!targetThing.Position.Equals(expectedTargetPosition.Value))
+            {
+                var expected = expectedTargetPosition.Value;
+                var actual = targetThing.Position;
+                throw new InvalidOperationException(
+                    $"Manual plan target '{stepTarget.Value}' moved from ({actual.X}, {actual.Y}) to ({expected.X}, {expected.Y}) relative to the caller's expectations.");
+            }
+        }
+
+        if (step.Preconditions != null && !step.Preconditions(snapshot))
+        {
+            throw new InvalidOperationException(
+                $"Manual plan step '{step.ActivityName ?? "<unknown>"}' preconditions are not satisfied.");
+        }
+
+        double durationSeconds = 0.0;
+        if (step.DurationSeconds != null)
+        {
+            durationSeconds = step.DurationSeconds(snapshot);
+            if (double.IsNaN(durationSeconds) || double.IsInfinity(durationSeconds))
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' produced a non-finite duration.");
+            }
+
+            durationSeconds = Math.Max(0.0, durationSeconds);
+        }
+
+        var planId = Guid.NewGuid();
+        if (!_reservations.TryAcquireAll(step.Reservations, planId, actorId))
+        {
+            throw new InvalidOperationException(
+                $"Manual plan step '{step.ActivityName ?? "<unknown>"}' could not acquire required reservations.");
+        }
+
+        try
+        {
+            var executor = _executors.Resolve(step.ActivityName);
+            if (executor == null)
+            {
+                throw new InvalidOperationException(
+                    $"No executor registered for activity '{step.ActivityName ?? "<unknown>"}'.");
+            }
+
+            var context = new ExecutionContext(snapshot, actorId, state.Rng);
+            var progress = executor.Run(step, context, out var batch);
+            if (progress != ExecProgress.Completed)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' did not complete execution (status {progress}).");
+            }
+
+            if (batch.BaseVersion != snapshot.Version)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' produced effects for snapshot version {batch.BaseVersion}, but execution used snapshot {snapshot.Version}.");
+            }
+
+            var commit = _world.TryCommit(batch);
+            if (commit == CommitResult.Conflict)
+            {
+                throw new InvalidOperationException(
+                    $"Manual plan step '{step.ActivityName ?? "<unknown>"}' conflicted while applying its effects.");
+            }
+
+            var postSnapshot = _world.Snap();
+            if (postSnapshot == null)
+            {
+                throw new InvalidOperationException("Failed to capture post-execution snapshot for manual plan step.");
+            }
+
+            var worldTime = FormatWorldTime(postSnapshot.Time);
+            var worldDay = FormatWorldDay(postSnapshot.Time);
+            var executionContext = BuildExecutionContextString(planId, plan.GoalId, step.ActivityName, snapshot.Version, worldTime, worldDay);
+
+            ApplyManualPostCommitEffects(actorId, step.ActivityName, planId, batch, executionContext);
+            _worldLogger?.LogEffectSummary(actorId, planId, step.ActivityName, batch, snapshot.Version, worldTime, worldDay);
+            RegisterManualPlanCooldowns(state, step, durationSeconds, batch.PlanCooldowns);
+        }
+        finally
+        {
+            _reservations.ReleaseAll(step.Reservations, planId, actorId);
+        }
+    }
+
+    private ManualActorState GetManualActorState(ThingId actorId)
+    {
+        string key = actorId.Value ?? throw new InvalidOperationException("Manual actor id must provide a string value.");
+        if (!_manualActorStates.TryGetValue(key, out var state) || state == null)
+        {
+            int seed = _demoConfig?.simulation?.actorHostSeed ?? 0;
+            state = new ManualActorState(new Random(seed ^ actorId.GetHashCode()));
+            _manualActorStates[key] = state;
+        }
+
+        return state;
+    }
+
+    private void EnsureManualPlanNotOnCooldown(ManualActorState state, PlanStep step)
+    {
+        if (state == null || step == null)
+        {
+            return;
+        }
+
+        string key = BuildCooldownKey(step.ActivityName, step.Target);
+        if (string.IsNullOrEmpty(key))
+        {
+            return;
+        }
+
+        if (!state.PlanCooldownUntil.TryGetValue(key, out var until))
+        {
+            return;
+        }
+
+        if (until <= DateTime.UtcNow)
+        {
+            state.PlanCooldownUntil.Remove(key);
+            return;
+        }
+
+        double remaining = Math.Max(0.0, (until - DateTime.UtcNow).TotalSeconds);
+        string remainingText = remaining.ToString("0.###", CultureInfo.InvariantCulture);
+        throw new InvalidOperationException(
+            $"Manual plan step '{step.ActivityName ?? "<unknown>"}' targeting '{step.Target.Value ?? "<none>"}' is on cooldown for another {remainingText} seconds.");
+    }
+
+    private void RegisterManualPlanCooldowns(ManualActorState state, PlanStep step, double durationSeconds, PlanCooldownRequest[] requests)
+    {
+        if (state == null || step == null)
+        {
+            return;
+        }
+
+        if (requests == null || requests.Length == 0)
+        {
+            return;
+        }
+
+        string activity = step.ActivityName ?? string.Empty;
+        for (int i = 0; i < requests.Length; i++)
+        {
+            var request = requests[i];
+            var scope = request.Scope;
+            if (string.IsNullOrWhiteSpace(scope.Value))
+            {
+                scope = step.Target;
+            }
+
+            string key = BuildCooldownKey(activity, scope);
+            if (string.IsNullOrEmpty(key))
+            {
+                continue;
+            }
+
+            double seconds = Math.Max(0.0, request.Seconds);
+            if (request.UseStepDuration)
+            {
+                seconds = Math.Max(seconds, durationSeconds);
+            }
+
+            if (seconds <= 0.0)
+            {
+                continue;
+            }
+
+            state.PlanCooldownUntil[key] = DateTime.UtcNow.AddSeconds(seconds);
+        }
+    }
+
+    private static string BuildCooldownKey(string activity, ThingId scope)
+    {
+        string act = activity ?? string.Empty;
+        string target = scope.Value ?? string.Empty;
+        return string.Concat(act, "|", target);
+    }
+
+    private static string BuildExecutionContextString(
+        Guid planId,
+        string goalId,
+        string activity,
+        long snapshotVersion,
+        string worldTime,
+        string worldDay)
+    {
+        string planText = planId == Guid.Empty ? "<none>" : planId.ToString();
+        string goalText = string.IsNullOrWhiteSpace(goalId) ? "<none>" : goalId;
+        string activityText = string.IsNullOrWhiteSpace(activity) ? "<unknown>" : activity;
+        string wt = string.IsNullOrWhiteSpace(worldTime) ? "<unknown>" : worldTime;
+        string wd = string.IsNullOrWhiteSpace(worldDay) ? "<unknown>" : worldDay;
+        return $"plan={planText} goal={goalText} activity={activityText} snapshot_version={snapshotVersion} world_time={wt} world_day={wd}";
+    }
+
+    private static string FormatWorldTime(WorldTimeSnapshot time)
+    {
+        if (time == null)
+        {
+            return "<unknown>";
+        }
+
+        string date = time.Year > 0 && time.Month > 0 && time.DayOfMonth > 0
+            ? $"{time.Year:D4}-{time.Month:D2}-{time.DayOfMonth:D2}"
+            : $"day{time.DayOfYear:D3}";
+        string tod = time.TimeOfDay.ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture);
+        return string.Concat(date, "T", tod);
+    }
+
+    private static string FormatWorldDay(WorldTimeSnapshot time)
+    {
+        if (time == null)
+        {
+            return "<unknown>";
+        }
+
+        return time.TotalWorldDays.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    private void ApplyManualPostCommitEffects(
+        ThingId actorId,
+        string activityName,
+        Guid planId,
+        in EffectBatch batch,
+        string executionContext)
+    {
+        ProcessInventoryChanges(batch.InventoryOps, null, executionContext);
+
+        if (_shopSystem != null && batch.ShopTransactions != null)
+        {
+            foreach (var txn in batch.ShopTransactions)
+            {
+                if (!_shopSystem.TryProcessTransaction(txn, out var result) || result.Quantity <= 0)
+                {
+                    continue;
+                }
+
+                double total = result.TotalPrice;
+                if (_inventorySystem != null)
+                {
+                    double actorDelta = txn.Kind == ShopTransactionKind.Sale ? total : -total;
+                    double shopDelta = -actorDelta;
+                    double actorBalance = _inventorySystem.AdjustCurrency(txn.Actor, actorDelta);
+                    double shopBalance = _inventorySystem.AdjustCurrency(txn.Shop, shopDelta);
+                    _worldLogger?.LogCurrencyChange(txn.Actor, actorDelta, actorBalance, "shop_txn", executionContext);
+                    _worldLogger?.LogCurrencyChange(txn.Shop, shopDelta, shopBalance, "shop_txn", executionContext);
+                }
+
+                _worldLogger?.LogShopTransaction(txn.Shop, txn.Actor, txn.ItemId, result.Quantity, total, txn.Kind, executionContext);
+            }
+        }
+
+        ProcessCurrencyChanges(batch.CurrencyOps, null, executionContext);
+
+        if (_socialSystem != null && batch.RelationshipOps != null)
+        {
+            foreach (var rel in batch.RelationshipOps)
+            {
+                double delta = rel.ExplicitDelta ?? LookupGiftDelta(rel);
+                if (Math.Abs(delta) < 1e-6)
+                {
+                    continue;
+                }
+
+                _socialSystem.AdjustRelationship(rel.From, rel.To, rel.RelationshipId, delta);
+                _worldLogger?.LogCustom(
+                    "relationship",
+                    rel.From,
+                    $"to={rel.To.Value ?? "<unknown>"} rel={rel.RelationshipId ?? "<none>"} delta={delta.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    executionContext);
+            }
+        }
+
+        if (_cropSystem != null && batch.CropOps != null)
+        {
+            foreach (var op in batch.CropOps)
+            {
+                var result = _cropSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "crop", executionContext);
+
+                if (result.HarvestYields != null)
+                {
+                    foreach (var yield in result.HarvestYields)
+                    {
+                        if (yield.Quantity <= 0 || string.IsNullOrWhiteSpace(yield.ItemId))
+                        {
+                            continue;
+                        }
+
+                        _worldLogger?.LogInventoryChange(op.Actor, yield.ItemId, yield.Quantity, "crop", executionContext);
+                    }
+                }
+            }
+        }
+
+        if (_animalSystem != null && batch.AnimalOps != null)
+        {
+            foreach (var op in batch.AnimalOps)
+            {
+                var result = _animalSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "animal", executionContext);
+
+                if (result.ProduceYields != null)
+                {
+                    foreach (var yield in result.ProduceYields)
+                    {
+                        if (yield.Quantity <= 0 || string.IsNullOrWhiteSpace(yield.ItemId))
+                        {
+                            continue;
+                        }
+
+                        _worldLogger?.LogInventoryChange(op.Actor, yield.ItemId, yield.Quantity, "animal", executionContext);
+                    }
+                }
+            }
+        }
+
+        if (_miningSystem != null && batch.MiningOps != null)
+        {
+            foreach (var op in batch.MiningOps)
+            {
+                var result = _miningSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "mining", executionContext);
+                GrantSkillExperience(op.Actor, result.SkillId, result.SkillXp, "mining", executionContext);
+
+                if (!string.IsNullOrWhiteSpace(result.ItemId) && result.Quantity > 0)
+                {
+                    _worldLogger?.LogCustom(
+                        "mine_extract",
+                        op.Actor,
+                        $"node={op.Node.Value ?? "<unknown>"} item={result.ItemId} qty={result.Quantity}",
+                        executionContext);
+                }
+            }
+        }
+
+        if (_fishingSystem != null && batch.FishingOps != null)
+        {
+            foreach (var op in batch.FishingOps)
+            {
+                var result = _fishingSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "fishing", executionContext);
+                GrantSkillExperience(op.Actor, result.SkillId, result.SkillXp, "fishing", executionContext);
+
+                if (!string.IsNullOrWhiteSpace(result.ItemId) && result.Quantity > 0)
+                {
+                    _worldLogger?.LogCustom(
+                        "fish_catch",
+                        op.Actor,
+                        $"spot={op.Spot.Value ?? "<unknown>"} item={result.ItemId} qty={result.Quantity}",
+                        executionContext);
+                }
+            }
+        }
+
+        if (_foragingSystem != null && batch.ForagingOps != null)
+        {
+            foreach (var op in batch.ForagingOps)
+            {
+                var result = _foragingSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "forage", executionContext);
+                GrantSkillExperience(op.Actor, result.SkillId, result.SkillXp, "foraging", executionContext);
+
+                if (!string.IsNullOrWhiteSpace(result.ItemId) && result.Quantity > 0)
+                {
+                    _worldLogger?.LogCustom(
+                        "forage_collect",
+                        op.Actor,
+                        $"spot={op.Spot.Value ?? "<unknown>"} item={result.ItemId} qty={result.Quantity}",
+                        executionContext);
+                }
+            }
+        }
+
+        if (_questSystem != null && batch.QuestOps != null)
+        {
+            foreach (var op in batch.QuestOps)
+            {
+                var result = _questSystem.Apply(op);
+                if (!result.Success)
+                {
+                    continue;
+                }
+
+                ProcessInventoryChanges(result.InventoryChanges, "quest", executionContext);
+                ProcessCurrencyChanges(result.CurrencyChanges, "quest", executionContext);
+
+                if (!string.IsNullOrWhiteSpace(result.Message))
+                {
+                    _worldLogger?.LogQuestEvent(
+                        op.Actor,
+                        op.QuestId,
+                        result.Status.ToString(),
+                        result.ObjectiveId,
+                        result.ObjectiveProgress,
+                        result.ObjectiveRequired,
+                        result.Message,
+                        executionContext);
+                }
+            }
+        }
+    }
+
+    private void ProcessInventoryChanges(IEnumerable<InventoryDelta> operations, string sourceTag, string executionContext)
+    {
+        if (_inventorySystem == null || operations == null)
+        {
+            return;
+        }
+
+        string source = string.IsNullOrWhiteSpace(sourceTag) ? "effect" : sourceTag.Trim();
+        foreach (var op in operations)
+        {
+            if (string.IsNullOrWhiteSpace(op.ItemId) || op.Quantity <= 0)
+            {
+                continue;
+            }
+
+            int processed = op.Remove
+                ? _inventorySystem.RemoveItem(op.Owner, op.ItemId, op.Quantity)
+                : _inventorySystem.AddItem(op.Owner, op.ItemId, op.Quantity);
+
+            if (processed <= 0)
+            {
+                continue;
+            }
+
+            int signedQty = op.Remove ? -processed : processed;
+            _worldLogger?.LogInventoryChange(op.Owner, op.ItemId, signedQty, source, executionContext);
+        }
+    }
+
+    private void ProcessCurrencyChanges(IEnumerable<CurrencyDelta> operations, string sourceTag, string executionContext)
+    {
+        if (_inventorySystem == null || operations == null)
+        {
+            return;
+        }
+
+        string source = string.IsNullOrWhiteSpace(sourceTag) ? "effect" : sourceTag.Trim();
+        foreach (var delta in operations)
+        {
+            if (Math.Abs(delta.Amount) < 1e-6)
+            {
+                continue;
+            }
+
+            double balance = _inventorySystem.AdjustCurrency(delta.Owner, delta.Amount);
+            _worldLogger?.LogCurrencyChange(delta.Owner, delta.Amount, balance, source, executionContext);
+        }
+    }
+
+    private void GrantSkillExperience(ThingId actor, string skillId, double amount, string sourceTag, string executionContext)
+    {
+        if (_skillSystem == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(actor.Value) || string.IsNullOrWhiteSpace(skillId))
+        {
+            return;
+        }
+
+        if (!double.IsFinite(amount) || amount <= 0.0)
+        {
+            return;
+        }
+
+        _skillSystem.AddExperience(actor, skillId, amount);
+        string tag = string.IsNullOrWhiteSpace(sourceTag) ? "effect" : sourceTag;
+        string message = $"skill={skillId} amount={amount.ToString("0.###", CultureInfo.InvariantCulture)} source={tag}";
+        _worldLogger?.LogCustom("skill_xp", actor, message, executionContext);
+    }
+
+    private double LookupGiftDelta(RelationshipDelta rel)
+    {
+        if (_inventorySystem == null || string.IsNullOrWhiteSpace(rel.ItemId))
+        {
+            return 0.0;
+        }
+
+        if (!_inventorySystem.TryGetItemDefinition(rel.ItemId, out var item) || item == null)
+        {
+            return 0.0;
+        }
+
+        foreach (var affinity in item.GiftAffinities)
+        {
+            if (string.IsNullOrWhiteSpace(affinity))
+            {
+                continue;
+            }
+
+            var parts = affinity.Split(':');
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+
+            if (!string.Equals(parts[0], rel.RelationshipId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                return value;
+            }
+        }
+
+        return 0.0;
     }
 
     private void Start()
@@ -477,6 +1151,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _actionConfigs = null;
         _goalConfigs = null;
         _thingPlanParticipationByTag.Clear();
+        _manualActorStates.Clear();
         _villageConfig = null;
 
         Bootstrapped = null;
@@ -497,6 +1172,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _actorDiagnostics.Clear();
         _needAttributeNames = Array.Empty<string>();
         _manualPawnIds.Clear();
+        _manualActorStates.Clear();
         _playerPawnId = null;
         _thingPlanParticipationByTag.Clear();
 

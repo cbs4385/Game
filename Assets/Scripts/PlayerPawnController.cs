@@ -235,7 +235,11 @@ public sealed class PlayerPawnController : MonoBehaviour
         ExecuteManualInteract(snapshot, targetId, targetPos, planStepIndex: null);
     }
 
-    public void RequestManualInteract(ThingId targetId, GridPos targetPos, int? planStepIndex = null)
+    public void RequestManualInteract(
+        ThingId targetId,
+        GridPos targetPos,
+        int? planStepIndex = null,
+        long? expectedSnapshotVersion = null)
     {
         if (_world == null)
         {
@@ -245,6 +249,27 @@ public sealed class PlayerPawnController : MonoBehaviour
         if (!_playerPawnId.HasValue)
         {
             throw new InvalidOperationException("PlayerPawnController has not been assigned a controlled pawn id.");
+        }
+
+        EnsureBootstrapperReference();
+
+        bool hasTarget = !string.IsNullOrWhiteSpace(targetId.Value);
+        if (planStepIndex.HasValue)
+        {
+            if (!expectedSnapshotVersion.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "Manual plan execution requires the snapshot version that produced the selected plan option.");
+            }
+
+            var expectedTarget = hasTarget ? (ThingId?)targetId : null;
+            var expectedPosition = hasTarget ? (GridPos?)targetPos : null;
+            bootstrapper.ExecuteManualPlanStep(
+                _playerPawnId.Value,
+                planStepIndex.Value,
+                expectedTarget,
+                expectedPosition,
+                expectedSnapshotVersion.Value);
         }
 
         var snapshot = _world.Snap();

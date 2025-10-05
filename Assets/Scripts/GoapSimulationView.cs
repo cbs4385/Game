@@ -126,6 +126,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string[] _selectedPawnPlanSteps = Array.Empty<string>();
     private string[] _selectedPawnPlanStepLines = Array.Empty<string>();
     private ActorPlanStatus _selectedPawnPlanStatus;
+    private long _selectedPawnPlanSnapshotVersion;
     private readonly List<PlanActionOption> _selectedPawnPlanOptions = new List<PlanActionOption>();
     private int? _selectedPlanOptionIndex;
     private string _selectedPlanOptionLabel = string.Empty;
@@ -1361,6 +1362,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void PopulateSelectedPawnPlan(ThingId selectedId, IWorldSnapshot snapshot)
     {
+        _selectedPawnPlanSnapshotVersion = snapshot?.Version ?? -1;
         _selectedPawnPlanOptions.Clear();
         _selectedPawnPlanStatus = null;
 
@@ -2605,7 +2607,11 @@ public sealed class GoapSimulationView : MonoBehaviour
                 $"Selected pawn '{selectedId.Value}' is not controlled by the player pawn controller.");
         }
 
-        playerPawnController.RequestManualInteract(option.TargetId.Value, option.TargetPosition.Value, option.StepIndex);
+        playerPawnController.RequestManualInteract(
+            option.TargetId.Value,
+            option.TargetPosition.Value,
+            option.StepIndex,
+            _selectedPawnPlanSnapshotVersion);
         _selectedPlanOptionIndex = option.StepIndex;
         _selectedPlanOptionLabel = option.Label;
     }
