@@ -476,7 +476,35 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
             if (targetStep.Preconditions == null || targetStep.Preconditions(snapshot))
             {
-                return snapshot.Version;
+                ThingId? resolvedTargetId = expectedTargetId;
+                GridPos? resolvedTargetPosition = expectedTargetPosition;
+
+                if (!resolvedTargetId.HasValue && !string.IsNullOrWhiteSpace(targetStep.Target.Value))
+                {
+                    resolvedTargetId = targetStep.Target;
+                }
+
+                if (!resolvedTargetPosition.HasValue && resolvedTargetId.HasValue)
+                {
+                    var resolvedTargetThing = snapshot.GetThing(resolvedTargetId.Value);
+                    if (resolvedTargetThing == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Manual plan target '{resolvedTargetId.Value.Value ?? "<unknown>"}' is not present in the current world snapshot.");
+                    }
+
+                    resolvedTargetPosition = resolvedTargetThing.Position;
+                }
+
+                return ExecuteManualPlanStepInternal(
+                    actorId,
+                    resolvedIndex,
+                    resolvedTargetId,
+                    resolvedTargetPosition,
+                    snapshot,
+                    plan,
+                    state,
+                    targetStep.ActivityName);
             }
 
             if (resolvedIndex == 0)
