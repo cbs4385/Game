@@ -947,8 +947,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         bool hasContent =
             !string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps) ||
-            !string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps) ||
-            _selectedPawnPlanStepLines.Length > 0;
+            !string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps);
 
         if (!hasContent)
         {
@@ -970,17 +969,6 @@ public sealed class GoapSimulationView : MonoBehaviour
             beforeHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
         }
 
-        float[] stepHeights = Array.Empty<float>();
-        if (_selectedPawnPlanStepLines.Length > 0)
-        {
-            stepHeights = new float[_selectedPawnPlanStepLines.Length];
-            for (int i = 0; i < _selectedPawnPlanStepLines.Length; i++)
-            {
-                content.text = _selectedPawnPlanStepLines[i];
-                stepHeights[i] = _selectedPawnPanelStyle.CalcHeight(content, width);
-            }
-        }
-
         float afterHeight = 0f;
         if (!string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps))
         {
@@ -989,13 +977,6 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         float totalHeight = beforeHeight + afterHeight;
-        if (stepHeights.Length > 0)
-        {
-            for (int i = 0; i < stepHeights.Length; i++)
-            {
-                totalHeight += stepHeights[i];
-            }
-        }
 
         if (totalHeight <= 0f)
         {
@@ -1027,38 +1008,6 @@ public sealed class GoapSimulationView : MonoBehaviour
             var beforeRect = new Rect(x, currentY, width, beforeHeight);
             GUI.Label(beforeRect, content, _selectedPawnPanelStyle);
             currentY += beforeHeight;
-        }
-
-        if (_selectedPawnPlanStepLines.Length > 0)
-        {
-            bool allowManual = _selectedPawnId.HasValue && _manualPawnIds.Contains(_selectedPawnId.Value);
-            for (int i = 0; i < _selectedPawnPlanStepLines.Length; i++)
-            {
-                float stepHeight = stepHeights[i];
-                var buttonRect = new Rect(x, currentY, width, stepHeight);
-                var previousColor = GUI.backgroundColor;
-                var previousEnabled = GUI.enabled;
-
-                PlanActionOption option = i < _selectedPawnPlanOptions.Count ? _selectedPawnPlanOptions[i] : null;
-                bool isSelected = option != null && _selectedPlanOptionIndex.HasValue &&
-                    option.StepIndex == _selectedPlanOptionIndex.Value;
-                if (isSelected)
-                {
-                    GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
-                }
-
-                bool isActionable = allowManual && option != null && option.IsActionable;
-                GUI.enabled = isActionable;
-
-                if (GUI.Button(buttonRect, _selectedPawnPlanStepLines[i]) && option != null)
-                {
-                    HandlePlanOptionInvoked(option);
-                }
-
-                GUI.enabled = previousEnabled;
-                GUI.backgroundColor = previousColor;
-                currentY += stepHeight;
-            }
         }
 
         if (afterHeight > 0f)
@@ -1234,6 +1183,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingHeader = string.Empty;
         _selectedThingPanelBuilder.Clear();
         _selectedThingGuiContent.text = string.Empty;
+        _selectedPlanOptionIndex = null;
+        _selectedPlanOptionLabel = string.Empty;
     }
 
     private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
@@ -1409,8 +1360,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             PlanActionOption matchedOption = i < _selectedThingParticipation.Length
                 ? FindMatchingPlanOption(_selectedThingParticipation[i])
                 : null;
-            bool isSelected = matchedOption != null && _selectedPlanOptionIndex.HasValue &&
-                matchedOption.StepIndex == _selectedPlanOptionIndex.Value;
+            bool isSelected = _selectedPlanOptionIndex.HasValue && _selectedPlanOptionIndex.Value == i;
             if (isSelected)
             {
                 GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
@@ -1421,7 +1371,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
             if (GUI.Button(buttonRect, _selectedThingPlanLines[i], _selectedPawnPanelStyle) && matchedOption != null)
             {
-                HandlePlanOptionInvoked(matchedOption);
+                HandlePlanOptionInvoked(i);
             }
 
             GUI.enabled = previousEnabled;
@@ -1470,6 +1420,26 @@ public sealed class GoapSimulationView : MonoBehaviour
             return;
         }
 
+        if (_selectedPlanOptionIndex.HasValue)
+        {
+            int index = _selectedPlanOptionIndex.Value;
+            if (index >= 0 && index < _selectedThingParticipation.Length)
+            {
+                var participation = _selectedThingParticipation[index];
+                var currentMatch = FindMatchingPlanOption(participation);
+                if (currentMatch != null)
+                {
+                    _selectedPlanOptionLabel = index < _selectedThingPlanLines.Length
+                        ? _selectedThingPlanLines[index]
+                        : currentMatch.Label;
+                    return;
+                }
+            }
+
+            _selectedPlanOptionIndex = null;
+            _selectedPlanOptionLabel = string.Empty;
+        }
+
         for (int i = 0; i < _selectedThingParticipation.Length; i++)
         {
             var participation = _selectedThingParticipation[i];
@@ -1479,8 +1449,10 @@ public sealed class GoapSimulationView : MonoBehaviour
                 continue;
             }
 
-            _selectedPlanOptionIndex = matchedOption.StepIndex;
-            _selectedPlanOptionLabel = matchedOption.Label;
+            _selectedPlanOptionIndex = i;
+            _selectedPlanOptionLabel = i < _selectedThingPlanLines.Length
+                ? _selectedThingPlanLines[i]
+                : matchedOption.Label;
             return;
         }
 
@@ -1533,16 +1505,6 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanCurrentStep = string.Empty;
             _selectedPawnPlanUpdatedUtc = default;
             _selectedPawnPlanSteps = Array.Empty<string>();
-        }
-
-        if (_selectedPlanOptionIndex.HasValue)
-        {
-            bool stillPresent = _selectedPawnPlanOptions.Any(option => option.StepIndex == _selectedPlanOptionIndex.Value);
-            if (!stillPresent)
-            {
-                _selectedPlanOptionIndex = null;
-                _selectedPlanOptionLabel = string.Empty;
-            }
         }
 
         SyncPlanSelectionToThing();
@@ -1608,26 +1570,22 @@ public sealed class GoapSimulationView : MonoBehaviour
             hasPlanContent = true;
         }
 
-        string beforeStepsText;
         if (_selectedPawnPlanSteps.Length > 0)
         {
             builder.AppendLine("  Steps:");
             hasPlanContent = true;
-            beforeStepsText = builder.ToString();
-
-            var formattedSteps = new string[_selectedPawnPlanSteps.Length];
             for (int i = 0; i < _selectedPawnPlanSteps.Length; i++)
             {
-                formattedSteps[i] = string.Format(CultureInfo.InvariantCulture, "    {0}. {1}", i + 1, _selectedPawnPlanSteps[i]);
+                builder.Append("    ")
+                    .Append(i + 1)
+                    .Append(". ")
+                    .Append(_selectedPawnPlanSteps[i])
+                    .AppendLine();
             }
+        }
 
-            _selectedPawnPlanStepLines = formattedSteps;
-        }
-        else
-        {
-            beforeStepsText = builder.ToString();
-            _selectedPawnPlanStepLines = Array.Empty<string>();
-        }
+        string beforeStepsText = builder.ToString();
+        _selectedPawnPlanStepLines = Array.Empty<string>();
 
         builder.Clear();
 
@@ -2754,11 +2712,24 @@ public sealed class GoapSimulationView : MonoBehaviour
         return candidate;
     }
 
-    private void HandlePlanOptionInvoked(PlanActionOption option)
+    private void HandlePlanOptionInvoked(int participationIndex)
     {
+        if (_selectedThingId == null)
+        {
+            throw new InvalidOperationException("No thing is currently selected for manual plan execution.");
+        }
+
+        if (participationIndex < 0 || participationIndex >= _selectedThingParticipation.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(participationIndex));
+        }
+
+        var participation = _selectedThingParticipation[participationIndex];
+        var option = FindMatchingPlanOption(participation);
         if (option == null)
         {
-            throw new ArgumentNullException(nameof(option));
+            throw new InvalidOperationException(
+                $"No matching plan option is available for participation entry '{participation}'.");
         }
 
         if (!option.IsActionable || !option.TargetId.HasValue || !option.TargetPosition.HasValue)
@@ -2795,8 +2766,10 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanSnapshotVersion,
             option.ActivityId,
             option.GoalId);
-        _selectedPlanOptionIndex = option.StepIndex;
-        _selectedPlanOptionLabel = option.Label;
+        _selectedPlanOptionIndex = participationIndex;
+        _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
+            ? _selectedThingPlanLines[participationIndex]
+            : option.Label;
     }
 
     private static bool NullableThingIdEquals(ThingId? left, ThingId? right)
