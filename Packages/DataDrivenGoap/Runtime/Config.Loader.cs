@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DataDrivenGoap.Config
 {
@@ -57,6 +58,8 @@ namespace DataDrivenGoap.Config
         public ItemEffectConfig[] effects { get; set; }
         public string[] tools { get; set; }
         public string[] gifts { get; set; }
+
+        [JsonPropertyName("icon")]
         public string spriteSlug { get; set; }
     }
 
