@@ -1490,7 +1490,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             trimmed = trimmed.Substring(1);
         }
 
-        var normalizedRelative = trimmed.Replace('\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        var normalizedRelative = trimmed.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
         foreach (var root in EnumerateSpriteSearchRoots())
         {
             if (TryResolveRelativePathCaseInsensitive(root, normalizedRelative, out var resolved))
