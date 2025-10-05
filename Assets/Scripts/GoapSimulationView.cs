@@ -49,6 +49,40 @@ public sealed class GoapSimulationView : MonoBehaviour
     private static readonly Color BuildingTintColor = new Color(0.75f, 0.24f, 0.24f, 1f);
     private const float BuildingTintBlend = 0.65f;
 
+    private static readonly IReadOnlyDictionary<string, string> ThingIconManifest = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["altar"] = "/Sprites/Activities/activity_interact.png",
+        ["bakery_display"] = "/Sprites/Activities/activity_bakebread.png",
+        ["bed"] = "/Sprites/Activities/activity_rest.png",
+        ["bookcase"] = "/Sprites/Activities/activity_leisure.png",
+        ["bookshelf"] = "/Sprites/Activities/activity_leisure.png",
+        ["cabinet"] = "/Sprites/Activities/activity_work.png",
+        ["chair"] = "/Sprites/Activities/activity_leisure.png",
+        ["chalkboard"] = "/Sprites/Activities/activity_work.png",
+        ["counter"] = "/Sprites/Activities/activity_work.png",
+        ["desk"] = "/Sprites/Activities/activity_work.png",
+        ["display_counter"] = "/Sprites/Activities/activity_work.png",
+        ["lectern"] = "/Sprites/Activities/activity_interact.png",
+        ["meeting_table"] = "/Sprites/Activities/activity_chat.png",
+        ["oven"] = "/Sprites/Activities/cooking.png",
+        ["pantry"] = "/Sprites/Activities/activity_eat.png",
+        ["pew"] = "/Sprites/Activities/activity_rest.png",
+        ["prep_table"] = "/Sprites/Activities/cooking.png",
+        ["reading_table"] = "/Sprites/Activities/activity_leisure.png",
+        ["register"] = "/Sprites/Activities/activity_work.png",
+        ["service_bell"] = "/Sprites/Activities/activity_work.png",
+        ["shrine"] = "/Sprites/Activities/activity_quest.png",
+        ["stool"] = "/Sprites/Activities/activity_leisure.png",
+        ["storage_crate"] = "/Sprites/Activities/activity_work.png",
+        ["store_shelf"] = "/Sprites/Activities/activity_work.png",
+        ["stove"] = "/Sprites/Activities/cooking.png",
+        ["table"] = "/Sprites/Activities/activity_chat.png",
+        ["teacher_desk"] = "/Sprites/Activities/activity_work.png",
+        ["wardrobe"] = "/Sprites/Activities/activity_work.png",
+        ["washbasin"] = "/Sprites/Activities/activity_wait.png",
+        ["weapon"] = "/Sprites/Activities/activity_attack.png"
+    };
+
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
     private readonly Dictionary<ThingId, ThingVisual> _thingVisuals = new Dictionary<ThingId, ThingVisual>();
     private readonly Dictionary<ThingId, GridPos> _pawnPreviousGridPositions = new Dictionary<ThingId, GridPos>();
@@ -1343,6 +1377,12 @@ public sealed class GoapSimulationView : MonoBehaviour
             return cached;
         }
 
+        if (TryLoadThingSprite(normalized, out var loadedSprite))
+        {
+            _thingSpriteCache[normalized] = loadedSprite;
+            return loadedSprite;
+        }
+
         var color = DeriveThingColor(normalized);
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
         var pixel = (Color32)color;
@@ -1361,6 +1401,23 @@ public sealed class GoapSimulationView : MonoBehaviour
         _thingSpriteCache[normalized] = sprite;
         _thingTextureCache[normalized] = texture;
         return sprite;
+    }
+
+    private bool TryLoadThingSprite(string normalizedType, out Sprite sprite)
+    {
+        sprite = null;
+        if (string.IsNullOrWhiteSpace(normalizedType))
+        {
+            return false;
+        }
+
+        if (!ThingIconManifest.TryGetValue(normalizedType, out var manifestPath))
+        {
+            return false;
+        }
+
+        sprite = LoadSpriteAsset(manifestPath);
+        return sprite != null;
     }
 
     private Color DeriveThingColor(string normalizedType)
@@ -1390,26 +1447,156 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
-    private static string ResolveSpriteAbsolutePath(string manifestPath)
+    private string ResolveSpriteAbsolutePath(string manifestPath)
     {
+        if (!TryResolveSpriteAbsolutePath(manifestPath, out var absolutePath))
+        {
+            throw new FileNotFoundException($"Sprite asset '{manifestPath}' could not be resolved relative to known search paths.", manifestPath);
+        }
+
+        return absolutePath;
+    }
+
+    private bool TryResolveSpriteAbsolutePath(string manifestPath, out string absolutePath)
+    {
+        absolutePath = null;
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            return false;
+        }
+
         var trimmed = manifestPath.Trim();
-        string candidate;
+
         if (Path.IsPathRooted(trimmed))
         {
-            candidate = trimmed;
-        }
-        else
-        {
-            if (trimmed.StartsWith("/", StringComparison.Ordinal))
+            if (File.Exists(trimmed))
             {
-                trimmed = trimmed.Substring(1);
+                absolutePath = Path.GetFullPath(trimmed);
+                return true;
             }
 
-            trimmed = trimmed.Replace('/', Path.DirectorySeparatorChar);
-            candidate = Path.Combine(Application.dataPath, trimmed);
+            var root = Path.GetPathRoot(trimmed);
+            if (string.IsNullOrEmpty(root))
+            {
+                return false;
+            }
+
+            var remainder = trimmed.Substring(root.Length);
+            return TryResolveRelativePathCaseInsensitive(root, remainder, out absolutePath);
         }
 
-        return Path.GetFullPath(candidate);
+        if (trimmed.StartsWith("/", StringComparison.Ordinal) || trimmed.StartsWith("\\", StringComparison.Ordinal))
+        {
+            trimmed = trimmed.Substring(1);
+        }
+
+        var normalizedRelative = trimmed.Replace('\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        foreach (var root in EnumerateSpriteSearchRoots())
+        {
+            if (TryResolveRelativePathCaseInsensitive(root, normalizedRelative, out var resolved))
+            {
+                absolutePath = resolved;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private IEnumerable<string> EnumerateSpriteSearchRoots()
+    {
+        if (!string.IsNullOrEmpty(_datasetRoot))
+        {
+            yield return _datasetRoot;
+            var parent = Directory.GetParent(_datasetRoot);
+            if (parent != null)
+            {
+                yield return parent.FullName;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(Application.dataPath))
+        {
+            yield return Application.dataPath;
+        }
+    }
+
+    private static bool TryResolveRelativePathCaseInsensitive(string baseDirectory, string relativePath, out string resolvedPath)
+    {
+        resolvedPath = null;
+        if (string.IsNullOrWhiteSpace(baseDirectory) || !Directory.Exists(baseDirectory))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        var segments = relativePath.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+        var current = Path.GetFullPath(baseDirectory);
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            if (segment == ".")
+            {
+                continue;
+            }
+
+            if (segment == "..")
+            {
+                var parent = Directory.GetParent(current);
+                if (parent == null)
+                {
+                    return false;
+                }
+
+                current = parent.FullName;
+                continue;
+            }
+
+            bool last = i == segments.Length - 1;
+            if (last)
+            {
+                var candidateFile = Path.Combine(current, segment);
+                if (File.Exists(candidateFile))
+                {
+                    resolvedPath = Path.GetFullPath(candidateFile);
+                    return true;
+                }
+
+                var match = Directory.EnumerateFileSystemEntries(current)
+                    .FirstOrDefault(entry => string.Equals(Path.GetFileName(entry), segment, StringComparison.OrdinalIgnoreCase));
+                if (match != null && File.Exists(match))
+                {
+                    resolvedPath = Path.GetFullPath(match);
+                    return true;
+                }
+
+                return false;
+            }
+
+            var candidateDirectory = Path.Combine(current, segment);
+            if (Directory.Exists(candidateDirectory))
+            {
+                current = Path.GetFullPath(candidateDirectory);
+                continue;
+            }
+
+            var directoryMatch = Directory.EnumerateDirectories(current)
+                .FirstOrDefault(dir => string.Equals(Path.GetFileName(dir), segment, StringComparison.OrdinalIgnoreCase));
+            if (directoryMatch == null)
+            {
+                return false;
+            }
+
+            current = Path.GetFullPath(directoryMatch);
+        }
+
+        return false;
     }
 
     private void EnsurePawnContainer()

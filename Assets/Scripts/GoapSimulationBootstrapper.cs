@@ -1122,7 +1122,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             throw new InvalidDataException($"Pawn '{pawnId}' references unresolved locations: {string.Join(", ", unresolvedLocations)}.");
         }
 
-        return new GridPos(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
+        return CreateWorldPosition(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
     }
 
     private bool TryResolvePositionFromLocation(string locationId, out GridPos position, out string resolvedLocationId, out bool locationSpecified)
@@ -1191,7 +1191,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             {
                 Id = id,
                 Type = thing.type.Trim(),
-                Position = new GridPos(ClampCoordinate(thing.x, _demoConfig.world.width), ClampCoordinate(thing.y, _demoConfig.world.height)),
+                Position = CreateWorldPosition(thing.x, thing.y),
                 Building = BuildBuildingInfo(thing.building, thing.building?.service_points, thing.building?.area)
             };
 
@@ -1270,7 +1270,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             {
                 var locationId = annotation.location ?? kv.Key;
                 var id = new ThingId(BuildPrototypeThingId(prototype, locationId));
-                var position = ResolveLocationCenter(villageConfig, annotation.location) ?? new GridPos(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
+                var position = ResolveLocationCenter(villageConfig, annotation.location) ?? CreateWorldPosition(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
                 var location = ResolveLocation(villageConfig, locationId);
                 var boundingBox = ResolveBoundingBox(annotation, location);
 
@@ -1342,9 +1342,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         double[] center = location.center ?? Array.Empty<double>();
         if (center.Length >= 2)
         {
-            return new GridPos(
-                ClampCoordinate((int)Math.Round(center[0], MidpointRounding.AwayFromZero), _demoConfig.world.width),
-                ClampCoordinate((int)Math.Round(center[1], MidpointRounding.AwayFromZero), _demoConfig.world.height));
+            return CreateWorldPositionFromDouble(center[0], center[1]);
         }
 
         double[] bbox = location.bbox ?? Array.Empty<double>();
@@ -1352,9 +1350,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         {
             double x = (bbox[0] + bbox[2]) * 0.5;
             double y = (bbox[1] + bbox[3]) * 0.5;
-            return new GridPos(
-                ClampCoordinate((int)Math.Round(x, MidpointRounding.AwayFromZero), _demoConfig.world.width),
-                ClampCoordinate((int)Math.Round(y, MidpointRounding.AwayFromZero), _demoConfig.world.height));
+            return CreateWorldPositionFromDouble(x, y);
         }
 
         return null;
@@ -1406,6 +1402,54 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return value;
     }
 
+    private GridPos CreateWorldPosition(int x, int y)
+    {
+        return CreateWorldPosition((int?)x, (int?)y);
+    }
+
+    private GridPos CreateWorldPosition(int? x, int? y)
+    {
+        if (_demoConfig?.world == null)
+        {
+            throw new InvalidOperationException("World configuration must be loaded before converting coordinates.");
+        }
+
+        int width = _demoConfig.world.width;
+        int height = _demoConfig.world.height;
+        int clampedX = ClampCoordinate(x, width);
+        int clampedY = ClampCoordinate(y, height);
+        int flippedY = FlipYCoordinate(clampedY, height);
+        return new GridPos(clampedX, flippedY);
+    }
+
+    private GridPos CreateWorldPositionFromDouble(double x, double y)
+    {
+        int xi = (int)Math.Round(x, MidpointRounding.AwayFromZero);
+        int yi = (int)Math.Round(y, MidpointRounding.AwayFromZero);
+        return CreateWorldPosition(xi, yi);
+    }
+
+    private static int FlipYCoordinate(int y, int height)
+    {
+        if (height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "World height must be positive to convert coordinates.");
+        }
+
+        int flipped = (height - 1) - y;
+        if (flipped < 0)
+        {
+            return 0;
+        }
+
+        if (flipped >= height)
+        {
+            return height - 1;
+        }
+
+        return flipped;
+    }
+
     private ServicePointConfig[] ConvertServicePoints(MapServicePointConfig[] mapServicePoints, double[] boundingBox)
     {
         if (mapServicePoints == null)
@@ -1429,13 +1473,16 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             if (point.x.HasValue)
             {
                 var resolvedX = TranslateServicePointCoordinate(point.x.Value, boundingBox, axis: 0);
-                x = ConvertCoordinate(resolvedX, "service point x");
+                int xValue = ConvertCoordinate(resolvedX, "service point x");
+                x = ClampCoordinate(xValue, _demoConfig.world.width);
             }
 
             if (point.y.HasValue)
             {
                 var resolvedY = TranslateServicePointCoordinate(point.y.Value, boundingBox, axis: 1);
-                y = ConvertCoordinate(resolvedY, "service point y");
+                int yValue = ConvertCoordinate(resolvedY, "service point y");
+                int clampedY = ClampCoordinate(yValue, _demoConfig.world.height);
+                y = FlipYCoordinate(clampedY, _demoConfig.world.height);
             }
 
             converted[i] = new ServicePointConfig
@@ -1504,6 +1551,36 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return (int)rounded;
     }
 
+    private RectInt? BuildWorldArea(BuildingAreaConfig areaConfig)
+    {
+        if (areaConfig == null)
+        {
+            return null;
+        }
+
+        if (_demoConfig?.world == null)
+        {
+            throw new InvalidOperationException("World configuration must be loaded before converting building areas.");
+        }
+
+        int width = _demoConfig.world.width;
+        int height = _demoConfig.world.height;
+
+        int minX = ClampCoordinate(areaConfig.x, width);
+        int minYRaw = ClampCoordinate(areaConfig.y, height);
+        int maxX = ClampCoordinate((areaConfig.x ?? 0) + Math.Max(0, (areaConfig.width ?? 0) - 1), width);
+        int maxYRaw = ClampCoordinate((areaConfig.y ?? 0) + Math.Max(0, (areaConfig.height ?? 0) - 1), height);
+
+        int minY = FlipYCoordinate(maxYRaw, height);
+        int maxY = FlipYCoordinate(minYRaw, height);
+        if (minY > maxY)
+        {
+            (minY, maxY) = (maxY, minY);
+        }
+
+        return new RectInt(minX, minY, maxX, maxY);
+    }
+
     private BuildingInfo BuildBuildingInfo(BuildingConfig config, ServicePointConfig[] servicePoints, BuildingAreaConfig areaConfig)
     {
         if (config == null && areaConfig == null && (servicePoints == null || servicePoints.Length == 0))
@@ -1514,19 +1591,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         RectInt? area = null;
         if (config?.area != null)
         {
-            area = new RectInt(
-                Math.Max(0, config.area.x ?? 0),
-                Math.Max(0, config.area.y ?? 0),
-                Math.Max(0, (config.area.x ?? 0) + Math.Max(0, (config.area.width ?? 0) - 1)),
-                Math.Max(0, (config.area.y ?? 0) + Math.Max(0, (config.area.height ?? 0) - 1)));
+            area = BuildWorldArea(config.area);
         }
         else if (areaConfig != null)
         {
-            area = new RectInt(
-                Math.Max(0, areaConfig.x ?? 0),
-                Math.Max(0, areaConfig.y ?? 0),
-                Math.Max(0, (areaConfig.x ?? 0) + Math.Max(0, (areaConfig.width ?? 0) - 1)),
-                Math.Max(0, (areaConfig.y ?? 0) + Math.Max(0, (areaConfig.height ?? 0) - 1)));
+            area = BuildWorldArea(areaConfig);
         }
 
         var points = new List<GridPos>();
@@ -1539,6 +1608,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
             int px = ClampCoordinate(point.x, _demoConfig.world.width);
             int py = ClampCoordinate(point.y, _demoConfig.world.height);
+            py = FlipYCoordinate(py, _demoConfig.world.height);
             points.Add(new GridPos(px, py));
         }
 
@@ -1659,7 +1729,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 }
 
                 var id = new ThingId($"fishing_spot_{x}_{y}");
-                _fishingSystem.RegisterSpot(id, new GridPos(x, y), _tiles.Shallow[x, y]);
+                _fishingSystem.RegisterSpot(id, CreateWorldPosition(x, y), _tiles.Shallow[x, y]);
             }
         }
     }
@@ -1693,7 +1763,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 }
 
                 var id = new ThingId($"forage_spot_{x}_{y}");
-                _foragingSystem.RegisterSpot(id, new GridPos(x, y), forest, coast);
+                _foragingSystem.RegisterSpot(id, CreateWorldPosition(x, y), forest, coast);
             }
         }
     }
@@ -1713,7 +1783,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             }
 
             var id = new ThingId(node.id.Trim());
-            var position = new GridPos(ClampCoordinate(node.x, _demoConfig.world.width), ClampCoordinate(node.y, _demoConfig.world.height));
+            var position = CreateWorldPosition(node.x, node.y);
             var layerId = node.layer ?? string.Empty;
             var biomes = node.biomes ?? Array.Empty<string>();
             _miningSystem.RegisterNode(id, position, layerId, biomes);
