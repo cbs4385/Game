@@ -1319,28 +1319,44 @@ public sealed class GoapSimulationView : MonoBehaviour
             ? pawnPanelRect.yMax + verticalSpacing
             : selectedPawnPanelOffset.y;
 
-        var builder = _selectedThingPanelBuilder;
-        builder.Clear();
-        builder.AppendLine(_selectedThingHeader);
         int entryCount = _selectedThingParticipation.Length;
-        var label = entryCount == 1 ? "Plan Participation (1 entry):" : string.Format(CultureInfo.InvariantCulture, "Plan Participation ({0} entries):", entryCount);
-        builder.AppendLine(label);
-        for (int i = 0; i < _selectedThingPlanLines.Length; i++)
+        var participationLabel = entryCount == 1
+            ? "Plan Participation (1 entry):"
+            : string.Format(CultureInfo.InvariantCulture, "Plan Participation ({0} entries):", entryCount);
+
+        var content = _selectedThingGuiContent;
+        content.text = _selectedThingHeader;
+        float headerHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
+
+        content.text = participationLabel;
+        float participationHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
+
+        float[] lineHeights = Array.Empty<float>();
+        if (_selectedThingPlanLines.Length > 0)
         {
-            builder.Append("  ").Append(_selectedThingPlanLines[i]).AppendLine();
+            lineHeights = new float[_selectedThingPlanLines.Length];
+            for (int i = 0; i < _selectedThingPlanLines.Length; i++)
+            {
+                content.text = _selectedThingPlanLines[i];
+                lineHeights[i] = _selectedPawnPanelStyle.CalcHeight(content, width);
+            }
         }
 
-        var panelText = builder.ToString();
-        builder.Clear();
-        if (string.IsNullOrEmpty(panelText))
+        float totalHeight = headerHeight + participationHeight;
+        if (lineHeights.Length > 0)
+        {
+            for (int i = 0; i < lineHeights.Length; i++)
+            {
+                totalHeight += lineHeights[i];
+            }
+        }
+
+        if (totalHeight <= 0f)
         {
             return;
         }
 
-        var content = _selectedThingGuiContent;
-        content.text = panelText;
-        float height = _selectedPawnPanelStyle.CalcHeight(content, width);
-        var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, height));
+        var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, totalHeight));
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
@@ -1357,7 +1373,90 @@ public sealed class GoapSimulationView : MonoBehaviour
             GUI.color = previous;
         }
 
-        GUI.Label(panelRect, content, _selectedPawnPanelStyle);
+        float currentY = verticalPosition;
+
+        if (headerHeight > 0f)
+        {
+            content.text = _selectedThingHeader;
+            var headerRect = new Rect(horizontalPosition, currentY, width, headerHeight);
+            GUI.Label(headerRect, content, _selectedPawnPanelStyle);
+            currentY += headerHeight;
+        }
+
+        if (participationHeight > 0f)
+        {
+            content.text = participationLabel;
+            var participationRect = new Rect(horizontalPosition, currentY, width, participationHeight);
+            GUI.Label(participationRect, content, _selectedPawnPanelStyle);
+            currentY += participationHeight;
+        }
+
+        if (_selectedThingPlanLines.Length == 0)
+        {
+            return;
+        }
+
+        bool allowManual = _selectedPawnId.HasValue && _manualPawnIds.Contains(_selectedPawnId.Value);
+        for (int i = 0; i < _selectedThingPlanLines.Length; i++)
+        {
+            float lineHeight = lineHeights[i];
+            var buttonRect = new Rect(horizontalPosition, currentY, width, lineHeight);
+            var previousBackground = GUI.backgroundColor;
+            var previousEnabled = GUI.enabled;
+
+            PlanActionOption matchedOption = i < _selectedThingParticipation.Length
+                ? FindMatchingPlanOption(_selectedThingParticipation[i])
+                : null;
+            bool isSelected = matchedOption != null && _selectedPlanOptionIndex.HasValue &&
+                matchedOption.StepIndex == _selectedPlanOptionIndex.Value;
+            if (isSelected)
+            {
+                GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
+            }
+
+            bool isActionable = allowManual && matchedOption != null && matchedOption.IsActionable;
+            GUI.enabled = isActionable;
+
+            if (GUI.Button(buttonRect, _selectedThingPlanLines[i], _selectedPawnPanelStyle) && matchedOption != null)
+            {
+                HandlePlanOptionInvoked(matchedOption);
+            }
+
+            GUI.enabled = previousEnabled;
+            GUI.backgroundColor = previousBackground;
+            currentY += lineHeight;
+        }
+    }
+
+    private PlanActionOption FindMatchingPlanOption(ThingPlanParticipation participation)
+    {
+        if (_selectedThingId == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
+        {
+            var option = _selectedPawnPlanOptions[i];
+            if (!option.TargetId.HasValue)
+            {
+                continue;
+            }
+
+            if (!NullableThingIdEquals(option.TargetId, _selectedThingId))
+            {
+                continue;
+            }
+
+            if (!string.Equals(option.ActivityId, participation.Activity, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return option;
+        }
+
+        return null;
     }
 
     private void PopulateSelectedPawnPlan(ThingId selectedId, IWorldSnapshot snapshot)
