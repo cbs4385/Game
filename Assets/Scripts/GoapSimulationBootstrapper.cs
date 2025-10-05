@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Concurrency;
 using DataDrivenGoap.Core;
@@ -201,6 +202,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private sealed class ManualActorState
     {
+        private static readonly BindingFlags RngFieldBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+        private static readonly FieldInfo SeedArrayField = ResolveField("_seedArray", "SeedArray");
+        private static readonly FieldInfo InextField = ResolveField("_inext", "inext");
+        private static readonly FieldInfo InextpField = ResolveField("_inextp", "inextp");
+
         public ManualActorState(System.Random rng)
         {
             Rng = rng ?? throw new ArgumentNullException(nameof(rng));
@@ -209,6 +215,79 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public System.Random Rng { get; }
         public Dictionary<string, DateTime> PlanCooldownUntil { get; } =
             new Dictionary<string, DateTime>(StringComparer.Ordinal);
+
+        public System.Random CreatePreviewRng()
+        {
+            var clone = new System.Random(0);
+            CloneRandomState(Rng, clone);
+            return clone;
+        }
+
+        private static FieldInfo ResolveField(params string[] candidateNames)
+        {
+            if (candidateNames == null || candidateNames.Length == 0)
+            {
+                throw new ArgumentException("At least one field name must be provided to resolve a System.Random field.", nameof(candidateNames));
+            }
+
+            for (int i = 0; i < candidateNames.Length; i++)
+            {
+                var candidate = candidateNames[i];
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                var field = typeof(System.Random).GetField(candidate, RngFieldBindingFlags);
+                if (field != null)
+                {
+                    return field;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"System.Random implementation does not expose expected field(s) for cloning (candidates: {string.Join(", ", candidateNames)}).");
+        }
+
+        private static void CloneRandomState(System.Random source, System.Random destination)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            var sourceSeedArray = (int[])SeedArrayField.GetValue(source);
+            var destinationSeedArray = (int[])SeedArrayField.GetValue(destination);
+
+            if (sourceSeedArray == null || destinationSeedArray == null)
+            {
+                throw new InvalidOperationException("System.Random implementation returned a null seed array during cloning.");
+            }
+
+            if (destinationSeedArray.Length != sourceSeedArray.Length)
+            {
+                Array.Resize(ref destinationSeedArray, sourceSeedArray.Length);
+                SeedArrayField.SetValue(destination, destinationSeedArray);
+            }
+
+            Array.Copy(sourceSeedArray, destinationSeedArray, sourceSeedArray.Length);
+
+            var sourceInext = InextField.GetValue(source);
+            var sourceInextp = InextpField.GetValue(source);
+
+            if (sourceInext == null || sourceInextp == null)
+            {
+                throw new InvalidOperationException("System.Random implementation returned null indices during cloning.");
+            }
+
+            InextField.SetValue(destination, sourceInext);
+            InextpField.SetValue(destination, sourceInextp);
+        }
     }
 
     private readonly List<ActorHost> _actorHosts = new List<ActorHost>();
@@ -370,7 +449,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             return null;
         }
 
-        var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, state.Rng);
+        var previewRng = state.CreatePreviewRng();
+        var plan = _planner.Plan(snapshot, actorId, null, priorityJitter, previewRng);
         if (plan?.Steps == null || plan.Steps.Count == 0)
         {
             return null;
