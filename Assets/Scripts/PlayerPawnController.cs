@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Effects;
 using DataDrivenGoap.World;
@@ -281,16 +282,41 @@ public sealed class PlayerPawnController : MonoBehaviour
                 expectedSnapshotVersion.Value);
         }
 
-        var snapshot = _world.Snap();
+        IWorldSnapshot snapshot = null;
+        const int maxSnapshotAttempts = 5;
+        const float snapshotRetryTimeoutSeconds = 0.1f;
+        float retryStart = Time.realtimeSinceStartup;
+
+        for (int attempt = 0; attempt < maxSnapshotAttempts; attempt++)
+        {
+            snapshot = _world.Snap();
+            if (snapshot == null)
+            {
+                throw new InvalidOperationException("World snapshot could not be captured while issuing a manual interaction.");
+            }
+
+            if (!updatedSnapshotVersion.HasValue || snapshot.Version >= updatedSnapshotVersion.Value)
+            {
+                break;
+            }
+
+            if (Time.realtimeSinceStartup - retryStart >= snapshotRetryTimeoutSeconds)
+            {
+                break;
+            }
+
+            Thread.Sleep(1);
+        }
+
         if (snapshot == null)
         {
             throw new InvalidOperationException("World snapshot could not be captured while issuing a manual interaction.");
         }
 
-        if (updatedSnapshotVersion.HasValue && snapshot.Version != updatedSnapshotVersion.Value)
+        if (updatedSnapshotVersion.HasValue && snapshot.Version < updatedSnapshotVersion.Value)
         {
             throw new InvalidOperationException(
-                $"World snapshot version {snapshot.Version} no longer matches the manual plan execution result {updatedSnapshotVersion.Value}.");
+                $"World snapshot version {snapshot.Version} regressed below the manual plan execution result {updatedSnapshotVersion.Value}.");
         }
 
         ExecuteManualInteract(snapshot, targetId, targetPos, planStepIndex);
