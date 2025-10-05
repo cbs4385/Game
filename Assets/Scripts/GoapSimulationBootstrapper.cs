@@ -175,6 +175,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private List<GoalConfig> _goalConfigs;
     private string[] _needAttributeNames = Array.Empty<string>();
     private ThingId? _playerPawnId;
+    private VillageConfig _villageConfig;
 
     private bool _simulationRunning;
 
@@ -358,6 +359,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _tiles = null;
         _actionConfigs = null;
         _goalConfigs = null;
+        _villageConfig = null;
 
         Bootstrapped = null;
     }
@@ -407,7 +409,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         var eventDatabase = ConfigLoader.LoadCalendarEvents(RequireFile(datasetRoot, _demoConfig.events?.path, "events.path"));
         _dialogueDatabase = ConfigLoader.LoadDialogue(RequireFile(datasetRoot, _demoConfig.dialogue?.path, "dialogue.path"));
         var questDatabase = ConfigLoader.LoadQuests(RequireFile(datasetRoot, _demoConfig.quests?.path, "quests.path"));
-        var villageConfig = ConfigLoader.LoadVillageConfig(RequireFile(datasetRoot, _demoConfig.world?.map?.data, "world.map.data"));
+        _villageConfig = ConfigLoader.LoadVillageConfig(RequireFile(datasetRoot, _demoConfig.world?.map?.data, "world.map.data"));
         string mapImagePath = RequireFile(datasetRoot, _demoConfig.world?.map?.image, "world.map.image");
 
         _clock = new WorldClock(_demoConfig.time);
@@ -425,11 +427,11 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _questSystem = new QuestSystem(questDatabase?.quests ?? Array.Empty<QuestConfig>());
         _scheduleService = new RoleScheduleService();
 
-        var mapData = LoadTileClassification(mapImagePath, _demoConfig.world.map, villageConfig);
+        var mapData = LoadTileClassification(mapImagePath, _demoConfig.world.map, _villageConfig);
         _tiles = mapData.Classification;
         _mapTexture = mapData.Texture;
 
-        var seeds = BuildThingSeeds(_demoConfig.world, villageConfig);
+        var seeds = BuildThingSeeds(_demoConfig.world, _villageConfig);
         var facts = BuildWorldFacts(_demoConfig.world);
 
         _world = new ShardedWorld(
@@ -1092,17 +1094,69 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
     private GridPos ResolvePawnPosition(VillagePawn pawn)
     {
-        if (pawn?.home?.location != null && _locationToThing.TryGetValue(pawn.home.location.Trim(), out var homeThing) && _seedByThing.TryGetValue(homeThing, out var homeSeed))
+        var unresolvedLocations = new List<string>();
+
+        if (TryResolvePositionFromLocation(pawn?.home?.location, out var resolvedPosition, out var resolvedLocation, out var locationSpecified))
         {
-            return homeSeed.Position;
+            return resolvedPosition;
         }
 
-        if (pawn?.workplace?.location != null && _locationToThing.TryGetValue(pawn.workplace.location.Trim(), out var workThing) && _seedByThing.TryGetValue(workThing, out var workSeed))
+        if (locationSpecified)
         {
-            return workSeed.Position;
+            unresolvedLocations.Add(resolvedLocation);
+        }
+
+        if (TryResolvePositionFromLocation(pawn?.workplace?.location, out resolvedPosition, out resolvedLocation, out locationSpecified))
+        {
+            return resolvedPosition;
+        }
+
+        if (locationSpecified && !unresolvedLocations.Contains(resolvedLocation, StringComparer.OrdinalIgnoreCase))
+        {
+            unresolvedLocations.Add(resolvedLocation);
+        }
+
+        if (unresolvedLocations.Count > 0)
+        {
+            string pawnId = string.IsNullOrWhiteSpace(pawn?.id) ? "<unknown>" : pawn.id.Trim();
+            throw new InvalidDataException($"Pawn '{pawnId}' references unresolved locations: {string.Join(", ", unresolvedLocations)}.");
         }
 
         return new GridPos(_demoConfig.world.width / 2, _demoConfig.world.height / 2);
+    }
+
+    private bool TryResolvePositionFromLocation(string locationId, out GridPos position, out string resolvedLocationId, out bool locationSpecified)
+    {
+        position = default;
+        resolvedLocationId = null;
+
+        if (string.IsNullOrWhiteSpace(locationId))
+        {
+            locationSpecified = false;
+            return false;
+        }
+
+        resolvedLocationId = locationId.Trim();
+        locationSpecified = true;
+
+        if (_locationToThing.TryGetValue(resolvedLocationId, out var thing) && _seedByThing.TryGetValue(thing, out var seed))
+        {
+            position = seed.Position;
+            return true;
+        }
+
+        var villageConfig = _villageConfig;
+        if (villageConfig != null)
+        {
+            var center = ResolveLocationCenter(villageConfig, resolvedLocationId);
+            if (center.HasValue)
+            {
+                position = center.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AddConfiguredThings(WorldConfig worldConfig, List<ThingSeed> seeds)
