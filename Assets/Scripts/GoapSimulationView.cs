@@ -21,6 +21,10 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField] private PlayerPawnController playerPawnController;
     [SerializeField] private int mapSortingOrder = -100;
     [SerializeField] private int pawnSortingOrder = 0;
+    [SerializeField] private int thingSortingOrder = -50;
+    [SerializeField, Min(0.01f)] private float thingMarkerScale = 0.6f;
+    [SerializeField, Range(0f, 1f)] private float thingMarkerAlpha = 0.9f;
+    [SerializeField] private bool showThingMarkers = true;
     [SerializeField] private Vector2 clockScreenOffset = new Vector2(16f, 16f);
     [SerializeField] private Vector2 clockBackgroundPadding = new Vector2(12f, 8f);
     [SerializeField] private Color clockTextColor = Color.white;
@@ -46,9 +50,12 @@ public sealed class GoapSimulationView : MonoBehaviour
     private const float BuildingTintBlend = 0.65f;
 
     private readonly Dictionary<ThingId, PawnVisual> _pawnVisuals = new Dictionary<ThingId, PawnVisual>();
+    private readonly Dictionary<ThingId, ThingVisual> _thingVisuals = new Dictionary<ThingId, ThingVisual>();
     private readonly Dictionary<ThingId, GridPos> _pawnPreviousGridPositions = new Dictionary<ThingId, GridPos>();
     private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Texture2D> _textureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Sprite> _thingSpriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Texture2D> _thingTextureCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _pawnSpritePaths = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
     private readonly GUIContent _clockGuiContent = new GUIContent();
     private readonly GUIContent _pawnUpdateGuiContent = new GUIContent();
@@ -64,6 +71,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private bool _ownsMapTexture;
     private GoapSimulationBootstrapper.SimulationReadyEventArgs.TileClassificationSnapshot _tileClassification;
     private Transform _pawnRoot;
+    private Transform _thingRoot;
     private WorldClock _clock;
     private string _clockLabel = string.Empty;
     private string _pawnUpdateLabel = string.Empty;
@@ -94,6 +102,8 @@ public sealed class GoapSimulationView : MonoBehaviour
     private UnityEngine.Rendering.Universal.PixelPerfectCamera _pixelPerfectCamera;
     private bool _showOnlySelectedPawn;
     private bool _selectedPawnVisibilityDirty;
+    private readonly HashSet<ThingId> _thingUpdateScratch = new HashSet<ThingId>();
+    private readonly List<ThingId> _thingRemovalScratch = new List<ThingId>();
 
     private void Awake()
     {
@@ -143,6 +153,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         UpdatePawnDiagnosticsLabel();
 
         var snapshot = _world.Snap();
+        EnsureThingVisuals(snapshot);
         var clickedPawnId = DetectClickedPawn(snapshot);
         if (clickedPawnId.HasValue)
         {
@@ -261,10 +272,19 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         EnsurePawnContainer();
+        if (showThingMarkers)
+        {
+            EnsureThingRoot();
+        }
+        else
+        {
+            ClearThingVisuals();
+        }
         LoadSpriteManifest(Path.Combine(_datasetRoot, "sprites_manifest.json"));
 
         var snapshot = _world.Snap();
         LoadMap(args.MapTexture, _tileClassification, snapshot.Width, snapshot.Height);
+        EnsureThingVisuals(snapshot);
         CreatePawnVisuals(snapshot);
         ValidateSelectedPawnPresence();
         TryApplySelectedPawnVisibility();
@@ -350,6 +370,82 @@ public sealed class GoapSimulationView : MonoBehaviour
         _pawnUpdateGuiContent.text = label;
     }
 
+    private void EnsureThingVisuals(IWorldSnapshot snapshot)
+    {
+        if (!showThingMarkers)
+        {
+            if (_thingVisuals.Count > 0)
+            {
+                ClearThingVisuals();
+            }
+
+            _thingUpdateScratch.Clear();
+            _thingRemovalScratch.Clear();
+            return;
+        }
+
+        if (snapshot == null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+
+        EnsureThingRoot();
+
+        _thingUpdateScratch.Clear();
+
+        foreach (var thing in snapshot.AllThings())
+        {
+            if (thing == null)
+            {
+                throw new InvalidOperationException("World snapshot returned a null thing entry while synchronizing visuals.");
+            }
+
+            if (_pawnDefinitions.ContainsKey(thing.Id))
+            {
+                continue;
+            }
+
+            _thingUpdateScratch.Add(thing.Id);
+
+            if (!_thingVisuals.TryGetValue(thing.Id, out var visual))
+            {
+                visual = CreateThingVisual(thing);
+                _thingVisuals[thing.Id] = visual;
+            }
+
+            var scale = Mathf.Max(thingMarkerScale, 0.01f);
+            visual.Root.localScale = new Vector3(scale, scale, 1f);
+            UpdateThingPosition(visual, thing.Position);
+        }
+
+        if (_thingVisuals.Count > _thingUpdateScratch.Count)
+        {
+            _thingRemovalScratch.Clear();
+            foreach (var entry in _thingVisuals)
+            {
+                if (!_thingUpdateScratch.Contains(entry.Key))
+                {
+                    _thingRemovalScratch.Add(entry.Key);
+                }
+            }
+
+            for (int i = 0; i < _thingRemovalScratch.Count; i++)
+            {
+                var id = _thingRemovalScratch[i];
+                if (_thingVisuals.TryGetValue(id, out var visual) && visual?.Root != null)
+                {
+                    Destroy(visual.Root.gameObject);
+                }
+
+                _thingVisuals.Remove(id);
+            }
+
+            _thingRemovalScratch.Clear();
+        }
+
+        _thingUpdateScratch.Clear();
+    }
+
     private void CreatePawnVisuals(IWorldSnapshot snapshot)
     {
         foreach (var actor in _actors)
@@ -420,6 +516,48 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         var translated = new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f);
         visual.Root.localPosition = translated;
+    }
+
+    private void UpdateThingPosition(ThingVisual visual, GridPos position)
+    {
+        if (visual == null)
+        {
+            throw new ArgumentNullException(nameof(visual));
+        }
+
+        var translated = new Vector3(position.X + 0.5f, position.Y + 0.5f, 0f);
+        visual.Root.localPosition = translated;
+    }
+
+    private ThingVisual CreateThingVisual(ThingView thing)
+    {
+        if (thing == null)
+        {
+            throw new ArgumentNullException(nameof(thing));
+        }
+
+        if (_thingRoot == null)
+        {
+            throw new InvalidOperationException("Thing root must be initialized before creating thing visuals.");
+        }
+
+        var type = thing.Type?.Trim();
+        if (string.IsNullOrWhiteSpace(type))
+        {
+            throw new InvalidDataException($"Thing '{thing.Id.Value}' is missing a type definition in the world snapshot.");
+        }
+
+        var sprite = GetOrCreateThingSprite(type);
+        var go = new GameObject($"Thing_{thing.Id.Value}");
+        go.transform.SetParent(_thingRoot, false);
+        var scale = Mathf.Max(thingMarkerScale, 0.01f);
+        go.transform.localScale = new Vector3(scale, scale, 1f);
+        var renderer = go.AddComponent<SpriteRenderer>();
+        renderer.sprite = sprite;
+        renderer.sortingOrder = thingSortingOrder;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        return new ThingVisual(go.transform, renderer, type);
     }
 
     private void UpdateObserverCamera(IWorldSnapshot snapshot)
@@ -1192,6 +1330,66 @@ public sealed class GoapSimulationView : MonoBehaviour
         return sprite;
     }
 
+    private Sprite GetOrCreateThingSprite(string type)
+    {
+        if (string.IsNullOrWhiteSpace(type))
+        {
+            throw new ArgumentException("Thing type must be provided.", nameof(type));
+        }
+
+        var normalized = type.Trim();
+        if (_thingSpriteCache.TryGetValue(normalized, out var cached))
+        {
+            return cached;
+        }
+
+        var color = DeriveThingColor(normalized);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+        var pixel = (Color32)color;
+        texture.SetPixels32(new[] { pixel, pixel, pixel, pixel });
+        texture.filterMode = FilterMode.Point;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.Apply(false, false);
+
+        var sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            texture.width);
+        sprite.name = $"ThingType_{normalized}";
+
+        _thingSpriteCache[normalized] = sprite;
+        _thingTextureCache[normalized] = texture;
+        return sprite;
+    }
+
+    private Color DeriveThingColor(string normalizedType)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedType))
+        {
+            throw new ArgumentException("Thing type must be provided for color derivation.", nameof(normalizedType));
+        }
+
+        unchecked
+        {
+            uint hash = 2166136261u;
+            for (int i = 0; i < normalizedType.Length; i++)
+            {
+                var ch = char.ToLowerInvariant(normalizedType[i]);
+                hash ^= ch;
+                hash *= 16777619u;
+            }
+
+            float hue = (hash & 0xFFFFu) / 65535f;
+            float saturation = 0.45f + ((hash >> 16) & 0xFFu) / 255f * 0.35f;
+            float value = 0.65f + ((hash >> 24) & 0xFFu) / 255f * 0.3f;
+
+            var color = Color.HSVToRGB(hue, Mathf.Clamp01(saturation), Mathf.Clamp01(value));
+            color.a = Mathf.Clamp01(thingMarkerAlpha);
+            return color;
+        }
+    }
+
     private static string ResolveSpriteAbsolutePath(string manifestPath)
     {
         var trimmed = manifestPath.Trim();
@@ -1227,6 +1425,46 @@ public sealed class GoapSimulationView : MonoBehaviour
             pawnRootObject.transform.SetParent(pawnContainer, false);
             _pawnRoot = pawnRootObject.transform;
         }
+    }
+
+    private void EnsureThingRoot()
+    {
+        if (_thingRoot != null)
+        {
+            return;
+        }
+
+        var parent = pawnContainer == null ? transform : pawnContainer;
+        if (parent == null)
+        {
+            throw new InvalidOperationException("GoapSimulationView requires a valid transform to parent thing markers.");
+        }
+
+        var thingRootObject = new GameObject("Things");
+        thingRootObject.transform.SetParent(parent, false);
+        _thingRoot = thingRootObject.transform;
+    }
+
+    private void ClearThingVisuals()
+    {
+        foreach (var visual in _thingVisuals.Values)
+        {
+            if (visual?.Root != null)
+            {
+                Destroy(visual.Root.gameObject);
+            }
+        }
+
+        _thingVisuals.Clear();
+
+        if (_thingRoot != null)
+        {
+            Destroy(_thingRoot.gameObject);
+            _thingRoot = null;
+        }
+
+        _thingUpdateScratch.Clear();
+        _thingRemovalScratch.Clear();
     }
 
     private void EnsureObserverCamera()
@@ -1286,6 +1524,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void DisposeVisuals()
     {
+        ClearThingVisuals();
         foreach (var visual in _pawnVisuals.Values)
         {
             if (visual?.Root != null)
@@ -1318,6 +1557,15 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
         _spriteCache.Clear();
 
+        foreach (var sprite in _thingSpriteCache.Values)
+        {
+            if (sprite != null)
+            {
+                Destroy(sprite);
+            }
+        }
+        _thingSpriteCache.Clear();
+
         foreach (var texture in _textureCache.Values)
         {
             if (texture != null)
@@ -1326,6 +1574,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
         _textureCache.Clear();
+
+        foreach (var texture in _thingTextureCache.Values)
+        {
+            if (texture != null)
+            {
+                Destroy(texture);
+            }
+        }
+        _thingTextureCache.Clear();
 
         if (_mapSprite != null)
         {
@@ -1721,6 +1978,25 @@ public sealed class GoapSimulationView : MonoBehaviour
         public GridPos? TargetPosition { get; }
         public int StepIndex { get; }
         public bool IsActionable { get; }
+    }
+
+    private sealed class ThingVisual
+    {
+        public ThingVisual(Transform root, SpriteRenderer renderer, string thingType)
+        {
+            Root = root ?? throw new ArgumentNullException(nameof(root));
+            Renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
+            if (string.IsNullOrWhiteSpace(thingType))
+            {
+                throw new ArgumentException("Thing type must be provided for a thing visual.", nameof(thingType));
+            }
+
+            ThingType = thingType;
+        }
+
+        public Transform Root { get; }
+        public SpriteRenderer Renderer { get; }
+        public string ThingType { get; }
     }
 
     private sealed class PawnVisual
