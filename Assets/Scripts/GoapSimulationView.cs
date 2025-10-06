@@ -10,6 +10,7 @@ using DataDrivenGoap.Execution;
 using DataDrivenGoap.Items;
 using DataDrivenGoap.World;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 using UnityEngine.InputSystem;
 
@@ -55,6 +56,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private static readonly Color BuildingTintColor = new Color(0.75f, 0.24f, 0.24f, 1f);
     private const float BuildingTintBlend = 0.65f;
+    private const string InventoryPanelSettingsResourcePath = "UI/Inventory/InventoryPanelSettings";
 
     private static readonly IReadOnlyDictionary<string, string> ThingIconManifest = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -173,6 +175,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _lastPresenterInventoryHeader = string.Empty;
     private Rect? _lastSelectedPawnPanelRect;
     private Rect? _lastSelectedThingPlanPanelRect;
+    private PanelSettings _inventoryPanelSettings;
 
     private void Awake()
     {
@@ -3166,6 +3169,25 @@ public sealed class GoapSimulationView : MonoBehaviour
         EnsureInventoryGridPresenter();
     }
 
+    private PanelSettings GetInventoryPanelSettings()
+    {
+        if (_inventoryPanelSettings != null)
+        {
+            return _inventoryPanelSettings;
+        }
+
+        var loaded = Resources.Load<PanelSettings>(InventoryPanelSettingsResourcePath);
+        if (loaded == null)
+        {
+            throw new InvalidOperationException(
+                $"Inventory panel settings asset not found at Resources/{InventoryPanelSettingsResourcePath}. " +
+                "A PanelSettings asset is required for the inventory UI.");
+        }
+
+        _inventoryPanelSettings = loaded;
+        return _inventoryPanelSettings;
+    }
+
     private void EnsureInventoryGridPresenter()
     {
         if (bootstrapper == null)
@@ -3180,14 +3202,14 @@ public sealed class GoapSimulationView : MonoBehaviour
             presenterObject.transform.SetParent(transform, false);
 
             var presenter = presenterObject.AddComponent<InventoryGridPresenter>();
-            presenter.ConfigureDependencies(bootstrapper, this, null);
+            presenter.ConfigureDependencies(bootstrapper, this, GetInventoryPanelSettings());
             presenterObject.SetActive(true);
 
             inventoryGridPresenter = presenter;
         }
         else
         {
-            inventoryGridPresenter.ConfigureDependencies(bootstrapper, this, null);
+            inventoryGridPresenter.ConfigureDependencies(bootstrapper, this, GetInventoryPanelSettings());
         }
     }
 
