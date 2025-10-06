@@ -1402,6 +1402,11 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
 
+        if (manualOptions != null && manualOptions.Count > 0)
+        {
+            DeduplicatePlanOptions(manualOptions);
+        }
+
         bool usingManualOptions = manualOptions != null && manualOptions.Count > 0;
         if (usingManualOptions)
         {
@@ -1479,6 +1484,41 @@ public sealed class GoapSimulationView : MonoBehaviour
         RefreshActionablePlanOptionsForSelection();
     }
 
+    private static bool ShouldDisplayInventoryPanel(ThingView thing)
+    {
+        if (thing == null)
+        {
+            return false;
+        }
+
+        if (thing.Attributes != null)
+        {
+            foreach (var attribute in thing.Attributes)
+            {
+                var key = attribute.Key;
+                if (!string.IsNullOrEmpty(key) &&
+                    key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (thing.Tags != null)
+        {
+            foreach (var tag in thing.Tags)
+            {
+                if (string.Equals(tag, "storage", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(tag, "pantry", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void PopulateSelectedThingInventory(ThingView thing)
     {
         ClearSelectedThingInventory();
@@ -1495,7 +1535,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (!bootstrapper.TryGetInventoryContents(thing.Id, out var stacks))
         {
-            return;
+            if (!ShouldDisplayInventoryPanel(thing))
+            {
+                return;
+            }
+
+            stacks = Array.Empty<InventoryStackView>();
         }
 
         if (stacks == null)
@@ -1676,10 +1721,40 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
+    private static bool HasRenderablePlanLines(string[] planLines)
+    {
+        if (planLines == null || planLines.Length == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < planLines.Length; i++)
+        {
+            var line = planLines[i];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var trimmed = line.Trim();
+            if (!string.Equals(trimmed, "<none>", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel, out Rect planPanelRect)
     {
         planPanelRect = default;
         if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return false;
+        }
+
+        if (_selectedThingParticipation.Length == 0 && !HasRenderablePlanLines(_selectedThingPlanLines))
         {
             return false;
         }
@@ -1935,6 +2010,9 @@ public sealed class GoapSimulationView : MonoBehaviour
                     }
                 }
             }
+
+            DeduplicatePlanOptions(_selectedPawnPlanOptions);
+            DeduplicatePlanOptions(_selectedPawnAllActionablePlanOptions);
         }
         else
         {
@@ -1979,6 +2057,8 @@ public sealed class GoapSimulationView : MonoBehaviour
                 _selectedPawnActionablePlanOptions.Add(option);
             }
         }
+
+        DeduplicatePlanOptions(_selectedPawnActionablePlanOptions);
     }
 
     private string ComposeSelectedPawnPanelText(ThingId selectedId)
@@ -3390,6 +3470,64 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var remainder = trimmed.Substring(dotIndex + 1).TrimStart();
         return remainder.Length > 0 ? remainder : trimmed;
+    }
+
+    private static void DeduplicatePlanOptions(List<PlanActionOption> options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (options.Count < 2)
+        {
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int writeIndex = 0;
+        for (int i = 0; i < options.Count; i++)
+        {
+            var option = options[i];
+            var identity = ComposePlanOptionIdentity(option);
+            if (!seen.Add(identity))
+            {
+                continue;
+            }
+
+            if (writeIndex != i)
+            {
+                options[writeIndex] = option;
+            }
+
+            writeIndex++;
+        }
+
+        if (writeIndex < options.Count)
+        {
+            options.RemoveRange(writeIndex, options.Count - writeIndex);
+        }
+    }
+
+    private static string ComposePlanOptionIdentity(PlanActionOption option)
+    {
+        if (option == null)
+        {
+            throw new ArgumentNullException(nameof(option));
+        }
+
+        string goalComponent = option.GoalId ?? string.Empty;
+        string activityComponent = option.ActivityId ?? string.Empty;
+        string targetComponent = option.TargetId.HasValue ? option.TargetId.Value.Value ?? string.Empty : string.Empty;
+        string rawLabelComponent = option.RawLabel ?? string.Empty;
+        return string.Concat(
+            goalComponent,
+            "\n",
+            activityComponent,
+            "\n",
+            targetComponent,
+            "\n",
+            rawLabelComponent);
     }
 
     private void HandlePlanStepButtonClicked(PlanActionOption option)
