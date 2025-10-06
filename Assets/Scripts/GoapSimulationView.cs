@@ -1139,8 +1139,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
 
-        List<PlanActionOption> fallbackOptions = null;
-        if (entries.Length == 0 && _selectedPawnPlanOptions.Count > 0)
+        List<PlanActionOption> manualOptions = null;
+        if (_selectedPawnPlanOptions.Count > 0)
         {
             for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
             {
@@ -1155,22 +1155,23 @@ public sealed class GoapSimulationView : MonoBehaviour
                     continue;
                 }
 
-                fallbackOptions ??= new List<PlanActionOption>();
-                fallbackOptions.Add(option);
+                manualOptions ??= new List<PlanActionOption>();
+                manualOptions.Add(option);
             }
+        }
 
-            if (fallbackOptions != null && fallbackOptions.Count > 0)
+        bool usingManualOptions = manualOptions != null && manualOptions.Count > 0;
+        if (usingManualOptions)
+        {
+            entries = new ThingPlanParticipation[manualOptions.Count];
+            for (int i = 0; i < manualOptions.Count; i++)
             {
-                entries = new ThingPlanParticipation[fallbackOptions.Count];
-                for (int i = 0; i < fallbackOptions.Count; i++)
-                {
-                    var option = fallbackOptions[i];
-                    entries[i] = new ThingPlanParticipation(
-                        option.GoalId,
-                        option.RawLabel,
-                        option.ActivityId,
-                        option.IsActionable);
-                }
+                var option = manualOptions[i];
+                entries[i] = new ThingPlanParticipation(
+                    option.GoalId,
+                    option.RawLabel,
+                    option.ActivityId,
+                    option.IsActionable);
             }
         }
 
@@ -1179,12 +1180,12 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             formatted = new[] { "<none>" };
         }
-        else if (fallbackOptions != null && fallbackOptions.Count == entries.Length)
+        else if (usingManualOptions)
         {
             formatted = new string[entries.Length];
             for (int i = 0; i < entries.Length; i++)
             {
-                formatted[i] = fallbackOptions[i].Label;
+                formatted[i] = manualOptions[i].Label;
             }
         }
         else
