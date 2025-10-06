@@ -3488,6 +3488,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             actionable = true;
         }
 
+        bool requiresStrictTargetMatch = actionable;
         return new PlanActionOption(
             formattedLabel,
             trimmed,
@@ -3496,7 +3497,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             targetPosition,
             stepIndex,
             actionable,
-            normalizedGoalId);
+            normalizedGoalId,
+            requiresStrictTargetMatch);
     }
 
     private static string ExtractPlanActivityIdentifier(string stepLabel)
@@ -3596,13 +3598,18 @@ public sealed class GoapSimulationView : MonoBehaviour
                 $"Selected pawn '{selectedId.Value}' is not controlled by the player pawn controller.");
         }
 
+        ThingId? expectedPlanTargetId = option.RequiresStrictTargetMatch ? option.TargetId : (ThingId?)null;
+        GridPos? expectedPlanTargetPosition = option.RequiresStrictTargetMatch ? option.TargetPosition : (GridPos?)null;
         playerPawnController.RequestManualInteract(
             option.TargetId.Value,
             option.TargetPosition.Value,
             option.StepIndex,
             _selectedPawnPlanSnapshotVersion,
             option.ActivityId,
-            participationGoalId);
+            participationGoalId,
+            expectedPlanTargetId,
+            expectedPlanTargetPosition,
+            option.RequiresStrictTargetMatch);
         _selectedPlanOptionIndex = participationIndex;
         _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
             ? _selectedThingPlanLines[participationIndex]
@@ -3812,7 +3819,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedThingGridPosition.Value,
             0,
             true,
-            goalId);
+            goalId,
+            requiresStrictTargetMatch: false);
     }
 
     private static bool NullableThingIdEquals(ThingId? left, ThingId? right)
@@ -3840,7 +3848,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             GridPos? targetPosition,
             int stepIndex,
             bool isActionable,
-            string goalId)
+            string goalId,
+            bool requiresStrictTargetMatch)
         {
             if (string.IsNullOrWhiteSpace(label))
             {
@@ -3870,6 +3879,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             StepIndex = stepIndex;
             IsActionable = isActionable;
             GoalId = goalId.Trim();
+            RequiresStrictTargetMatch = requiresStrictTargetMatch;
             if (GoalId.Length == 0)
             {
                 throw new ArgumentException(
@@ -3885,6 +3895,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         public int StepIndex { get; }
         public bool IsActionable { get; }
         public string GoalId { get; }
+        public bool RequiresStrictTargetMatch { get; }
     }
 
     private sealed class ThingVisual
