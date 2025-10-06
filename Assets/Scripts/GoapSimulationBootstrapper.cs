@@ -423,12 +423,6 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         if (_manualPawnIds.Contains(actorId))
         {
-            if (!_manualPlanAutoEvaluationEnabled)
-            {
-                status = null;
-                return false;
-            }
-
             status = SnapshotManualPlanStatus(actorId);
             return status != null;
         }
