@@ -59,7 +59,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         TryAssignOptional(instance, TargetWidthMemberName, targetWidth);
         TryAssignOptional(instance, TargetHeightMemberName, targetHeight);
         AssignRequired(instance, SortingOrderMemberName, sortingOrder);
-        AssignEnumValue(instance, RenderingModeMemberName, GetRuntimePanelRenderingModeName(renderingMode));
+        AssignRenderingMode(instance, GetRuntimePanelRenderingModeName(renderingMode));
         TryAssignOptional(instance, VsyncCountMemberName, vsyncCount);
         TryAssignOptional(instance, RuntimeShaderMemberName, runtimeShader);
         TryAssignOptional(instance, RuntimeWorldSpacePanelSettingsMemberName, runtimeWorldSpacePanelSettings);
@@ -93,6 +93,8 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
     private const string TargetHeightMemberName = "targetHeight";
     private const string SortingOrderMemberName = nameof(PanelSettings.sortingOrder);
     private const string RenderingModeMemberName = "renderingMode";
+    private const string RuntimePanelCreationSettingsMemberName = "runtimePanelCreationSettings";
+    private const string RuntimePanelSettingsMemberName = "runtimePanelSettings";
     private const string VsyncCountMemberName = "vsyncCount";
     private const string RuntimeShaderMemberName = "runtimeShader";
     private const string RuntimeWorldSpacePanelSettingsMemberName = "runtimeWorldSpacePanelSettings";
@@ -267,12 +269,89 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
     }
 
+    private static void AssignRenderingMode(PanelSettings target, string enumName)
+    {
+        if (string.IsNullOrEmpty(enumName))
+        {
+            throw new ArgumentException("Rendering mode enum name cannot be null or empty.", nameof(enumName));
+        }
+
+        if (TryAssignEnumValue(target, RenderingModeMemberName, enumName))
+        {
+            return;
+        }
+
+        if (TryAssignRenderingModeInContainer(target, RuntimePanelCreationSettingsMemberName, enumName))
+        {
+            return;
+        }
+
+        if (TryAssignRenderingModeInContainer(target, RuntimePanelSettingsMemberName, enumName))
+        {
+            return;
+        }
+
+        throw new MissingMemberException(target.GetType().FullName, RenderingModeMemberName);
+    }
+
     private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
     {
         if (!TryAssignEnumValue(target, memberName, enumName))
         {
             throw new MissingMemberException(target.GetType().FullName, memberName);
         }
+    }
+
+    private static bool TryAssignRenderingModeInContainer(PanelSettings target, string containerMemberName, string enumName)
+    {
+        if (string.IsNullOrEmpty(containerMemberName))
+        {
+            return false;
+        }
+
+        return TryAssignRenderingModeOnObject(target, containerMemberName, enumName);
+    }
+
+    private static bool TryAssignRenderingModeOnObject(object target, string containerMemberName, string enumName)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+
+        var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanRead)
+        {
+            var container = property.GetValue(target);
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+            {
+                if (property.CanWrite)
+                {
+                    property.SetValue(target, container);
+                    return true;
+                }
+
+                if (container != null && !property.PropertyType.IsValueType)
+                {
+                    return true;
+                }
+            }
+        }
+
+        var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var container = field.GetValue(target);
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+            {
+                field.SetValue(target, container);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryAssignEnumValue(PanelSettings target, string memberName, string enumName)
