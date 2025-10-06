@@ -675,6 +675,7 @@ namespace DataDrivenGoap.Config
         public double durationGameDays { get; set; }
         public int actorHostSeed { get; set; }
         public double priorityJitter { get; set; }
+        public double actorLoopFrequencyHz { get; set; }
         public bool? worldLoggingEnabled { get; set; }
     }
 
@@ -1194,6 +1195,11 @@ namespace DataDrivenGoap.Config
             if (config.priorityJitter < 0)
             {
                 throw new InvalidDataException($"Demo config '{sourcePath}' has an invalid 'simulation.priorityJitter' value of {config.priorityJitter}. It cannot be negative.");
+            }
+
+            if (double.IsNaN(config.actorLoopFrequencyHz) || double.IsInfinity(config.actorLoopFrequencyHz) || config.actorLoopFrequencyHz <= 0.0)
+            {
+                throw new InvalidDataException($"Demo config '{sourcePath}' has an invalid 'simulation.actorLoopFrequencyHz' value of {config.actorLoopFrequencyHz}. It must be a finite number greater than zero.");
             }
         }
 

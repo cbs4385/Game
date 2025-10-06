@@ -107,6 +107,7 @@ namespace DataDrivenGoap.Execution
         private readonly PerActorLogger _log;
         private readonly WorldLogger _worldLogger;
         private readonly double _priorityJitterRange;
+        private readonly double _loopIntervalMilliseconds;
         private readonly InventorySystem _inventorySystem;
         private readonly ShopSystem _shopSystem;
         private readonly SocialRelationshipSystem _socialSystem;
@@ -135,12 +136,22 @@ namespace DataDrivenGoap.Execution
         private readonly object _planStatusGate = new object();
         private ActorPlanStatus _planStatus;
 
-        public ActorHost(IWorld world, IPlanner planner, IExecutorRegistry execs, IReservationService reservations, ThingId self, int seed, string logDir, double priorityJitterRange, RoleScheduleService scheduleService = null, InventorySystem inventorySystem = null, ShopSystem shopSystem = null, SocialRelationshipSystem socialSystem = null, CropSystem cropSystem = null, AnimalSystem animalSystem = null, MiningSystem miningSystem = null, FishingSystem fishingSystem = null, ForagingSystem foragingSystem = null, SkillProgressionSystem skillSystem = null, QuestSystem questSystem = null, WorldLogger worldLogger = null, bool enablePerActorLogging = true)
+        public ActorHost(IWorld world, IPlanner planner, IExecutorRegistry execs, IReservationService reservations, ThingId self, int seed, string logDir, double priorityJitterRange, double loopFrequencyHz, RoleScheduleService scheduleService = null, InventorySystem inventorySystem = null, ShopSystem shopSystem = null, SocialRelationshipSystem socialSystem = null, CropSystem cropSystem = null, AnimalSystem animalSystem = null, MiningSystem miningSystem = null, FishingSystem fishingSystem = null, ForagingSystem foragingSystem = null, SkillProgressionSystem skillSystem = null, QuestSystem questSystem = null, WorldLogger worldLogger = null, bool enablePerActorLogging = true)
         {
             _world = world; _planner = planner; _execs = execs; _reservations = reservations; _self = self;
             _rng = new Random(seed ^ self.GetHashCode());
             _log = new PerActorLogger(Path.Combine(logDir, $"pawn-{_self.Value}.log.txt"), enablePerActorLogging);
             _priorityJitterRange = Math.Max(0.0, priorityJitterRange);
+            if (double.IsNaN(loopFrequencyHz) || double.IsInfinity(loopFrequencyHz) || loopFrequencyHz <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(loopFrequencyHz), "Loop frequency must be a finite number greater than zero.");
+            }
+            double interval = 1000.0 / loopFrequencyHz;
+            if (double.IsNaN(interval) || double.IsInfinity(interval) || interval <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(loopFrequencyHz), "Loop frequency must produce a positive finite interval.");
+            }
+            _loopIntervalMilliseconds = interval;
             _thread = new Thread(new ThreadStart(RunLoop)) { IsBackground = true, Name = $"Actor-{_self.Value}" };
             _scheduleService = scheduleService;
             _inventorySystem = inventorySystem;
@@ -203,6 +214,7 @@ namespace DataDrivenGoap.Execution
             while (!_stop)
             {
                 var loopStartUtc = DateTime.UtcNow;
+                bool throttleThisLoop = true;
                 var previousTicks = Interlocked.Exchange(ref _lastLoopTimestampTicks, loopStartUtc.Ticks);
                 if (previousTicks > 0)
                 {
@@ -384,11 +396,16 @@ namespace DataDrivenGoap.Execution
                         $"Actor '{actorId}' encountered fatal {exceptionType} at world_time={errorWorldTime} world_day={errorWorldDay}.";
                     _log.Write($"ERROR actor_loop {exceptionType}:{ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
                     _worldLogger?.LogInfo($"actor_error actor={actorId} type={exceptionType} message={ex.Message} world_time={errorWorldTime} world_day={errorWorldDay}");
+                    throttleThisLoop = false;
                     throw new InvalidOperationException(fatalMessage, ex);
                 }
                 finally
                 {
                     _log.FlushTick();
+                    if (throttleThisLoop)
+                    {
+                        EnforceLoopInterval(loopStartUtc);
+                    }
                 }
             }
         }
@@ -652,6 +669,39 @@ namespace DataDrivenGoap.Execution
             }
 
             return waited;
+        }
+
+        private void EnforceLoopInterval(DateTime loopStartUtc)
+        {
+            if (_loopIntervalMilliseconds <= 0.0)
+            {
+                return;
+            }
+
+            double elapsedMs = (DateTime.UtcNow - loopStartUtc).TotalMilliseconds;
+            if (double.IsNaN(elapsedMs) || double.IsInfinity(elapsedMs))
+            {
+                return;
+            }
+
+            double remaining = _loopIntervalMilliseconds - elapsedMs;
+            if (remaining <= 0.0)
+            {
+                return;
+            }
+
+            if (remaining > int.MaxValue)
+            {
+                remaining = int.MaxValue;
+            }
+
+            int waitMs = (int)Math.Ceiling(remaining);
+            if (waitMs <= 0)
+            {
+                return;
+            }
+
+            WaitWithStopCheck(waitMs);
         }
 
         private void RegisterPlanCooldowns(PlanStep step, Guid planId, string stepDescription, double durationSeconds, PlanCooldownRequest[] requests, string worldTime, string worldDay)
