@@ -59,7 +59,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         TryAssignOptional(instance, TargetWidthMemberName, targetWidth);
         TryAssignOptional(instance, TargetHeightMemberName, targetHeight);
         AssignRequired(instance, SortingOrderMemberName, sortingOrder);
-        AssignRenderingMode(instance, GetRuntimePanelRenderingModeName(renderingMode));
+        AssignRenderingMode(instance, renderingMode);
         TryAssignOptional(instance, VsyncCountMemberName, vsyncCount);
         TryAssignOptional(instance, RuntimeShaderMemberName, runtimeShader);
         TryAssignOptional(instance, RuntimeWorldSpacePanelSettingsMemberName, runtimeWorldSpacePanelSettings);
@@ -269,29 +269,37 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
     }
 
-    private static void AssignRenderingMode(PanelSettings target, string enumName)
+    private static void AssignRenderingMode(PanelSettings target, RuntimePanelRenderingModeOption option)
     {
-        if (string.IsNullOrEmpty(enumName))
-        {
-            throw new ArgumentException("Rendering mode enum name cannot be null or empty.", nameof(enumName));
-        }
+        var enumName = GetRuntimePanelRenderingModeName(option);
+        var numericValue = Convert.ToInt64(option);
 
-        if (TryAssignEnumValue(target, RenderingModeMemberName, enumName))
-        {
-            return;
-        }
-
-        if (TryAssignRenderingModeInContainer(target, RuntimePanelCreationSettingsMemberName, enumName))
-        {
-            return;
-        }
-
-        if (TryAssignRenderingModeInContainer(target, RuntimePanelSettingsMemberName, enumName))
+        if (TryAssignRenderingModeByName(target, enumName) ||
+            TryAssignRenderingModeInContainerByName(target, RuntimePanelCreationSettingsMemberName, enumName) ||
+            TryAssignRenderingModeInContainerByName(target, RuntimePanelSettingsMemberName, enumName) ||
+            TryAssignRenderingModeByNumericValue(target, numericValue) ||
+            TryAssignRenderingModeInContainerByNumericValue(target, RuntimePanelCreationSettingsMemberName, numericValue) ||
+            TryAssignRenderingModeInContainerByNumericValue(target, RuntimePanelSettingsMemberName, numericValue))
         {
             return;
         }
 
         throw new MissingMemberException(target.GetType().FullName, RenderingModeMemberName);
+    }
+
+    private static bool TryAssignRenderingModeByName(PanelSettings target, string enumName)
+    {
+        if (string.IsNullOrEmpty(enumName))
+        {
+            return false;
+        }
+
+        return TryAssignEnumValue(target, RenderingModeMemberName, enumName);
+    }
+
+    private static bool TryAssignRenderingModeByNumericValue(PanelSettings target, long numericValue)
+    {
+        return TryAssignEnumValue(target, RenderingModeMemberName, numericValue);
     }
 
     private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
@@ -302,24 +310,42 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
     }
 
-    private static bool TryAssignRenderingModeInContainer(PanelSettings target, string containerMemberName, string enumName)
+    private static bool TryAssignRenderingModeInContainerByName(PanelSettings target, string containerMemberName, string enumName)
+    {
+        if (string.IsNullOrEmpty(containerMemberName) || string.IsNullOrEmpty(enumName))
+        {
+            return false;
+        }
+
+        if (TryAssignRenderingModeOnObjectByName(target, containerMemberName, enumName))
+        {
+            return true;
+        }
+
+        return TryAssignRenderingModeThroughAccessorsByName(target, containerMemberName, enumName);
+    }
+
+    private static bool TryAssignRenderingModeInContainerByNumericValue(
+        PanelSettings target,
+        string containerMemberName,
+        long numericValue)
     {
         if (string.IsNullOrEmpty(containerMemberName))
         {
             return false;
         }
 
-        if (TryAssignRenderingModeOnObject(target, containerMemberName, enumName))
+        if (TryAssignRenderingModeOnObjectByNumericValue(target, containerMemberName, numericValue))
         {
             return true;
         }
 
-        return TryAssignRenderingModeThroughAccessors(target, containerMemberName, enumName);
+        return TryAssignRenderingModeThroughAccessorsByNumericValue(target, containerMemberName, numericValue);
     }
 
-    private static bool TryAssignRenderingModeOnObject(object target, string containerMemberName, string enumName)
+    private static bool TryAssignRenderingModeOnObjectByName(object target, string containerMemberName, string enumName)
     {
-        if (target == null)
+        if (target == null || string.IsNullOrEmpty(containerMemberName) || string.IsNullOrEmpty(enumName))
         {
             return false;
         }
@@ -370,6 +396,59 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         return false;
     }
 
+    private static bool TryAssignRenderingModeOnObjectByNumericValue(object target, string containerMemberName, long numericValue)
+    {
+        if (target == null || string.IsNullOrEmpty(containerMemberName))
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+
+        var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null)
+        {
+            var canRead = property.CanRead;
+            var container = canRead ? property.GetValue(target) : null;
+            if (container == null)
+            {
+                container = CreateContainerInstance(property.PropertyType);
+            }
+
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, numericValue))
+            {
+                if (property.CanWrite)
+                {
+                    property.SetValue(target, container);
+                    return true;
+                }
+
+                if (container != null && !property.PropertyType.IsValueType)
+                {
+                    return true;
+                }
+
+                if (TryInvokeContainerSetter(target, containerMemberName, property.PropertyType, container))
+                {
+                    return true;
+                }
+            }
+        }
+
+        var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, numericValue))
+            {
+                field.SetValue(target, container);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool TryAssignEnumValue(PanelSettings target, string memberName, string enumName)
     {
         if (string.IsNullOrEmpty(enumName))
@@ -390,6 +469,28 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         if (field != null)
         {
             var value = CreateEnumValue(field.FieldType, enumName, memberName);
+            field.SetValue(target, value);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignEnumValue(PanelSettings target, string memberName, long numericValue)
+    {
+        var type = target.GetType();
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite && property.PropertyType.IsEnum)
+        {
+            var value = CreateEnumValue(property.PropertyType, numericValue, memberName);
+            property.SetValue(target, value);
+            return true;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null && field.FieldType.IsEnum)
+        {
+            var value = CreateEnumValue(field.FieldType, numericValue, memberName);
             field.SetValue(target, value);
             return true;
         }
@@ -463,9 +564,9 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         return false;
     }
 
-    private static bool TryAssignRenderingModeThroughAccessors(object target, string containerMemberName, string enumName)
+    private static bool TryAssignRenderingModeThroughAccessorsByName(object target, string containerMemberName, string enumName)
     {
-        if (target == null)
+        if (target == null || string.IsNullOrEmpty(containerMemberName) || string.IsNullOrEmpty(enumName))
         {
             return false;
         }
@@ -485,6 +586,35 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
 
         var container = getter.Invoke(target, null);
         if (!TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+        {
+            return false;
+        }
+
+        return TryInvokeContainerSetter(target, containerMemberName, getter.ReturnType, container);
+    }
+
+    private static bool TryAssignRenderingModeThroughAccessorsByNumericValue(object target, string containerMemberName, long numericValue)
+    {
+        if (target == null || string.IsNullOrEmpty(containerMemberName))
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+        var pascalName = ToPascalCase(containerMemberName);
+        if (string.IsNullOrEmpty(pascalName))
+        {
+            return false;
+        }
+
+        var getter = type.GetMethod($"Get{pascalName}", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (getter == null)
+        {
+            return false;
+        }
+
+        var container = getter.Invoke(target, null);
+        if (!TryAssignEnumValueOnObject(container, RenderingModeMemberName, numericValue))
         {
             return false;
         }
@@ -587,6 +717,34 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         return false;
     }
 
+    private static bool TryAssignEnumValueOnObject(object target, string memberName, long numericValue)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite && property.PropertyType.IsEnum)
+        {
+            var value = CreateEnumValue(property.PropertyType, numericValue, memberName);
+            property.SetValue(target, value);
+            return true;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null && field.FieldType.IsEnum)
+        {
+            var value = CreateEnumValue(field.FieldType, numericValue, memberName);
+            field.SetValue(target, value);
+            return true;
+        }
+
+        return false;
+    }
+
     private static object CreateEnumValue(Type enumType, string enumName, string memberName)
     {
         if (!enumType.IsEnum)
@@ -602,6 +760,22 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         {
             throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
         }
+    }
+
+    private static object CreateEnumValue(Type enumType, long numericValue, string memberName)
+    {
+        if (!enumType.IsEnum)
+        {
+            throw new InvalidOperationException($"Member '{memberName}' on '{enumType.FullName}' is not an enum.");
+        }
+
+        var value = Enum.ToObject(enumType, numericValue);
+        if (!Enum.IsDefined(enumType, value))
+        {
+            throw new InvalidOperationException($"Value '{numericValue}' is not defined for enum '{enumType.FullName}'.");
+        }
+
+        return value;
     }
 
     private static void TryAssignTargetLayerMask(PanelSettings target, LayerMask mask)
