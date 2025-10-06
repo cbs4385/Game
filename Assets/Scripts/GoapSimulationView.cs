@@ -175,6 +175,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _lastPresenterInventoryHeader = string.Empty;
     private Rect? _lastSelectedPawnPanelRect;
     private Rect? _lastSelectedThingPlanPanelRect;
+    private InventoryPanelSettingsAsset _inventoryPanelSettingsAsset;
     private PanelSettings _inventoryPanelSettings;
 
     private void Awake()
@@ -333,6 +334,13 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             bootstrapper.Bootstrapped -= HandleBootstrapped;
         }
+
+        if (_inventoryPanelSettings != null)
+        {
+            Destroy(_inventoryPanelSettings);
+            _inventoryPanelSettings = null;
+        }
+
         DisposeVisuals();
     }
 
@@ -3169,6 +3177,25 @@ public sealed class GoapSimulationView : MonoBehaviour
         EnsureInventoryGridPresenter();
     }
 
+    private InventoryPanelSettingsAsset GetInventoryPanelSettingsAsset()
+    {
+        if (_inventoryPanelSettingsAsset != null)
+        {
+            return _inventoryPanelSettingsAsset;
+        }
+
+        var loaded = Resources.Load<InventoryPanelSettingsAsset>(InventoryPanelSettingsResourcePath);
+        if (loaded == null)
+        {
+            throw new InvalidOperationException(
+                $"Inventory panel settings asset not found at Resources/{InventoryPanelSettingsResourcePath}. " +
+                $"An {nameof(InventoryPanelSettingsAsset)} asset is required for the inventory UI.");
+        }
+
+        _inventoryPanelSettingsAsset = loaded;
+        return _inventoryPanelSettingsAsset;
+    }
+
     private PanelSettings GetInventoryPanelSettings()
     {
         if (_inventoryPanelSettings != null)
@@ -3176,15 +3203,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             return _inventoryPanelSettings;
         }
 
-        var loaded = Resources.Load<PanelSettings>(InventoryPanelSettingsResourcePath);
-        if (loaded == null)
+        var definition = GetInventoryPanelSettingsAsset();
+        var created = definition.CreateRuntimePanelSettings();
+        if (created == null)
         {
             throw new InvalidOperationException(
-                $"Inventory panel settings asset not found at Resources/{InventoryPanelSettingsResourcePath}. " +
-                "A PanelSettings asset is required for the inventory UI.");
+                "Inventory panel settings asset failed to create a runtime PanelSettings instance.");
         }
 
-        _inventoryPanelSettings = loaded;
+        _inventoryPanelSettings = created;
         return _inventoryPanelSettings;
     }
 
