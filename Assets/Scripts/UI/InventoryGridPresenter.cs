@@ -34,6 +34,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     private string _selectedHeader = "Inventory";
     private float _nextRefreshAt;
     private readonly List<SlotElements> _slotPool = new List<SlotElements>(32);
+    private bool _selectionDirty;
 
     public void ConfigureDependencies(
         GoapSimulationBootstrapper requiredBootstrapper,
@@ -108,6 +109,8 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         }
 
         _grid?.Clear();
+        _selectionDirty = true;
+        ApplySelectionToUi();
     }
 
     private void Update()
@@ -115,6 +118,11 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         if (_grid == null || _panel == null || _titleLabel == null || _emptyLabel == null)
         {
             return;
+        }
+
+        if (_selectionDirty)
+        {
+            ApplySelectionToUi();
         }
 
         if (!_selectedThing.HasValue)
@@ -135,25 +143,8 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     {
         _selectedThing = thingId;
         _selectedHeader = string.IsNullOrWhiteSpace(header) ? "Inventory" : header.Trim();
-
-        if (_titleLabel == null || _panel == null || _grid == null || _emptyLabel == null)
-        {
-            return;
-        }
-
-        _titleLabel.text = _selectedHeader;
-
-        if (!_selectedThing.HasValue)
-        {
-            SetVisible(false);
-            _grid.Clear();
-            _emptyLabel.style.display = DisplayStyle.None;
-            return;
-        }
-
-        SetVisible(true);
-        Refresh();
-        _nextRefreshAt = Time.unscaledTime + refreshInterval;
+        _selectionDirty = true;
+        ApplySelectionToUi();
     }
 
     private void Refresh()
@@ -257,6 +248,29 @@ public sealed class InventoryGridPresenter : MonoBehaviour
                 _grid.Remove(elements.Root);
             }
         }
+    }
+
+    private void ApplySelectionToUi()
+    {
+        if (_panel == null || _titleLabel == null || _grid == null || _emptyLabel == null)
+        {
+            return;
+        }
+
+        _selectionDirty = false;
+        _titleLabel.text = _selectedHeader;
+
+        if (!_selectedThing.HasValue)
+        {
+            SetVisible(false);
+            _grid.Clear();
+            _emptyLabel.style.display = DisplayStyle.None;
+            return;
+        }
+
+        SetVisible(true);
+        Refresh();
+        _nextRefreshAt = Time.unscaledTime + refreshInterval;
     }
 
     private void SetVisible(bool visible)
