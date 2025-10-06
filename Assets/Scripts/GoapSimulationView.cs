@@ -676,14 +676,11 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new ArgumentNullException(nameof(snapshot));
         }
 
-        var mouse = Mouse.current;
-        if (mouse == null)
+        if (!TryReadPointerScreenPosition(out var screen))
         {
             ClearThingHover();
             return;
         }
-
-        var screen = mouse.position.ReadValue();
         if (!TryProjectScreenToGrid(snapshot, screen, out var gridPos))
         {
             ClearThingHover();
@@ -957,30 +954,52 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private static float ReadMouseScrollDelta()
     {
+        const float standardScrollStep = 120f;
+
         var mouse = Mouse.current;
-        if (mouse == null)
+        if (mouse != null)
+        {
+            var scroll = mouse.scroll.ReadValue().y;
+            if (float.IsNaN(scroll) || float.IsInfinity(scroll))
+            {
+                throw new InvalidOperationException("Mouse scroll produced a non-finite value.");
+            }
+
+            if (Mathf.Approximately(scroll, 0f))
+            {
+                return 0f;
+            }
+
+            if (Mathf.Abs(scroll) >= standardScrollStep)
+            {
+                return scroll / standardScrollStep;
+            }
+
+            return scroll;
+        }
+
+        if (!Input.mousePresent)
         {
             return 0f;
         }
 
-        var scroll = mouse.scroll.ReadValue().y;
-        if (float.IsNaN(scroll) || float.IsInfinity(scroll))
+        var legacyScroll = Input.mouseScrollDelta.y;
+        if (float.IsNaN(legacyScroll) || float.IsInfinity(legacyScroll))
         {
             throw new InvalidOperationException("Mouse scroll produced a non-finite value.");
         }
 
-        if (Mathf.Approximately(scroll, 0f))
+        if (Mathf.Approximately(legacyScroll, 0f))
         {
             return 0f;
         }
 
-        const float standardScrollStep = 120f;
-        if (Mathf.Abs(scroll) >= standardScrollStep)
+        if (Mathf.Abs(legacyScroll) >= standardScrollStep)
         {
-            return scroll / standardScrollStep;
+            return legacyScroll / standardScrollStep;
         }
 
-        return scroll;
+        return legacyScroll;
     }
 
     private void OnGUI()
@@ -3079,19 +3098,80 @@ public sealed class GoapSimulationView : MonoBehaviour
     private bool TryGetClickGrid(IWorldSnapshot snapshot, out GridPos gridPos)
     {
         gridPos = default;
-        var mouse = Mouse.current;
-        if (mouse == null)
+        if (!TryReadPointerClick(out var screen))
         {
             return false;
         }
 
-        if (!mouse.leftButton.wasPressedThisFrame)
-        {
-            return false;
-        }
-
-        var screen = mouse.position.ReadValue();
         return TryProjectScreenToGrid(snapshot, screen, out gridPos);
+    }
+
+    private bool TryReadPointerScreenPosition(out Vector2 screenPosition)
+    {
+        var mouse = Mouse.current;
+        if (mouse != null)
+        {
+            var value = mouse.position.ReadValue();
+            if (!float.IsFinite(value.x) || !float.IsFinite(value.y))
+            {
+                throw new InvalidOperationException("Mouse position produced a non-finite value.");
+            }
+
+            screenPosition = value;
+            return true;
+        }
+
+        if (!Input.mousePresent)
+        {
+            screenPosition = default;
+            return false;
+        }
+
+        var legacyPosition = Input.mousePosition;
+        if (!float.IsFinite(legacyPosition.x) || !float.IsFinite(legacyPosition.y))
+        {
+            throw new InvalidOperationException("Mouse position produced a non-finite value.");
+        }
+
+        screenPosition = new Vector2(legacyPosition.x, legacyPosition.y);
+        return true;
+    }
+
+    private bool TryReadPointerClick(out Vector2 screenPosition)
+    {
+        var mouse = Mouse.current;
+        if (mouse != null)
+        {
+            if (!mouse.leftButton.wasPressedThisFrame)
+            {
+                screenPosition = default;
+                return false;
+            }
+
+            var value = mouse.position.ReadValue();
+            if (!float.IsFinite(value.x) || !float.IsFinite(value.y))
+            {
+                throw new InvalidOperationException("Mouse position produced a non-finite value.");
+            }
+
+            screenPosition = value;
+            return true;
+        }
+
+        if (!Input.mousePresent || !Input.GetMouseButtonDown(0))
+        {
+            screenPosition = default;
+            return false;
+        }
+
+        var legacyPosition = Input.mousePosition;
+        if (!float.IsFinite(legacyPosition.x) || !float.IsFinite(legacyPosition.y))
+        {
+            throw new InvalidOperationException("Mouse position produced a non-finite value.");
+        }
+
+        screenPosition = new Vector2(legacyPosition.x, legacyPosition.y);
+        return true;
     }
 
     private PlanActionOption BuildPlanActionOption(
