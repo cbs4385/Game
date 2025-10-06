@@ -7,6 +7,7 @@ using System.Text;
 using DataDrivenGoap.Config;
 using DataDrivenGoap.Core;
 using DataDrivenGoap.Execution;
+using DataDrivenGoap.Items;
 using DataDrivenGoap.World;
 using UnityEngine;
 
@@ -161,11 +162,139 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _selectedThingHeader = string.Empty;
     private GridPos? _selectedThingGridPosition;
     private readonly StringBuilder _selectedThingPanelBuilder = new StringBuilder();
+    private InventoryStackView[] _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
+    private string[] _selectedThingInventoryLines = Array.Empty<string>();
+    private string _selectedThingInventoryHeader = string.Empty;
+    private int? _selectedThingInventorySelectionIndex;
+    private string _selectedThingInventorySelectionLabel = string.Empty;
 
     private void Awake()
     {
         EnsureBootstrapperReference();
         EnsureObserverCamera();
+    }
+
+    private void RenderThingInventoryPanel(
+        Rect pawnPanelRect,
+        Rect thingPlanRect,
+        bool hasPawnPanel,
+        bool hasThingPlanPanel)
+    {
+        if (string.IsNullOrEmpty(_selectedThingInventoryHeader))
+        {
+            return;
+        }
+
+        EnsureSelectedPawnPanelStyle();
+        EnsureSelectedPawnPlanButtonStyle();
+
+        float width = Mathf.Max(16f, selectedPawnPanelWidth);
+        float horizontalPosition = hasPawnPanel ? pawnPanelRect.x : selectedPawnPanelOffset.x;
+        float verticalSpacing = Mathf.Max(8f, selectedPawnPanelPadding.y);
+        float verticalPosition;
+        if (hasThingPlanPanel)
+        {
+            verticalPosition = thingPlanRect.yMax + verticalSpacing;
+        }
+        else if (hasPawnPanel)
+        {
+            verticalPosition = pawnPanelRect.yMax + verticalSpacing;
+        }
+        else
+        {
+            verticalPosition = selectedPawnPanelOffset.y;
+        }
+
+        var content = _selectedThingGuiContent;
+        content.text = _selectedThingInventoryHeader;
+        float headerHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
+
+        var inventoryLines = _selectedThingInventoryLines ?? Array.Empty<string>();
+        int lineCount = inventoryLines.Length;
+        float[] lineHeights = lineCount > 0 ? new float[lineCount] : Array.Empty<float>();
+
+        if (lineCount > 0)
+        {
+            for (int i = 0; i < lineCount; i++)
+            {
+                content.text = inventoryLines[i] ?? string.Empty;
+                lineHeights[i] = _selectedPawnPlanButtonStyle.CalcHeight(content, width);
+            }
+        }
+
+        float totalHeight = headerHeight;
+        if (lineHeights.Length > 0)
+        {
+            for (int i = 0; i < lineHeights.Length; i++)
+            {
+                totalHeight += lineHeights[i];
+            }
+        }
+
+        if (totalHeight <= 0f)
+        {
+            return;
+        }
+
+        var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, totalHeight));
+
+        if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
+        {
+            float padX = Mathf.Max(0f, selectedPawnPanelPadding.x);
+            float padY = Mathf.Max(0f, selectedPawnPanelPadding.y);
+            var backgroundRect = new Rect(
+                panelRect.x - padX * 0.5f,
+                panelRect.y - padY * 0.5f,
+                panelRect.width + padX,
+                panelRect.height + padY);
+            var previous = GUI.color;
+            GUI.color = selectedPawnPanelBackgroundColor;
+            GUI.DrawTexture(backgroundRect, Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        float currentY = verticalPosition;
+
+        if (headerHeight > 0f)
+        {
+            content.text = _selectedThingInventoryHeader;
+            var headerRect = new Rect(horizontalPosition, currentY, width, headerHeight);
+            GUI.Label(headerRect, content, _selectedPawnPanelStyle);
+            currentY += headerHeight;
+        }
+
+        if (lineCount == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < lineCount; i++)
+        {
+            float lineHeight = lineHeights[i];
+            var buttonRect = new Rect(horizontalPosition, currentY, width, lineHeight);
+            var previousEnabled = GUI.enabled;
+            var previousBackground = GUI.backgroundColor;
+
+            bool interactable = i < _selectedThingInventoryStacks.Length;
+            bool isSelected = _selectedThingInventorySelectionIndex.HasValue &&
+                _selectedThingInventorySelectionIndex.Value == i;
+            GUI.enabled = interactable;
+
+            if (isSelected)
+            {
+                GUI.backgroundColor = Color.Lerp(Color.white, Color.yellow, 0.5f);
+            }
+
+            string label = inventoryLines[i] ?? string.Empty;
+            if (GUI.Button(buttonRect, label, _selectedPawnPlanButtonStyle) && interactable)
+            {
+                HandleInventoryItemInvoked(i);
+            }
+
+            GUI.backgroundColor = previousBackground;
+            GUI.enabled = previousEnabled;
+            currentY += lineHeight;
+        }
     }
 
     private void OnEnable()
@@ -864,8 +993,9 @@ public sealed class GoapSimulationView : MonoBehaviour
             RenderClockLabel(hasClock, hasPawnUpdate);
         }
 
-        var hasPawnPanel = RenderSelectedPawnPanel(out var panelRect);
-        RenderThingPlanPanel(panelRect, hasPawnPanel);
+        var hasPawnPanel = RenderSelectedPawnPanel(out var pawnPanelRect);
+        var hasThingPlanPanel = RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out var thingPlanRect);
+        RenderThingInventoryPanel(pawnPanelRect, thingPlanRect, hasPawnPanel, hasThingPlanPanel);
         RenderThingHover();
     }
 
@@ -1215,6 +1345,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             throw new InvalidOperationException("Thing selection requires an attached GoapSimulationBootstrapper instance.");
         }
 
+        PopulateSelectedThingInventory(thing);
+
         var participation = bootstrapper.GetThingPlanParticipation(thing.Id, thing.Tags ?? Array.Empty<string>());
         ThingPlanParticipation[] entries;
         if (participation.Count == 0)
@@ -1320,11 +1452,140 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingPlanLines = Array.Empty<string>();
         _selectedThingHeader = string.Empty;
         _selectedThingGridPosition = null;
+        ClearSelectedThingInventory();
         _selectedThingPanelBuilder.Clear();
         _selectedThingGuiContent.text = string.Empty;
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
         RefreshActionablePlanOptionsForSelection();
+    }
+
+    private void PopulateSelectedThingInventory(ThingView thing)
+    {
+        ClearSelectedThingInventory();
+
+        if (thing == null)
+        {
+            return;
+        }
+
+        if (bootstrapper == null)
+        {
+            throw new InvalidOperationException("Inventory inspection requires an attached GoapSimulationBootstrapper instance.");
+        }
+
+        if (!bootstrapper.TryGetInventoryContents(thing.Id, out var stacks))
+        {
+            return;
+        }
+
+        if (stacks == null)
+        {
+            throw new InvalidOperationException(
+                $"Inventory snapshot provider returned null for thing '{thing.Id.Value ?? string.Empty}'.");
+        }
+
+        int count = stacks.Count;
+        if (count <= 0)
+        {
+            _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
+            _selectedThingInventoryLines = new[] { "<empty>" };
+            _selectedThingInventoryHeader = "Contents (empty)";
+            _selectedThingInventorySelectionIndex = null;
+            _selectedThingInventorySelectionLabel = string.Empty;
+            return;
+        }
+
+        var stackArray = new InventoryStackView[count];
+        var lineArray = new string[count];
+        var ownerId = thing.Id.Value ?? string.Empty;
+
+        for (int i = 0; i < count; i++)
+        {
+            var stack = stacks[i];
+            if (stack.Item == null)
+            {
+                throw new InvalidOperationException(
+                    $"Inventory stack {i} for thing '{ownerId}' is missing an item definition.");
+            }
+
+            if (stack.Quantity <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Inventory stack {i} for thing '{ownerId}' reported non-positive quantity {stack.Quantity}.");
+            }
+
+            if (string.IsNullOrWhiteSpace(stack.Item.Id))
+            {
+                throw new InvalidOperationException(
+                    $"Inventory stack {i} for thing '{ownerId}' references an item with no identifier.");
+            }
+
+            stackArray[i] = stack;
+
+            string label = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} x{1}",
+                stack.Item.Id,
+                stack.Quantity);
+
+            if (stack.Quality > 0)
+            {
+                label = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} (Quality {1})",
+                    label,
+                    stack.Quality);
+            }
+
+            lineArray[i] = label;
+        }
+
+        _selectedThingInventoryStacks = stackArray;
+        _selectedThingInventoryLines = lineArray;
+        _selectedThingInventoryHeader = string.Format(
+            CultureInfo.InvariantCulture,
+            "Contents ({0})",
+            count);
+        _selectedThingInventorySelectionIndex = null;
+        _selectedThingInventorySelectionLabel = string.Empty;
+    }
+
+    private void ClearSelectedThingInventory()
+    {
+        _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
+        _selectedThingInventoryLines = Array.Empty<string>();
+        _selectedThingInventoryHeader = string.Empty;
+        _selectedThingInventorySelectionIndex = null;
+        _selectedThingInventorySelectionLabel = string.Empty;
+    }
+
+    private void HandleInventoryItemInvoked(int index)
+    {
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        if (_selectedThingInventoryStacks == null)
+        {
+            throw new InvalidOperationException("Inventory selection cannot proceed before inventory data is populated.");
+        }
+
+        if (index >= _selectedThingInventoryStacks.Length)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(index),
+                $"Inventory selection index {index} is outside the available stack range {_selectedThingInventoryStacks.Length}.");
+        }
+
+        if (_selectedThingInventoryLines == null || index >= _selectedThingInventoryLines.Length)
+        {
+            throw new InvalidOperationException("Inventory selection lines were not initialized for the current selection.");
+        }
+
+        _selectedThingInventorySelectionIndex = index;
+        _selectedThingInventorySelectionLabel = _selectedThingInventoryLines[index] ?? string.Empty;
     }
 
     private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
@@ -1396,11 +1657,12 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
-    private void RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel)
+    private bool RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel, out Rect planPanelRect)
     {
+        planPanelRect = default;
         if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
         {
-            return;
+            return false;
         }
 
         EnsureSelectedPawnPanelStyle();
@@ -1447,10 +1709,11 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (totalHeight <= 0f)
         {
-            return;
+            return false;
         }
 
         var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, totalHeight));
+        planPanelRect = panelRect;
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
@@ -1487,7 +1750,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (_selectedThingPlanLines.Length == 0)
         {
-            return;
+            return true;
         }
 
         bool allowManual = _selectedPawnId.HasValue && _manualPawnIds.Contains(_selectedPawnId.Value);
@@ -1520,6 +1783,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             GUI.backgroundColor = previousBackground;
             currentY += lineHeight;
         }
+
+        return true;
     }
 
     private PlanActionOption FindMatchingPlanOption(ThingPlanParticipation participation, string fallbackLabel)
