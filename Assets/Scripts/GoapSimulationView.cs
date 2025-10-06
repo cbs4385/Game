@@ -1479,6 +1479,41 @@ public sealed class GoapSimulationView : MonoBehaviour
         RefreshActionablePlanOptionsForSelection();
     }
 
+    private static bool ShouldDisplayInventoryPanel(ThingView thing)
+    {
+        if (thing == null)
+        {
+            return false;
+        }
+
+        if (thing.Attributes != null)
+        {
+            foreach (var attribute in thing.Attributes)
+            {
+                var key = attribute.Key;
+                if (!string.IsNullOrEmpty(key) &&
+                    key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (thing.Tags != null)
+        {
+            foreach (var tag in thing.Tags)
+            {
+                if (string.Equals(tag, "storage", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(tag, "pantry", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void PopulateSelectedThingInventory(ThingView thing)
     {
         ClearSelectedThingInventory();
@@ -1495,7 +1530,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (!bootstrapper.TryGetInventoryContents(thing.Id, out var stacks))
         {
-            return;
+            if (!ShouldDisplayInventoryPanel(thing))
+            {
+                return;
+            }
+
+            stacks = Array.Empty<InventoryStackView>();
         }
 
         if (stacks == null)
