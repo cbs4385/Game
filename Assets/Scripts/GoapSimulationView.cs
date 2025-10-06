@@ -3520,6 +3520,14 @@ public sealed class GoapSimulationView : MonoBehaviour
         string activityComponent = option.ActivityId ?? string.Empty;
         string targetComponent = option.TargetId.HasValue ? option.TargetId.Value.Value ?? string.Empty : string.Empty;
         string rawLabelComponent = option.RawLabel ?? string.Empty;
+        if (!string.IsNullOrEmpty(rawLabelComponent))
+        {
+            var normalized = StripPlanDisplayIndex(rawLabelComponent);
+            if (!string.IsNullOrEmpty(normalized) && !string.Equals(normalized, rawLabelComponent, StringComparison.Ordinal))
+            {
+                rawLabelComponent = normalized;
+            }
+        }
         return string.Concat(
             goalComponent,
             "\n",
