@@ -3916,14 +3916,17 @@ public sealed class GoapSimulationView : MonoBehaviour
             rawLabel = label;
         }
 
+        // Fallback options surface participation details in the UI but should not be executable
+        // because they do not originate from a resolved manual plan. Present them as disabled
+        // entries by marking the option non-actionable and using a sentinel step index.
         return new PlanActionOption(
             label,
             rawLabel,
             activityId,
             _selectedThingId.Value,
             _selectedThingGridPosition.Value,
-            0,
-            true,
+            -1,
+            false,
             goalId,
             requiresStrictTargetMatch: false);
     }
