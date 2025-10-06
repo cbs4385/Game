@@ -35,6 +35,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     private float _nextRefreshAt;
     private readonly List<SlotElements> _slotPool = new List<SlotElements>(32);
     private bool _selectionDirty;
+    private bool _initialized;
 
     public void ConfigureDependencies(
         GoapSimulationBootstrapper requiredBootstrapper,
@@ -62,6 +63,11 @@ public sealed class InventoryGridPresenter : MonoBehaviour
                 _document.panelSettings = overridePanelSettings;
             }
         }
+
+        if (isActiveAndEnabled)
+        {
+            InitializeIfReady();
+        }
     }
 
     private void Awake()
@@ -71,25 +77,50 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         {
             throw new InvalidOperationException("InventoryGridPresenter requires a UIDocument component.");
         }
+    }
 
-        if (bootstrapper == null)
+    private void OnEnable()
+    {
+        InitializeIfReady();
+    }
+
+    private void OnDisable()
+    {
+        _initialized = false;
+    }
+
+    private void Start()
+    {
+        InitializeIfReady();
+        if (!_initialized)
         {
-            throw new InvalidOperationException("InventoryGridPresenter requires a GoapSimulationBootstrapper reference.");
+            throw new InvalidOperationException(
+                "InventoryGridPresenter could not initialize because required dependencies were not configured before Start.");
+        }
+    }
+
+    private void InitializeIfReady()
+    {
+        if (_initialized)
+        {
+            return;
         }
 
-        if (simulationView == null)
+        if (_document == null)
         {
-            throw new InvalidOperationException("InventoryGridPresenter requires a GoapSimulationView reference.");
+            throw new InvalidOperationException("InventoryGridPresenter requires a UIDocument component.");
+        }
+
+        if (bootstrapper == null || simulationView == null)
+        {
+            return;
         }
 
         if (panelSettings != null)
         {
             _document.panelSettings = panelSettings;
         }
-    }
 
-    private void OnEnable()
-    {
         _root = _document.rootVisualElement;
         if (_root == null)
         {
@@ -111,6 +142,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         _grid?.Clear();
         _selectionDirty = true;
         ApplySelectionToUi();
+        _initialized = true;
     }
 
     private void Update()
