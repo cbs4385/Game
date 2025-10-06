@@ -124,11 +124,12 @@ public sealed class GoapSimulationView : MonoBehaviour
     private bool _manualPlanAutoEvaluationEnabled = true;
     private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
     private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
-    private string[] _selectedPawnPlanSteps = Array.Empty<string>();
     private string[] _selectedPawnPlanStepLines = Array.Empty<string>();
     private ActorPlanStatus _selectedPawnPlanStatus;
     private long _selectedPawnPlanSnapshotVersion;
     private readonly List<PlanActionOption> _selectedPawnPlanOptions = new List<PlanActionOption>();
+    private readonly List<PlanActionOption> _selectedPawnAllActionablePlanOptions = new List<PlanActionOption>();
+    private readonly List<PlanActionOption> _selectedPawnActionablePlanOptions = new List<PlanActionOption>();
     private int? _selectedPlanOptionIndex;
     private string _selectedPlanOptionLabel = string.Empty;
     private string[] _needAttributeNames = Array.Empty<string>();
@@ -972,6 +973,24 @@ public sealed class GoapSimulationView : MonoBehaviour
             beforeHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
         }
 
+        float stepsHeight = 0f;
+        float[] stepLineHeights = null;
+        if (_selectedPawnPlanStepLines.Length > 0)
+        {
+            int stepCount = Mathf.Min(_selectedPawnPlanStepLines.Length, _selectedPawnActionablePlanOptions.Count);
+            if (stepCount > 0)
+            {
+                stepLineHeights = new float[stepCount];
+                for (int i = 0; i < stepCount; i++)
+                {
+                    content.text = _selectedPawnPlanStepLines[i];
+                    var height = _selectedPawnPanelStyle.CalcHeight(content, width);
+                    stepLineHeights[i] = height;
+                    stepsHeight += height;
+                }
+            }
+        }
+
         float afterHeight = 0f;
         if (!string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps))
         {
@@ -979,7 +998,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             afterHeight = _selectedPawnPanelStyle.CalcHeight(content, width);
         }
 
-        float totalHeight = beforeHeight + afterHeight;
+        float totalHeight = beforeHeight + stepsHeight + afterHeight;
 
         if (totalHeight <= 0f)
         {
@@ -1011,6 +1030,42 @@ public sealed class GoapSimulationView : MonoBehaviour
             var beforeRect = new Rect(x, currentY, width, beforeHeight);
             GUI.Label(beforeRect, content, _selectedPawnPanelStyle);
             currentY += beforeHeight;
+        }
+
+        if (stepLineHeights != null)
+        {
+            for (int i = 0; i < stepLineHeights.Length; i++)
+            {
+                if (i >= _selectedPawnActionablePlanOptions.Count)
+                {
+                    break;
+                }
+
+                var option = _selectedPawnActionablePlanOptions[i];
+                var lineHeight = stepLineHeights[i];
+                var buttonRect = new Rect(x, currentY, width, lineHeight);
+                var previousEnabled = GUI.enabled;
+                var previousBackground = GUI.backgroundColor;
+
+                bool interactable = option.IsActionable && option.TargetId.HasValue && option.TargetPosition.HasValue;
+                GUI.enabled = interactable;
+
+                bool isSelected = !string.IsNullOrEmpty(_selectedPlanOptionLabel) &&
+                    string.Equals(_selectedPlanOptionLabel, option.Label, StringComparison.Ordinal);
+                if (isSelected)
+                {
+                    GUI.backgroundColor = Color.Lerp(Color.white, Color.cyan, 0.5f);
+                }
+
+                if (GUI.Button(buttonRect, _selectedPawnPlanStepLines[i], _selectedPawnPanelStyle))
+                {
+                    HandlePlanStepButtonClicked(option);
+                }
+
+                GUI.backgroundColor = previousBackground;
+                GUI.enabled = previousEnabled;
+                currentY += lineHeight;
+            }
         }
 
         if (afterHeight > 0f)
@@ -1220,6 +1275,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingPlanLines = formatted;
         _selectedThingGridPosition = thing.Position;
 
+        RefreshActionablePlanOptionsForSelection();
         SyncPlanSelectionToThing();
     }
 
@@ -1234,6 +1290,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingGuiContent.text = string.Empty;
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
+        RefreshActionablePlanOptionsForSelection();
     }
 
     private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
@@ -1528,6 +1585,8 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         _selectedPawnPlanSnapshotVersion = snapshot?.Version ?? -1;
         _selectedPawnPlanOptions.Clear();
+        _selectedPawnAllActionablePlanOptions.Clear();
+        _selectedPawnActionablePlanOptions.Clear();
         _selectedPawnPlanStatus = null;
 
         if (bootstrapper != null && bootstrapper.TryGetActorPlanStatus(selectedId, out var status) && status != null)
@@ -1540,7 +1599,6 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanUpdatedUtc = status.UpdatedUtc;
             if (status.Steps != null)
             {
-                var steps = new List<string>(status.Steps.Count);
                 for (int i = 0; i < status.Steps.Count; i++)
                 {
                     var step = status.Steps[i];
@@ -1550,16 +1608,13 @@ public sealed class GoapSimulationView : MonoBehaviour
                     }
 
                     var trimmed = step.Trim();
-                    steps.Add(trimmed);
                     var option = BuildPlanActionOption(trimmed, snapshot, i, _selectedPawnPlanGoal);
                     _selectedPawnPlanOptions.Add(option);
+                    if (option.IsActionable && option.TargetId.HasValue && option.TargetPosition.HasValue)
+                    {
+                        _selectedPawnAllActionablePlanOptions.Add(option);
+                    }
                 }
-
-                _selectedPawnPlanSteps = steps.ToArray();
-            }
-            else
-            {
-                _selectedPawnPlanSteps = Array.Empty<string>();
             }
         }
         else
@@ -1568,10 +1623,43 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanState = string.Empty;
             _selectedPawnPlanCurrentStep = string.Empty;
             _selectedPawnPlanUpdatedUtc = default;
-            _selectedPawnPlanSteps = Array.Empty<string>();
+            _selectedPawnPlanOptions.Clear();
+            _selectedPawnAllActionablePlanOptions.Clear();
+            _selectedPawnActionablePlanOptions.Clear();
         }
 
+        RefreshActionablePlanOptionsForSelection();
         SyncPlanSelectionToThing();
+    }
+
+    private void RefreshActionablePlanOptionsForSelection()
+    {
+        _selectedPawnActionablePlanOptions.Clear();
+
+        if (_selectedPawnAllActionablePlanOptions.Count == 0)
+        {
+            return;
+        }
+
+        if (!_selectedThingId.HasValue)
+        {
+            return;
+        }
+
+        var selectedThingId = _selectedThingId.Value;
+        for (int i = 0; i < _selectedPawnAllActionablePlanOptions.Count; i++)
+        {
+            var option = _selectedPawnAllActionablePlanOptions[i];
+            if (!option.TargetId.HasValue || !option.TargetPosition.HasValue)
+            {
+                continue;
+            }
+
+            if (NullableThingIdEquals(option.TargetId, selectedThingId))
+            {
+                _selectedPawnActionablePlanOptions.Add(option);
+            }
+        }
     }
 
     private string ComposeSelectedPawnPanelText(ThingId selectedId)
@@ -1641,22 +1729,33 @@ public sealed class GoapSimulationView : MonoBehaviour
             hasPlanContent = true;
         }
 
-        if (_selectedPawnPlanSteps.Length > 0)
+        if (_selectedPawnAllActionablePlanOptions.Count > 0)
         {
             builder.AppendLine("  Steps:");
             hasPlanContent = true;
-            for (int i = 0; i < _selectedPawnPlanSteps.Length; i++)
+            if (_selectedPawnActionablePlanOptions.Count == 0)
             {
-                builder.Append("    ")
-                    .Append(i + 1)
-                    .Append(". ")
-                    .Append(_selectedPawnPlanSteps[i])
-                    .AppendLine();
+                builder.AppendLine("    Select a plan target to view manual steps.");
             }
         }
 
         string beforeStepsText = builder.ToString();
-        _selectedPawnPlanStepLines = Array.Empty<string>();
+
+        if (_selectedPawnActionablePlanOptions.Count > 0)
+        {
+            var stepLines = new string[_selectedPawnActionablePlanOptions.Count];
+            for (int i = 0; i < _selectedPawnActionablePlanOptions.Count; i++)
+            {
+                var option = _selectedPawnActionablePlanOptions[i];
+                stepLines[i] = string.Concat("    ", option.Label);
+            }
+
+            _selectedPawnPlanStepLines = stepLines;
+        }
+        else
+        {
+            _selectedPawnPlanStepLines = Array.Empty<string>();
+        }
 
         builder.Clear();
 
@@ -1699,10 +1798,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPlanCurrentStep = string.Empty;
         _selectedPawnPlanUpdatedUtc = default;
         _selectedPawnNeeds.Clear();
-        _selectedPawnPlanSteps = Array.Empty<string>();
         _selectedPawnPlanStepLines = Array.Empty<string>();
         _selectedPawnPlanStatus = null;
         _selectedPawnPlanOptions.Clear();
+        _selectedPawnAllActionablePlanOptions.Clear();
+        _selectedPawnActionablePlanOptions.Clear();
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
         _selectedPawnPanelTextBeforePlanSteps = string.Empty;
@@ -2863,6 +2963,57 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
             ? _selectedThingPlanLines[participationIndex]
             : option.Label;
+    }
+
+    private void HandlePlanStepButtonClicked(PlanActionOption option)
+    {
+        if (option == null)
+        {
+            throw new ArgumentNullException(nameof(option));
+        }
+
+        if (_world == null)
+        {
+            throw new InvalidOperationException("Manual plan step selection requires an active world snapshot provider.");
+        }
+
+        if (!option.TargetId.HasValue || !option.TargetPosition.HasValue)
+        {
+            throw new InvalidOperationException(
+                $"Plan step '{option.Label}' does not define a valid target for manual execution.");
+        }
+
+        var snapshot = _world.Snap();
+        var targetThing = snapshot.GetThing(option.TargetId.Value);
+        if (targetThing == null)
+        {
+            throw new InvalidOperationException(
+                $"Manual plan step '{option.Label}' references target '{option.TargetId.Value.Value ?? "<unknown>"}' " +
+                "that is not present in the current world snapshot.");
+        }
+
+        UpdateSelectedThingPlan(targetThing);
+
+        int participationIndex = -1;
+        for (int i = 0; i < _selectedThingParticipation.Length; i++)
+        {
+            var participation = _selectedThingParticipation[i];
+            var fallbackLabel = i < _selectedThingPlanLines.Length ? _selectedThingPlanLines[i] : string.Empty;
+            var matchedOption = FindMatchingPlanOption(participation, fallbackLabel);
+            if (matchedOption != null && ReferenceEquals(matchedOption, option))
+            {
+                participationIndex = i;
+                break;
+            }
+        }
+
+        if (participationIndex < 0)
+        {
+            throw new InvalidOperationException(
+                $"Manual plan step '{option.Label}' did not map to a selectable plan option for target '{option.TargetId.Value.Value ?? "<unknown>"}'.");
+        }
+
+        HandlePlanOptionInvoked(participationIndex);
     }
 
     private PlanActionOption CreateFallbackPlanOption(ThingPlanParticipation participation, string fallbackLabel)
