@@ -4331,7 +4331,8 @@
       "fatigue": 0.1,
       "loneliness": 0.3
     },
-    "allowAiFallback": false
+    "allowAiFallback": false,
+    "autoEvaluateManualPlans": false
   },
   "observer": {
     "cameraPawn": "player",

@@ -170,7 +170,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             IReadOnlyList<ThingId> manualPawnIds,
             ThingId? playerPawnId,
             TileClassificationSnapshot tileClassification,
-            bool showOnlySelectedPawn)
+            bool showOnlySelectedPawn,
+            bool manualPlanAutoEvaluationEnabled)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             ActorDefinitions = actors ?? throw new ArgumentNullException(nameof(actors));
@@ -183,6 +184,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             PlayerPawnId = playerPawnId;
             TileClassification = tileClassification ?? throw new ArgumentNullException(nameof(tileClassification));
             ShowOnlySelectedPawn = showOnlySelectedPawn;
+            ManualPlanAutoEvaluationEnabled = manualPlanAutoEvaluationEnabled;
         }
 
         public ShardedWorld World { get; }
@@ -196,6 +198,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         public ThingId? PlayerPawnId { get; }
         public TileClassificationSnapshot TileClassification { get; }
         public bool ShowOnlySelectedPawn { get; }
+        public bool ManualPlanAutoEvaluationEnabled { get; }
     }
 
     public event EventHandler<SimulationReadyEventArgs> Bootstrapped;
@@ -299,6 +302,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     private readonly HashSet<ThingId> _manualPawnIds = new HashSet<ThingId>();
     private readonly Dictionary<string, ManualActorState> _manualActorStates =
         new Dictionary<string, ManualActorState>(StringComparer.OrdinalIgnoreCase);
+    private bool _manualPlanAutoEvaluationEnabled = true;
 
     private SimulationReadyEventArgs _readyEventArgs;
     private ShardedWorld _world;
@@ -347,6 +351,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
     public SimulationReadyEventArgs LatestBootstrap => _readyEventArgs ?? throw new InvalidOperationException("Bootstrap has not completed yet.");
 
     public IReadOnlyList<string> NeedAttributeNames => _needAttributeNames;
+
+    public bool ManualPlanAutoEvaluationEnabled => _manualPlanAutoEvaluationEnabled;
 
     public IReadOnlyList<ThingPlanParticipation> GetThingPlanParticipation(ThingId thingId, IReadOnlyCollection<string> tags)
     {
@@ -417,6 +423,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
 
         if (_manualPawnIds.Contains(actorId))
         {
+            if (!_manualPlanAutoEvaluationEnabled)
+            {
+                status = null;
+                return false;
+            }
+
             status = SnapshotManualPlanStatus(actorId);
             return status != null;
         }
@@ -1771,6 +1783,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         _manualActorStates.Clear();
         _playerPawnId = null;
         _thingPlanParticipationByTag.Clear();
+        _manualPlanAutoEvaluationEnabled = true;
 
         if (_mapTexture != null)
         {
@@ -1790,6 +1803,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         string goalsPath = RequireFile(datasetRoot, goalsFile, nameof(goalsFile));
 
         _demoConfig = ConfigLoader.LoadDemoConfig(demoPath);
+        _manualPlanAutoEvaluationEnabled = _demoConfig?.player?.autoEvaluateManualPlans ?? true;
         _actionConfigs = ConfigLoader.LoadActions(actionsPath);
         _goalConfigs = ConfigLoader.LoadGoals(goalsPath);
         _thingPlanParticipationByTag = BuildThingPlanParticipationIndex(_goalConfigs, _actionConfigs);
@@ -2102,7 +2116,8 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             Array.AsReadOnly(manual),
             _playerPawnId,
             tileClassification,
-            _demoConfig?.observer?.showOnlySelectedPawn ?? false);
+            _demoConfig?.observer?.showOnlySelectedPawn ?? false,
+            _manualPlanAutoEvaluationEnabled);
         Bootstrapped?.Invoke(this, _readyEventArgs);
     }
 

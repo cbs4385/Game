@@ -808,6 +808,7 @@ namespace DataDrivenGoap.Config
         public double? currency { get; set; }
         public Dictionary<string, double> attributes { get; set; }
         public bool allowAiFallback { get; set; }
+        public bool? autoEvaluateManualPlans { get; set; }
     }
 
     public sealed class PlayerSpawnConfig

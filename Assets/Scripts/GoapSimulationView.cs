@@ -121,6 +121,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private ThingId? _selectedPawnId;
     private readonly Dictionary<ThingId, VillagePawn> _pawnDefinitions = new Dictionary<ThingId, VillagePawn>();
     private readonly HashSet<ThingId> _manualPawnIds = new HashSet<ThingId>();
+    private bool _manualPlanAutoEvaluationEnabled = true;
     private readonly StringBuilder _selectedPawnPanelBuilder = new StringBuilder();
     private readonly List<(string Label, double? Value)> _selectedPawnNeeds = new List<(string Label, double? Value)>();
     private string[] _selectedPawnPlanSteps = Array.Empty<string>();
@@ -324,6 +325,7 @@ public sealed class GoapSimulationView : MonoBehaviour
                 _manualPawnIds.Add(manualId);
             }
         }
+        _manualPlanAutoEvaluationEnabled = args.ManualPlanAutoEvaluationEnabled;
         _datasetRoot = args.DatasetRoot ?? throw new InvalidOperationException("Bootstrapper emitted a null dataset root path.");
         _clock = args.Clock ?? throw new InvalidOperationException("Bootstrapper emitted a null world clock instance.");
         _tileClassification = args.TileClassification ?? throw new InvalidOperationException("Bootstrapper emitted a null tile classification snapshot.");
@@ -1603,6 +1605,17 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         builder.AppendLine();
         builder.AppendLine(string.IsNullOrWhiteSpace(selectedPawnPanelPlanHeader) ? "Plan" : selectedPawnPanelPlanHeader);
+        bool selectedPawnManual = _manualPawnIds.Contains(selectedId);
+        if (selectedPawnManual && !_manualPlanAutoEvaluationEnabled)
+        {
+            builder.AppendLine("  Automatic plan evaluation disabled.");
+            var disabledText = builder.ToString();
+            _selectedPawnPlanStepLines = Array.Empty<string>();
+            _selectedPawnPanelTextBeforePlanSteps = disabledText;
+            _selectedPawnPanelTextAfterPlanSteps = string.Empty;
+            _selectedPawnPanelText = disabledText.TrimEnd('\r', '\n');
+            return _selectedPawnPanelText;
+        }
         bool hasPlanContent = false;
         if (!string.IsNullOrEmpty(_selectedPawnPlanState))
         {
