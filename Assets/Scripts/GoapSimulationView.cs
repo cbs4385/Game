@@ -167,6 +167,8 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _selectedThingInventoryHeader = string.Empty;
     private int? _selectedThingInventorySelectionIndex;
     private string _selectedThingInventorySelectionLabel = string.Empty;
+    private Rect? _lastSelectedPawnPanelRect;
+    private Rect? _lastSelectedThingPlanPanelRect;
 
     private void Awake()
     {
@@ -1018,6 +1020,10 @@ public sealed class GoapSimulationView : MonoBehaviour
         Rect thingPlanRect = default;
         var hasThingPlanPanel = shouldRenderThingPlanPanel &&
             RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out thingPlanRect);
+        if (!hasThingPlanPanel)
+        {
+            _lastSelectedThingPlanPanelRect = null;
+        }
 
         RenderThingInventoryPanel(pawnPanelRect, thingPlanRect, hasPawnPanel, hasThingPlanPanel);
         RenderThingHover();
@@ -1119,6 +1125,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private bool RenderSelectedPawnPanel(out Rect panelRect, bool includePlanSteps)
     {
+        _lastSelectedPawnPanelRect = null;
         bool hasContent =
             !string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps) ||
             !string.IsNullOrEmpty(_selectedPawnPanelTextAfterPlanSteps);
@@ -1178,6 +1185,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         panelRect = new Rect(x, y, width, Mathf.Max(0f, totalHeight));
+        _lastSelectedPawnPanelRect = panelRect;
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
@@ -1501,6 +1509,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingGuiContent.text = string.Empty;
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
+        _lastSelectedThingPlanPanelRect = null;
         RefreshActionablePlanOptionsForSelection();
     }
 
@@ -1931,6 +1940,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private bool RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel, out Rect planPanelRect)
     {
         planPanelRect = default;
+        _lastSelectedThingPlanPanelRect = null;
         if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
         {
             return false;
@@ -1990,6 +2000,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var panelRect = new Rect(horizontalPosition, verticalPosition, width, Mathf.Max(0f, totalHeight));
         planPanelRect = panelRect;
+        _lastSelectedThingPlanPanelRect = panelRect;
 
         if (selectedPawnPanelBackgroundColor.a > 0f && Texture2D.whiteTexture != null)
         {
@@ -2391,6 +2402,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPanelTextAfterPlanSteps = string.Empty;
         _selectedPawnPanelText = string.Empty;
         _selectedPawnPanelBuilder.Clear();
+        _lastSelectedPawnPanelRect = null;
     }
 
     private static string HumanizeIdentifier(string value)
@@ -3365,7 +3377,41 @@ public sealed class GoapSimulationView : MonoBehaviour
             return false;
         }
 
+        if (IsScreenPositionWithinPlanUi(screen))
+        {
+            return false;
+        }
+
         return TryProjectScreenToGrid(snapshot, screen, out gridPos);
+    }
+
+    private bool IsScreenPositionWithinPlanUi(Vector2 screenPosition)
+    {
+        if (!float.IsFinite(screenPosition.x) || !float.IsFinite(screenPosition.y))
+        {
+            throw new InvalidOperationException("Screen position produced a non-finite value while evaluating plan UI containment.");
+        }
+
+        int screenHeight = Screen.height;
+        if (screenHeight <= 0)
+        {
+            throw new InvalidOperationException("Screen height must be positive to evaluate plan UI containment.");
+        }
+
+        float guiY = screenHeight - screenPosition.y;
+        var guiPoint = new Vector2(screenPosition.x, guiY);
+
+        if (_lastSelectedPawnPanelRect.HasValue && _lastSelectedPawnPanelRect.Value.Contains(guiPoint))
+        {
+            return true;
+        }
+
+        if (_lastSelectedThingPlanPanelRect.HasValue && _lastSelectedThingPlanPanelRect.Value.Contains(guiPoint))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryReadPointerScreenPosition(out Vector2 screenPosition)
