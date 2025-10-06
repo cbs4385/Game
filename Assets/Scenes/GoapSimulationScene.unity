@@ -511,7 +511,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 100051}
-  - component: {fileID: 100052}
+  - component: {fileID: 100054}
   - component: {fileID: 100053}
   m_Layer: 0
   m_Name: UI.Inventory
@@ -535,7 +535,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 100031}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &100052
+--- !u!114 &100054
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -544,11 +544,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 100050}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3fa96904056d41b9ab0f07f805ddc3a, type: 3}
+  m_Script: {fileID: 11500000, guid: 49fa6f62a5424f94d873304c4bfc0f3d, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  sourceAsset: {fileID: 0}
   panelSettings: {fileID: 11400000, guid: c2ed32028b5446f587af5a7a9bcbd6bb, type: 2}
-  visualTree: {fileID: 9197481963314157269, guid: 61b28feda869424ea54c05e799090248, type: 3}
+  childOrderMode: 0
+  sortingOrder: 0
+  targetTexture: {fileID: 0}
+  renderMode: 0
+  rootVisualElement: {fileID: 0}
+  panelSettingsSerializedObject: {fileID: 0}
+  parentUI: {fileID: 0}
+  visualTreeAsset: {fileID: 9197481963314157269, guid: 61b28feda869424ea54c05e799090248, type: 3}
 --- !u!114 &100053
 MonoBehaviour:
   m_ObjectHideFlags: 0
