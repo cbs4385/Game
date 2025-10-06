@@ -1546,13 +1546,25 @@ public sealed class GoapSimulationView : MonoBehaviour
             return false;
         }
 
+        if (!string.IsNullOrEmpty(thing.Type))
+        {
+            if (thing.Type.IndexOf("pantry", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                thing.Type.IndexOf("storage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                thing.Type.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
         if (thing.Attributes != null)
         {
             foreach (var attribute in thing.Attributes)
             {
                 var key = attribute.Key;
                 if (!string.IsNullOrEmpty(key) &&
-                    key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+                    (key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     key.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     key.IndexOf("ingredient", StringComparison.OrdinalIgnoreCase) >= 0))
                 {
                     return true;
                 }
@@ -1563,8 +1575,10 @@ public sealed class GoapSimulationView : MonoBehaviour
         {
             foreach (var tag in thing.Tags)
             {
-                if (string.Equals(tag, "storage", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(tag, "pantry", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(tag) &&
+                    (tag.IndexOf("storage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     tag.IndexOf("pantry", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     tag.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0))
                 {
                     return true;
                 }
