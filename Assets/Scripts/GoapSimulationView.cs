@@ -1402,6 +1402,31 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
 
+        if (manualOptions != null && manualOptions.Count > 0)
+        {
+            var deduped = new List<PlanActionOption>(manualOptions.Count);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < manualOptions.Count; i++)
+            {
+                var option = manualOptions[i];
+                string key = string.Concat(
+                    option.GoalId ?? string.Empty,
+                    "\n",
+                    option.ActivityId ?? string.Empty,
+                    "\n",
+                    option.RawLabel ?? string.Empty);
+                if (seen.Add(key))
+                {
+                    deduped.Add(option);
+                }
+            }
+
+            if (deduped.Count != manualOptions.Count)
+            {
+                manualOptions = deduped;
+            }
+        }
+
         bool usingManualOptions = manualOptions != null && manualOptions.Count > 0;
         if (usingManualOptions)
         {
@@ -1479,6 +1504,41 @@ public sealed class GoapSimulationView : MonoBehaviour
         RefreshActionablePlanOptionsForSelection();
     }
 
+    private static bool ShouldDisplayInventoryPanel(ThingView thing)
+    {
+        if (thing == null)
+        {
+            return false;
+        }
+
+        if (thing.Attributes != null)
+        {
+            foreach (var attribute in thing.Attributes)
+            {
+                var key = attribute.Key;
+                if (!string.IsNullOrEmpty(key) &&
+                    key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (thing.Tags != null)
+        {
+            foreach (var tag in thing.Tags)
+            {
+                if (string.Equals(tag, "storage", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(tag, "pantry", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void PopulateSelectedThingInventory(ThingView thing)
     {
         ClearSelectedThingInventory();
@@ -1495,7 +1555,12 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (!bootstrapper.TryGetInventoryContents(thing.Id, out var stacks))
         {
-            return;
+            if (!ShouldDisplayInventoryPanel(thing))
+            {
+                return;
+            }
+
+            stacks = Array.Empty<InventoryStackView>();
         }
 
         if (stacks == null)
@@ -1676,10 +1741,40 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
+    private static bool HasRenderablePlanLines(string[] planLines)
+    {
+        if (planLines == null || planLines.Length == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < planLines.Length; i++)
+        {
+            var line = planLines[i];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var trimmed = line.Trim();
+            if (!string.Equals(trimmed, "<none>", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel, out Rect planPanelRect)
     {
         planPanelRect = default;
         if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return false;
+        }
+
+        if (_selectedThingParticipation.Length == 0 && !HasRenderablePlanLines(_selectedThingPlanLines))
         {
             return false;
         }
