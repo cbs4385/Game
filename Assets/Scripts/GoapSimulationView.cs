@@ -2041,8 +2041,16 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnGridPosition = selectedThing?.Position;
 
         PopulateSelectedPawnNeeds(selectedThing);
-        PopulateSelectedThingInventory(selectedThing);
-        SyncInventoryGridPresenter();
+
+        bool shouldSyncPawnInventory =
+            !_selectedThingId.HasValue ||
+            (_selectedPawnId.HasValue && NullableThingIdEquals(_selectedThingId, _selectedPawnId));
+
+        if (shouldSyncPawnInventory)
+        {
+            PopulateSelectedThingInventory(selectedThing);
+            SyncInventoryGridPresenter();
+        }
         PopulateSelectedPawnPlan(selectedId, snapshot);
         _selectedPawnPanelText = ComposeSelectedPawnPanelText(selectedId);
     }
