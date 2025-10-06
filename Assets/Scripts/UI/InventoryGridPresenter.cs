@@ -36,6 +36,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     private readonly List<SlotElements> _slotPool = new List<SlotElements>(32);
     private bool _selectionDirty;
     private bool _initialized;
+    private bool _dependenciesConfigured;
 
     public void ConfigureDependencies(
         GoapSimulationBootstrapper requiredBootstrapper,
@@ -54,6 +55,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
 
         bootstrapper = requiredBootstrapper;
         simulationView = requiredSimulationView;
+        _dependenciesConfigured = true;
 
         if (overridePanelSettings != null)
         {
@@ -94,8 +96,10 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         InitializeIfReady();
         if (!_initialized)
         {
-            throw new InvalidOperationException(
-                "InventoryGridPresenter could not initialize because required dependencies were not configured before Start.");
+            string reason = _dependenciesConfigured
+                ? "InventoryGridPresenter failed to initialize even though dependencies were configured before Start."
+                : "InventoryGridPresenter could not initialize because required dependencies were not configured before Start.";
+            Environment.FailFast(reason, new InvalidOperationException(reason));
         }
     }
 
