@@ -156,6 +156,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private ThingPlanParticipation[] _selectedThingParticipation = Array.Empty<ThingPlanParticipation>();
     private string[] _selectedThingPlanLines = Array.Empty<string>();
     private string _selectedThingHeader = string.Empty;
+    private GridPos? _selectedThingGridPosition;
     private readonly StringBuilder _selectedThingPanelBuilder = new StringBuilder();
 
     private void Awake()
@@ -1171,6 +1172,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingId = thing.Id;
         _selectedThingParticipation = entries;
         _selectedThingPlanLines = formatted;
+        _selectedThingGridPosition = thing.Position;
 
         SyncPlanSelectionToThing();
     }
@@ -1181,6 +1183,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingParticipation = Array.Empty<ThingPlanParticipation>();
         _selectedThingPlanLines = Array.Empty<string>();
         _selectedThingHeader = string.Empty;
+        _selectedThingGridPosition = null;
         _selectedThingPanelBuilder.Clear();
         _selectedThingGuiContent.text = string.Empty;
         _selectedPlanOptionIndex = null;
@@ -1357,8 +1360,9 @@ public sealed class GoapSimulationView : MonoBehaviour
             var previousBackground = GUI.backgroundColor;
             var previousEnabled = GUI.enabled;
 
+            string lineText = i < _selectedThingPlanLines.Length ? _selectedThingPlanLines[i] : string.Empty;
             PlanActionOption matchedOption = i < _selectedThingParticipation.Length
-                ? FindMatchingPlanOption(_selectedThingParticipation[i])
+                ? FindMatchingPlanOption(_selectedThingParticipation[i], lineText)
                 : null;
             bool isSelected = _selectedPlanOptionIndex.HasValue && _selectedPlanOptionIndex.Value == i;
             if (isSelected)
@@ -1380,7 +1384,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
-    private PlanActionOption FindMatchingPlanOption(ThingPlanParticipation participation)
+    private PlanActionOption FindMatchingPlanOption(ThingPlanParticipation participation, string fallbackLabel)
     {
         if (_selectedThingId == null)
         {
@@ -1408,7 +1412,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             return option;
         }
 
-        return null;
+        return CreateFallbackPlanOption(participation, fallbackLabel);
     }
 
     private void SyncPlanSelectionToThing()
@@ -1426,7 +1430,8 @@ public sealed class GoapSimulationView : MonoBehaviour
             if (index >= 0 && index < _selectedThingParticipation.Length)
             {
                 var participation = _selectedThingParticipation[index];
-                var currentMatch = FindMatchingPlanOption(participation);
+                var fallbackLabel = index < _selectedThingPlanLines.Length ? _selectedThingPlanLines[index] : string.Empty;
+                var currentMatch = FindMatchingPlanOption(participation, fallbackLabel);
                 if (currentMatch != null)
                 {
                     _selectedPlanOptionLabel = index < _selectedThingPlanLines.Length
@@ -1443,7 +1448,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         for (int i = 0; i < _selectedThingParticipation.Length; i++)
         {
             var participation = _selectedThingParticipation[i];
-            var matchedOption = FindMatchingPlanOption(participation);
+            var fallbackLabel = i < _selectedThingPlanLines.Length ? _selectedThingPlanLines[i] : string.Empty;
+            var matchedOption = FindMatchingPlanOption(participation, fallbackLabel);
             if (matchedOption == null)
             {
                 continue;
@@ -2737,7 +2743,10 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
 
         var participation = _selectedThingParticipation[participationIndex];
-        var option = FindMatchingPlanOption(participation);
+        var fallbackLabel = participationIndex < _selectedThingPlanLines.Length
+            ? _selectedThingPlanLines[participationIndex]
+            : string.Empty;
+        var option = FindMatchingPlanOption(participation, fallbackLabel);
         if (option == null)
         {
             throw new InvalidOperationException(
@@ -2789,6 +2798,44 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
             ? _selectedThingPlanLines[participationIndex]
             : option.Label;
+    }
+
+    private PlanActionOption CreateFallbackPlanOption(ThingPlanParticipation participation, string fallbackLabel)
+    {
+        if (_selectedThingId == null || !_selectedThingGridPosition.HasValue)
+        {
+            return null;
+        }
+
+        var goalId = participation.GoalId;
+        var activityId = participation.Activity;
+        if (string.IsNullOrWhiteSpace(goalId) || string.IsNullOrWhiteSpace(activityId))
+        {
+            return null;
+        }
+
+        string label = string.IsNullOrWhiteSpace(fallbackLabel)
+            ? string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} (Manual) -> {1}",
+                activityId,
+                _selectedThingId.Value.Value ?? string.Empty)
+            : fallbackLabel.Trim();
+
+        if (label.Length == 0)
+        {
+            label = activityId;
+        }
+
+        return new PlanActionOption(
+            label,
+            label,
+            activityId,
+            _selectedThingId.Value,
+            _selectedThingGridPosition.Value,
+            0,
+            true,
+            goalId);
     }
 
     private static bool NullableThingIdEquals(ThingId? left, ThingId? right)
