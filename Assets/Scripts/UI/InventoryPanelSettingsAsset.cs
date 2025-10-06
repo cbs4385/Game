@@ -983,10 +983,36 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             return false;
         }
 
-        if (string.Equals(enumName, "Camera", StringComparison.Ordinal) &&
-            Enum.IsDefined(enumType, "ScreenSpaceCamera"))
+        if (string.Equals(enumName, "Camera", StringComparison.Ordinal))
         {
-            resolvedName = "ScreenSpaceCamera";
+            if (Enum.IsDefined(enumType, "ScreenSpaceCamera"))
+            {
+                resolvedName = "ScreenSpaceCamera";
+                return true;
+            }
+
+            if (Enum.IsDefined(enumType, "RuntimeCamera"))
+            {
+                resolvedName = "RuntimeCamera";
+                return true;
+            }
+
+            foreach (var candidate in Enum.GetNames(enumType))
+            {
+                if (candidate.IndexOf("Camera", StringComparison.Ordinal) >= 0)
+                {
+                    resolvedName = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (string.Equals(enumName, "Overlay", StringComparison.Ordinal) &&
+            Enum.IsDefined(enumType, "ScreenSpaceOverlay"))
+        {
+            resolvedName = "ScreenSpaceOverlay";
             return true;
         }
 
