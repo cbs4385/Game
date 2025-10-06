@@ -960,12 +960,37 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
 
         try
         {
+            if (!Enum.IsDefined(enumType, enumName) &&
+                TryResolvePanelRenderModeAlias(enumType, enumName, out var resolvedName))
+            {
+                enumName = resolvedName;
+            }
+
             return Enum.Parse(enumType, enumName, false);
         }
         catch (ArgumentException exception)
         {
             throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
         }
+    }
+
+    private static bool TryResolvePanelRenderModeAlias(Type enumType, string enumName, out string resolvedName)
+    {
+        resolvedName = null;
+
+        if (!string.Equals(enumType.FullName, "UnityEngine.UIElements.PanelRenderMode", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(enumName, "Camera", StringComparison.Ordinal) &&
+            Enum.IsDefined(enumType, "ScreenSpaceCamera"))
+        {
+            resolvedName = "ScreenSpaceCamera";
+            return true;
+        }
+
+        return false;
     }
 
     private static object CreateEnumValue(Type enumType, long numericValue, string memberName)
