@@ -128,6 +128,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     private ActorPlanStatus _selectedPawnPlanStatus;
     private long _selectedPawnPlanSnapshotVersion;
     private readonly List<PlanActionOption> _selectedPawnPlanOptions = new List<PlanActionOption>();
+    private readonly List<PlanActionOption> _selectedPawnAllActionablePlanOptions = new List<PlanActionOption>();
     private readonly List<PlanActionOption> _selectedPawnActionablePlanOptions = new List<PlanActionOption>();
     private int? _selectedPlanOptionIndex;
     private string _selectedPlanOptionLabel = string.Empty;
@@ -1274,6 +1275,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingPlanLines = formatted;
         _selectedThingGridPosition = thing.Position;
 
+        RefreshActionablePlanOptionsForSelection();
         SyncPlanSelectionToThing();
     }
 
@@ -1288,6 +1290,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingGuiContent.text = string.Empty;
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
+        RefreshActionablePlanOptionsForSelection();
     }
 
     private void UpdateSelectedPawnInfo(ThingView selectedThing, IWorldSnapshot snapshot)
@@ -1582,6 +1585,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         _selectedPawnPlanSnapshotVersion = snapshot?.Version ?? -1;
         _selectedPawnPlanOptions.Clear();
+        _selectedPawnAllActionablePlanOptions.Clear();
         _selectedPawnActionablePlanOptions.Clear();
         _selectedPawnPlanStatus = null;
 
@@ -1608,7 +1612,7 @@ public sealed class GoapSimulationView : MonoBehaviour
                     _selectedPawnPlanOptions.Add(option);
                     if (option.IsActionable && option.TargetId.HasValue && option.TargetPosition.HasValue)
                     {
-                        _selectedPawnActionablePlanOptions.Add(option);
+                        _selectedPawnAllActionablePlanOptions.Add(option);
                     }
                 }
             }
@@ -1620,10 +1624,42 @@ public sealed class GoapSimulationView : MonoBehaviour
             _selectedPawnPlanCurrentStep = string.Empty;
             _selectedPawnPlanUpdatedUtc = default;
             _selectedPawnPlanOptions.Clear();
+            _selectedPawnAllActionablePlanOptions.Clear();
             _selectedPawnActionablePlanOptions.Clear();
         }
 
+        RefreshActionablePlanOptionsForSelection();
         SyncPlanSelectionToThing();
+    }
+
+    private void RefreshActionablePlanOptionsForSelection()
+    {
+        _selectedPawnActionablePlanOptions.Clear();
+
+        if (_selectedPawnAllActionablePlanOptions.Count == 0)
+        {
+            return;
+        }
+
+        if (!_selectedThingId.HasValue)
+        {
+            return;
+        }
+
+        var selectedThingId = _selectedThingId.Value;
+        for (int i = 0; i < _selectedPawnAllActionablePlanOptions.Count; i++)
+        {
+            var option = _selectedPawnAllActionablePlanOptions[i];
+            if (!option.TargetId.HasValue || !option.TargetPosition.HasValue)
+            {
+                continue;
+            }
+
+            if (NullableThingIdEquals(option.TargetId, selectedThingId))
+            {
+                _selectedPawnActionablePlanOptions.Add(option);
+            }
+        }
     }
 
     private string ComposeSelectedPawnPanelText(ThingId selectedId)
@@ -1693,10 +1729,14 @@ public sealed class GoapSimulationView : MonoBehaviour
             hasPlanContent = true;
         }
 
-        if (_selectedPawnActionablePlanOptions.Count > 0)
+        if (_selectedPawnAllActionablePlanOptions.Count > 0)
         {
             builder.AppendLine("  Steps:");
             hasPlanContent = true;
+            if (_selectedPawnActionablePlanOptions.Count == 0)
+            {
+                builder.AppendLine("    Select a plan target to view manual steps.");
+            }
         }
 
         string beforeStepsText = builder.ToString();
@@ -1761,6 +1801,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnPlanStepLines = Array.Empty<string>();
         _selectedPawnPlanStatus = null;
         _selectedPawnPlanOptions.Clear();
+        _selectedPawnAllActionablePlanOptions.Clear();
         _selectedPawnActionablePlanOptions.Clear();
         _selectedPlanOptionIndex = null;
         _selectedPlanOptionLabel = string.Empty;
