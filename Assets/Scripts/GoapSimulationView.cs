@@ -1617,18 +1617,14 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         builder.AppendLine();
         builder.AppendLine(string.IsNullOrWhiteSpace(selectedPawnPanelPlanHeader) ? "Plan" : selectedPawnPanelPlanHeader);
+        bool hasPlanContent = false;
         bool selectedPawnManual = _manualPawnIds.Contains(selectedId);
         if (selectedPawnManual && !_manualPlanAutoEvaluationEnabled)
         {
             builder.AppendLine("  Automatic plan evaluation disabled.");
-            var disabledText = builder.ToString();
-            _selectedPawnPlanStepLines = Array.Empty<string>();
-            _selectedPawnPanelTextBeforePlanSteps = disabledText;
-            _selectedPawnPanelTextAfterPlanSteps = string.Empty;
-            _selectedPawnPanelText = disabledText.TrimEnd('\r', '\n');
-            return _selectedPawnPanelText;
+            builder.AppendLine("  Select a plan step to command this pawn manually.");
+            hasPlanContent = true;
         }
-        bool hasPlanContent = false;
         if (!string.IsNullOrEmpty(_selectedPawnPlanState))
         {
             builder.Append("  State: ").Append(_selectedPawnPlanState).AppendLine();
