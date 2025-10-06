@@ -43,7 +43,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         instance.name = $"{name}_Runtime";
 
         instance.scaleMode = scaleMode;
-        instance.referenceResolution = referenceResolution;
+        AssignRequired(instance, nameof(referenceResolution), referenceResolution);
         instance.referenceDpi = referenceDpi;
         instance.match = match;
         instance.screenMatchMode = screenMatchMode;
@@ -53,18 +53,18 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         AssignEnumValue(instance, "panelClearFlags", GetPanelClearFlagsName(panelClearFlags));
         instance.textSettings = textSettings;
         instance.targetDisplay = targetDisplay;
-        instance.drawToCameras = drawToCameras;
-        instance.viewport = viewport;
-        instance.vsync = vsync;
-        instance.targetWidth = targetWidth;
-        instance.targetHeight = targetHeight;
+        TryAssignOptional(instance, nameof(drawToCameras), drawToCameras);
+        TryAssignOptional(instance, nameof(viewport), viewport);
+        TryAssignOptional(instance, nameof(vsync), vsync);
+        TryAssignOptional(instance, nameof(targetWidth), targetWidth);
+        TryAssignOptional(instance, nameof(targetHeight), targetHeight);
         instance.sortingOrder = sortingOrder;
         AssignEnumValue(instance, "renderingMode", GetRuntimePanelRenderingModeName(renderingMode));
-        instance.vsyncCount = vsyncCount;
-        instance.runtimeShader = runtimeShader;
-        instance.runtimeWorldSpacePanelSettings = runtimeWorldSpacePanelSettings;
-        instance.antiAliasing = antiAliasing;
-        instance.pixelsPerUnit = pixelsPerUnit;
+        TryAssignOptional(instance, nameof(vsyncCount), vsyncCount);
+        TryAssignOptional(instance, nameof(runtimeShader), runtimeShader);
+        TryAssignOptional(instance, nameof(runtimeWorldSpacePanelSettings), runtimeWorldSpacePanelSettings);
+        TryAssignOptional(instance, nameof(antiAliasing), antiAliasing);
+        TryAssignOptional(instance, nameof(pixelsPerUnit), pixelsPerUnit);
 
         TryAssignOptional(instance, nameof(maxQueuedFrames), maxQueuedFrames);
         TryAssignOptional(instance, nameof(worldSpaceLayer), worldSpaceLayer);
@@ -116,20 +116,170 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         };
     }
 
-    private static void TryAssignOptional<T>(PanelSettings target, string memberName, T value)
+    private static void AssignRequired<T>(PanelSettings target, string memberName, T value)
+    {
+        if (!TryAssignOptional(target, memberName, value))
+        {
+            throw new MissingMemberException(target.GetType().FullName, memberName);
+        }
+    }
+
+    private static bool TryAssignOptional<T>(PanelSettings target, string memberName, T value)
     {
         var type = target.GetType();
         var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property != null && property.CanWrite && property.PropertyType.IsAssignableFrom(typeof(T)))
+        if (property != null && property.CanWrite && TryConvertValue(value, property.PropertyType, out var convertedPropertyValue))
         {
+            property.SetValue(target, convertedPropertyValue);
+            return true;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null && TryConvertValue(value, field.FieldType, out var convertedFieldValue))
+        {
+            field.SetValue(target, convertedFieldValue);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryConvertValue<T>(T value, Type targetType, out object converted)
+    {
+        if (value == null)
+        {
+            if (!targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null)
+            {
+                converted = null;
+                return true;
+            }
+
+            converted = null;
+            return false;
+        }
+
+        var valueType = value.GetType();
+        if (targetType.IsAssignableFrom(valueType))
+        {
+            converted = value;
+            return true;
+        }
+
+        if (targetType.IsEnum)
+        {
+            if (value is string enumName)
+            {
+                converted = Enum.Parse(targetType, enumName, false);
+                return true;
+            }
+
+            if (IsNumericType(valueType))
+            {
+                converted = Enum.ToObject(targetType, value);
+                return true;
+            }
+        }
+
+        if (IsNumericType(valueType) && IsNumericType(targetType))
+        {
+            converted = Convert.ChangeType(value, targetType);
+            return true;
+        }
+
+        if (targetType == typeof(Vector2Int) && value is Vector2 vectorValue)
+        {
+            converted = Vector2Int.RoundToInt(vectorValue);
+            return true;
+        }
+
+        if (targetType == typeof(Vector2) && value is Vector2Int vectorIntValue)
+        {
+            converted = (Vector2)vectorIntValue;
+            return true;
+        }
+
+        if (targetType == typeof(RectInt) && value is Rect rectValue)
+        {
+            converted = new RectInt(
+                Mathf.RoundToInt(rectValue.xMin),
+                Mathf.RoundToInt(rectValue.yMin),
+                Mathf.RoundToInt(rectValue.width),
+                Mathf.RoundToInt(rectValue.height));
+            return true;
+        }
+
+        if (targetType == typeof(Rect) && value is RectInt rectIntValue)
+        {
+            converted = new Rect(rectIntValue.x, rectIntValue.y, rectIntValue.width, rectIntValue.height);
+            return true;
+        }
+
+        converted = null;
+        return false;
+    }
+
+    private static bool IsNumericType(Type type)
+    {
+        switch (Type.GetTypeCode(type))
+        {
+            case TypeCode.Byte:
+            case TypeCode.SByte:
+            case TypeCode.UInt16:
+            case TypeCode.UInt32:
+            case TypeCode.UInt64:
+            case TypeCode.Int16:
+            case TypeCode.Int32:
+            case TypeCode.Int64:
+            case TypeCode.Decimal:
+            case TypeCode.Double:
+            case TypeCode.Single:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
+    {
+        if (string.IsNullOrEmpty(enumName))
+        {
+            return;
+        }
+
+        var type = target.GetType();
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite)
+        {
+            var value = CreateEnumValue(property.PropertyType, enumName, memberName);
             property.SetValue(target, value);
             return;
         }
 
         var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (field != null && field.FieldType.IsAssignableFrom(typeof(T)))
+        if (field != null)
         {
+            var value = CreateEnumValue(field.FieldType, enumName, memberName);
             field.SetValue(target, value);
+            return;
+        }
+
+        throw new MissingMemberException(type.FullName, memberName);
+    }
+
+    private static object CreateEnumValue(Type enumType, string enumName, string memberName)
+    {
+        if (!enumType.IsEnum)
+        {
+            throw new InvalidOperationException($"Member '{memberName}' on '{enumType.FullName}' is not an enum.");
+        }
+
+        try
+        {
+            return Enum.Parse(enumType, enumName, false);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
         }
     }
 
