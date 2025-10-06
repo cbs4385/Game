@@ -168,6 +168,9 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _selectedThingInventoryHeader = string.Empty;
     private int? _selectedThingInventorySelectionIndex;
     private string _selectedThingInventorySelectionLabel = string.Empty;
+    private ThingId? _selectedInventoryOwnerId;
+    private ThingId? _lastPresenterInventoryOwnerId;
+    private string _lastPresenterInventoryHeader = string.Empty;
     private Rect? _lastSelectedPawnPanelRect;
     private Rect? _lastSelectedThingPlanPanelRect;
 
@@ -1525,7 +1528,15 @@ public sealed class GoapSimulationView : MonoBehaviour
             return;
         }
 
-        inventoryGridPresenter.SetSelection(_selectedThingId, _selectedThingInventoryHeader);
+        if (NullableThingIdEquals(_lastPresenterInventoryOwnerId, _selectedInventoryOwnerId) &&
+            string.Equals(_lastPresenterInventoryHeader, _selectedThingInventoryHeader, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastPresenterInventoryOwnerId = _selectedInventoryOwnerId;
+        _lastPresenterInventoryHeader = _selectedThingInventoryHeader ?? string.Empty;
+        inventoryGridPresenter.SetSelection(_selectedInventoryOwnerId, _selectedThingInventoryHeader);
     }
 
     private static bool ShouldDisplayInventoryPanel(ThingView thing)
@@ -1565,22 +1576,34 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private void PopulateSelectedThingInventory(ThingView thing)
     {
-        ClearSelectedThingInventory();
-
-        if (thing == null)
-        {
-            return;
-        }
-
         if (bootstrapper == null)
         {
             throw new InvalidOperationException("Inventory inspection requires an attached GoapSimulationBootstrapper instance.");
+        }
+
+        if (thing == null)
+        {
+            ApplyInventorySelection(
+                null,
+                Array.Empty<InventoryStackView>(),
+                Array.Empty<string>(),
+                string.Empty,
+                null,
+                string.Empty);
+            return;
         }
 
         if (!bootstrapper.TryGetInventoryContents(thing.Id, out var stacks))
         {
             if (!ShouldDisplayInventoryPanel(thing))
             {
+                ApplyInventorySelection(
+                    null,
+                    Array.Empty<InventoryStackView>(),
+                    Array.Empty<string>(),
+                    string.Empty,
+                    null,
+                    string.Empty);
                 return;
             }
 
@@ -1596,16 +1619,25 @@ public sealed class GoapSimulationView : MonoBehaviour
         int count = stacks.Count;
         if (count <= 0)
         {
-            if (TryPopulateInventoryFromAttributes(thing))
+            if (TryPopulateInventoryFromAttributes(thing, out var attributeStacks, out var attributeLines, out var attributeHeader))
             {
+                ApplyInventorySelection(
+                    thing.Id,
+                    attributeStacks,
+                    attributeLines,
+                    attributeHeader,
+                    null,
+                    string.Empty);
                 return;
             }
 
-            _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
-            _selectedThingInventoryLines = new[] { "<empty>" };
-            _selectedThingInventoryHeader = "Contents (empty)";
-            _selectedThingInventorySelectionIndex = null;
-            _selectedThingInventorySelectionLabel = string.Empty;
+            ApplyInventorySelection(
+                thing.Id,
+                Array.Empty<InventoryStackView>(),
+                new[] { "<empty>" },
+                "Contents (empty)",
+                null,
+                string.Empty);
             return;
         }
 
@@ -1654,27 +1686,36 @@ public sealed class GoapSimulationView : MonoBehaviour
             lineArray[i] = label;
         }
 
-        _selectedThingInventoryStacks = stackArray;
-        _selectedThingInventoryLines = lineArray;
-        _selectedThingInventoryHeader = string.Format(
-            CultureInfo.InvariantCulture,
-            "Contents ({0})",
-            count);
-        _selectedThingInventorySelectionIndex = null;
-        _selectedThingInventorySelectionLabel = string.Empty;
+        ApplyInventorySelection(
+            thing.Id,
+            stackArray,
+            lineArray,
+            string.Format(CultureInfo.InvariantCulture, "Contents ({0})", count),
+            null,
+            string.Empty);
     }
 
     private void ClearSelectedThingInventory()
     {
-        _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
-        _selectedThingInventoryLines = Array.Empty<string>();
-        _selectedThingInventoryHeader = string.Empty;
-        _selectedThingInventorySelectionIndex = null;
-        _selectedThingInventorySelectionLabel = string.Empty;
+        ApplyInventorySelection(
+            null,
+            Array.Empty<InventoryStackView>(),
+            Array.Empty<string>(),
+            string.Empty,
+            null,
+            string.Empty);
     }
 
-    private bool TryPopulateInventoryFromAttributes(ThingView thing)
+    private bool TryPopulateInventoryFromAttributes(
+        ThingView thing,
+        out InventoryStackView[] stacks,
+        out string[] lines,
+        out string header)
     {
+        stacks = Array.Empty<InventoryStackView>();
+        lines = Array.Empty<string>();
+        header = string.Empty;
+
         if (thing?.Attributes == null || thing.Attributes.Count == 0)
         {
             return false;
@@ -1732,14 +1773,113 @@ public sealed class GoapSimulationView : MonoBehaviour
             lineArray[i] = entries[i].Label;
         }
 
-        _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
-        _selectedThingInventoryLines = lineArray;
-        _selectedThingInventoryHeader = string.Format(
+        stacks = Array.Empty<InventoryStackView>();
+        lines = lineArray;
+        header = string.Format(
             CultureInfo.InvariantCulture,
             "Contents ({0})",
             entries.Count);
-        _selectedThingInventorySelectionIndex = null;
-        _selectedThingInventorySelectionLabel = string.Empty;
+        return true;
+    }
+
+    private bool ApplyInventorySelection(
+        ThingId? ownerId,
+        InventoryStackView[] stacks,
+        string[] lines,
+        string header,
+        int? selectionIndex,
+        string selectionLabel)
+    {
+        stacks = stacks ?? Array.Empty<InventoryStackView>();
+        lines = lines ?? Array.Empty<string>();
+        header = header ?? string.Empty;
+        selectionLabel = selectionLabel ?? string.Empty;
+
+        if (NullableThingIdEquals(_selectedInventoryOwnerId, ownerId) &&
+            AreInventoryStacksEqual(_selectedThingInventoryStacks, stacks) &&
+            AreInventoryLinesEqual(_selectedThingInventoryLines, lines) &&
+            string.Equals(_selectedThingInventoryHeader, header, StringComparison.Ordinal) &&
+            _selectedThingInventorySelectionIndex == selectionIndex &&
+            string.Equals(_selectedThingInventorySelectionLabel, selectionLabel, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        _selectedInventoryOwnerId = ownerId;
+        _selectedThingInventoryStacks = stacks;
+        _selectedThingInventoryLines = lines;
+        _selectedThingInventoryHeader = header;
+        _selectedThingInventorySelectionIndex = selectionIndex;
+        _selectedThingInventorySelectionLabel = selectionLabel;
+        return true;
+    }
+
+    private static bool AreInventoryLinesEqual(string[] current, string[] proposed)
+    {
+        if (ReferenceEquals(current, proposed))
+        {
+            return true;
+        }
+
+        if (current == null || proposed == null)
+        {
+            return false;
+        }
+
+        if (current.Length != proposed.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < current.Length; i++)
+        {
+            if (!string.Equals(current[i], proposed[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreInventoryStacksEqual(InventoryStackView[] current, InventoryStackView[] proposed)
+    {
+        if (ReferenceEquals(current, proposed))
+        {
+            return true;
+        }
+
+        if (current == null || proposed == null)
+        {
+            return false;
+        }
+
+        if (current.Length != proposed.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < current.Length; i++)
+        {
+            var a = current[i];
+            var b = proposed[i];
+
+            if (!ReferenceEquals(a.Item, b.Item))
+            {
+                var aId = a.Item?.Id ?? string.Empty;
+                var bId = b.Item?.Id ?? string.Empty;
+                if (!string.Equals(aId, bId, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            if (a.Quantity != b.Quantity || a.Quality != b.Quality)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1887,6 +2027,8 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPawnGridPosition = selectedThing?.Position;
 
         PopulateSelectedPawnNeeds(selectedThing);
+        PopulateSelectedThingInventory(selectedThing);
+        SyncInventoryGridPresenter();
         PopulateSelectedPawnPlan(selectedId, snapshot);
         _selectedPawnPanelText = ComposeSelectedPawnPanelText(selectedId);
     }
