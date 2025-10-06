@@ -1,0 +1,30 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+  <ui:Style src="InventoryPanel.uss" />
+  <ui:Style src="InventoryGrid.uss" />
+  <ui:VisualElement name="InventoryPanel" class="inventory-panel">
+    <ui:VisualElement class="inventory-panel__header">
+      <ui:Label name="PanelTitle" text="Inventory" class="inventory-panel__title" />
+      <ui:VisualElement class="inventory-panel__actions">
+        <ui:TextField name="SearchField" label="Search" class="inventory-panel__search" />
+        <ui:Button name="SortButton" text="Sort" class="inventory-panel__button inventory-panel__button--sort" />
+        <ui:Button name="FilterButton" text="Filter" class="inventory-panel__button inventory-panel__button--filter" />
+      </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement class="inventory-panel__content">
+      <ui:VisualElement class="inventory-panel__equipment">
+        <ui:Label text="Equipment" class="inventory-panel__section-title" />
+        <ui:VisualElement name="EquipmentSlots" class="inventory-panel__equipment-slots" />
+      </ui:VisualElement>
+      <ui:VisualElement class="inventory-panel__divider" />
+      <ui:VisualElement class="inventory-panel__inventory">
+        <ui:Label text="Backpack" class="inventory-panel__section-title" />
+        <ui:VisualElement name="InventoryGrid" class="inv-grid inventory-panel__grid" />
+        <ui:Label name="EmptyMessage" text="No items" class="inv-empty inventory-panel__empty-message" style="display: none;" />
+      </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement class="inventory-panel__footer">
+      <ui:Label name="WeightLabel" text="Weight: 0 / 100" class="inventory-panel__footer-text" />
+      <ui:Label name="CurrencyLabel" text="Coins: 0" class="inventory-panel__footer-text" />
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>
