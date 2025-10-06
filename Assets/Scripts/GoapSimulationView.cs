@@ -1012,10 +1012,30 @@ public sealed class GoapSimulationView : MonoBehaviour
             RenderClockLabel(hasClock, hasPawnUpdate);
         }
 
-        var hasPawnPanel = RenderSelectedPawnPanel(out var pawnPanelRect);
-        var hasThingPlanPanel = RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out var thingPlanRect);
+        bool shouldRenderThingPlanPanel = ShouldRenderThingPlanPanel();
+
+        var hasPawnPanel = RenderSelectedPawnPanel(out var pawnPanelRect, includePlanSteps: !shouldRenderThingPlanPanel);
+        Rect thingPlanRect = default;
+        var hasThingPlanPanel = shouldRenderThingPlanPanel &&
+            RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out thingPlanRect);
+
         RenderThingInventoryPanel(pawnPanelRect, thingPlanRect, hasPawnPanel, hasThingPlanPanel);
         RenderThingHover();
+    }
+
+    private bool ShouldRenderThingPlanPanel()
+    {
+        if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return false;
+        }
+
+        if (_selectedThingParticipation.Length == 0 && !HasRenderablePlanLines(_selectedThingPlanLines))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private void RenderClockLabel(bool hasClock, bool hasPawnUpdate)
@@ -1097,7 +1117,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockStyle.normal.textColor = clockTextColor;
     }
 
-    private bool RenderSelectedPawnPanel(out Rect panelRect)
+    private bool RenderSelectedPawnPanel(out Rect panelRect, bool includePlanSteps)
     {
         bool hasContent =
             !string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps) ||
@@ -1126,7 +1146,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         float stepsHeight = 0f;
         float[] stepLineHeights = null;
-        if (_selectedPawnPlanStepLines.Length > 0)
+        if (includePlanSteps && _selectedPawnPlanStepLines.Length > 0)
         {
             int stepCount = Mathf.Min(_selectedPawnPlanStepLines.Length, _selectedPawnActionablePlanOptions.Count);
             if (stepCount > 0)
@@ -1183,7 +1203,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             currentY += beforeHeight;
         }
 
-        if (stepLineHeights != null)
+        if (includePlanSteps && stepLineHeights != null)
         {
             for (int i = 0; i < stepLineHeights.Length; i++)
             {
