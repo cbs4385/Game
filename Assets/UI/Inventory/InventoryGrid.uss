@@ -50,7 +50,7 @@
   right: 4px;
   font-size: 11px;
   color: white;
-  -unity-text-outline-width: 0.4;
+  -unity-text-outline-width: 0.4px;
   -unity-text-outline-color: rgba(0, 0, 0, 0.8);
   -unity-font-style: bold;
 }

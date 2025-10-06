@@ -345,7 +345,6 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         panel.style.borderBottomLeftRadius = 8f;
         panel.style.borderBottomRightRadius = 8f;
         panel.style.flexDirection = FlexDirection.Column;
-        panel.style.rowGap = 6f;
     }
 
     private static void ApplyTitleStyle(Label title)
@@ -353,20 +352,21 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         title.style.unityFontStyleAndWeight = FontStyle.Bold;
         title.style.fontSize = 14f;
         title.style.color = Color.white;
+        title.style.marginBottom = 6f;
     }
 
     private static void ApplyGridStyle(VisualElement grid)
     {
         grid.style.flexDirection = FlexDirection.Row;
         grid.style.flexWrap = Wrap.Wrap;
-        grid.style.rowGap = 4f;
-        grid.style.columnGap = 4f;
+        grid.style.marginBottom = 6f;
     }
 
     private static void ApplyEmptyLabelStyle(Label emptyLabel)
     {
         emptyLabel.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.7f));
         emptyLabel.style.fontSize = 12f;
+        emptyLabel.style.marginTop = 6f;
     }
 
     private static void ApplySlotStyle(VisualElement slot)
@@ -389,6 +389,8 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         slot.style.flexShrink = 0f;
         slot.style.flexGrow = 0f;
         slot.style.position = Position.Relative;
+        slot.style.marginRight = 4f;
+        slot.style.marginBottom = 4f;
     }
 
     private static void ApplyQuantityLabelStyle(Label quantityLabel)
