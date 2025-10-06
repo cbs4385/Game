@@ -706,6 +706,9 @@ public sealed class PlayerPawnController : MonoBehaviour
 
     private static ThingView FindInteractableThing(IWorldSnapshot snapshot, ThingId playerId, GridPos targetPos)
     {
+        ThingView prioritized = null;
+        ThingView fallback = null;
+
         foreach (var thing in snapshot.AllThings())
         {
             if (thing == null || thing.Id.Equals(playerId))
@@ -713,12 +716,82 @@ public sealed class PlayerPawnController : MonoBehaviour
                 continue;
             }
 
-            if (thing.Position.Equals(targetPos))
+            if (!thing.Position.Equals(targetPos))
             {
-                return thing;
+                continue;
+            }
+
+            fallback ??= thing;
+
+            if (IsPickupCandidate(thing))
+            {
+                if (prioritized == null || ComparePickupPriority(thing, prioritized) < 0)
+                {
+                    prioritized = thing;
+                }
             }
         }
 
-        return null;
+        return prioritized ?? fallback;
+    }
+
+    private static bool IsPickupCandidate(ThingView thing)
+    {
+        if (thing?.Tags == null)
+        {
+            return false;
+        }
+
+        foreach (var tag in thing.Tags)
+        {
+            if (string.Equals(tag, "item", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(tag, "food", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(tag, "edible", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int ComparePickupPriority(ThingView candidate, ThingView incumbent)
+    {
+        bool candidateGrounded = IsGroundedItem(candidate);
+        bool incumbentGrounded = IsGroundedItem(incumbent);
+
+        if (candidateGrounded && !incumbentGrounded)
+        {
+            return -1;
+        }
+
+        if (!candidateGrounded && incumbentGrounded)
+        {
+            return 1;
+        }
+
+        var candidateId = candidate?.Id.Value ?? string.Empty;
+        var incumbentId = incumbent?.Id.Value ?? string.Empty;
+        return string.CompareOrdinal(candidateId, incumbentId);
+    }
+
+    private static bool IsGroundedItem(ThingView thing)
+    {
+        if (thing?.Attributes == null)
+        {
+            return true;
+        }
+
+        if (!thing.Attributes.TryGetValue("held", out var heldValue))
+        {
+            return true;
+        }
+
+        if (double.IsNaN(heldValue) || double.IsInfinity(heldValue))
+        {
+            return true;
+        }
+
+        return heldValue <= 0.5;
     }
 }
