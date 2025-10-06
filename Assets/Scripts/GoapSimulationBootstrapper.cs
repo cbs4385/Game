@@ -2812,6 +2812,12 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 seed.Attributes[kv.Key.Trim()] = kv.Value;
             }
 
+            if (RequiresInventoryDefinition(thing) && thing.container?.inventory == null)
+            {
+                throw new InvalidDataException(
+                    $"Thing '{trimmedId}' is tagged for inventory interaction but does not declare a container inventory.");
+            }
+
             if (thing.container?.inventory != null)
             {
                 if (_inventorySystem == null)
@@ -2845,6 +2851,54 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
             seeds.Add(seed);
             _seedByThing[id] = seed;
         }
+    }
+
+    private static bool RequiresInventoryDefinition(ThingSpawnConfig thing)
+    {
+        if (thing == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(thing.type))
+        {
+            var type = thing.type.Trim();
+            if (type.IndexOf("pantry", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        foreach (var tag in thing.tags ?? Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                continue;
+            }
+
+            var trimmedTag = tag.Trim();
+            if (trimmedTag.IndexOf("pantry", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                trimmedTag.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        foreach (var key in thing.attributes?.Keys ?? Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            if (key.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AddBuildingPrototypes(WorldConfig worldConfig, VillageConfig villageConfig, List<ThingSeed> seeds)
