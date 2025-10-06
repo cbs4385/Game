@@ -20,6 +20,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     [SerializeField] private Transform pawnContainer;
     [SerializeField] private Camera observerCamera;
     [SerializeField] private PlayerPawnController playerPawnController;
+    [SerializeField] private InventoryGridPresenter inventoryGridPresenter;
     [SerializeField] private int mapSortingOrder = -100;
     [SerializeField] private int pawnSortingOrder = 0;
     [SerializeField] private int thingSortingOrder = -50;
@@ -1495,6 +1496,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         RefreshActionablePlanOptionsForSelection();
         SyncPlanSelectionToThing();
+        SyncInventoryGridPresenter();
     }
 
     private void ClearSelectedThingPlan()
@@ -1511,6 +1513,17 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPlanOptionLabel = string.Empty;
         _lastSelectedThingPlanPanelRect = null;
         RefreshActionablePlanOptionsForSelection();
+        SyncInventoryGridPresenter();
+    }
+
+    private void SyncInventoryGridPresenter()
+    {
+        if (inventoryGridPresenter == null)
+        {
+            return;
+        }
+
+        inventoryGridPresenter.SetSelection(_selectedThingId, _selectedThingInventoryHeader);
     }
 
     private static bool ShouldDisplayInventoryPanel(ThingView thing)
@@ -2554,7 +2567,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
-    private Sprite LoadSpriteAsset(string manifestPath)
+    public Sprite LoadSpriteAsset(string manifestPath)
     {
         if (string.IsNullOrWhiteSpace(manifestPath))
         {
