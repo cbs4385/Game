@@ -309,7 +309,12 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             return false;
         }
 
-        return TryAssignRenderingModeOnObject(target, containerMemberName, enumName);
+        if (TryAssignRenderingModeOnObject(target, containerMemberName, enumName))
+        {
+            return true;
+        }
+
+        return TryAssignRenderingModeThroughAccessors(target, containerMemberName, enumName);
     }
 
     private static bool TryAssignRenderingModeOnObject(object target, string containerMemberName, string enumName)
@@ -322,9 +327,15 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var type = target.GetType();
 
         var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property != null && property.CanRead)
+        if (property != null)
         {
-            var container = property.GetValue(target);
+            var canRead = property.CanRead;
+            var container = canRead ? property.GetValue(target) : null;
+            if (container == null)
+            {
+                container = CreateContainerInstance(property.PropertyType);
+            }
+
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
             {
                 if (property.CanWrite)
@@ -337,13 +348,18 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
                 {
                     return true;
                 }
+
+                if (TryInvokeContainerSetter(type, containerMemberName, property.PropertyType, container))
+                {
+                    return true;
+                }
             }
         }
 
         var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         if (field != null)
         {
-            var container = field.GetValue(target);
+            var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
             {
                 field.SetValue(target, container);
@@ -447,8 +463,107 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         return false;
     }
 
+    private static bool TryAssignRenderingModeThroughAccessors(object target, string containerMemberName, string enumName)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+        var pascalName = ToPascalCase(containerMemberName);
+        if (string.IsNullOrEmpty(pascalName))
+        {
+            return false;
+        }
+
+        var getter = type.GetMethod($"Get{pascalName}", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (getter == null)
+        {
+            return false;
+        }
+
+        var container = getter.Invoke(target, null);
+        if (!TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+        {
+            return false;
+        }
+
+        return TryInvokeContainerSetter(type, containerMemberName, getter.ReturnType, container);
+    }
+
+    private static bool TryInvokeContainerSetter(Type targetType, string containerMemberName, Type containerType, object container)
+    {
+        if (targetType == null || containerType == null)
+        {
+            return false;
+        }
+
+        var pascalName = ToPascalCase(containerMemberName);
+        if (string.IsNullOrEmpty(pascalName))
+        {
+            return false;
+        }
+
+        var candidateNames = new[]
+        {
+            $"Set{pascalName}",
+            $"Assign{pascalName}",
+            $"Apply{pascalName}",
+            $"Update{pascalName}"
+        };
+
+        foreach (var methodName in candidateNames)
+        {
+            var method = targetType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { containerType }, null);
+            if (method != null)
+            {
+                method.Invoke(target, new[] { container });
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string ToPascalCase(string memberName)
+    {
+        if (string.IsNullOrEmpty(memberName))
+        {
+            return string.Empty;
+        }
+
+        if (memberName.Length == 1)
+        {
+            return memberName.ToUpperInvariant();
+        }
+
+        return char.ToUpperInvariant(memberName[0]) + memberName.Substring(1);
+    }
+
+    private static object CreateContainerInstance(Type containerType)
+    {
+        if (containerType == null)
+        {
+            return null;
+        }
+
+        if (containerType.IsValueType)
+        {
+            return Activator.CreateInstance(containerType);
+        }
+
+        var constructor = containerType.GetConstructor(Type.EmptyTypes);
+        return constructor != null ? constructor.Invoke(Array.Empty<object>()) : null;
+    }
+
     private static bool TryAssignEnumValueOnObject(object target, string memberName, string enumName)
     {
+        if (target == null)
+        {
+            return false;
+        }
+
         var type = target.GetType();
 
         var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
