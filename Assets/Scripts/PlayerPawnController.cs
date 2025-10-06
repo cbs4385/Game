@@ -242,7 +242,10 @@ public sealed class PlayerPawnController : MonoBehaviour
         int? planStepIndex = null,
         long? expectedSnapshotVersion = null,
         string planStepActivity = null,
-        string planGoalId = null)
+        string planGoalId = null,
+        ThingId? expectedPlanTargetId = null,
+        GridPos? expectedPlanTargetPosition = null,
+        bool enforceExpectedTarget = true)
     {
         if (_world == null)
         {
@@ -285,8 +288,18 @@ public sealed class PlayerPawnController : MonoBehaviour
                     "Manual plan execution requires a non-empty goal identifier after trimming.");
             }
 
-            var expectedTarget = hasTarget ? (ThingId?)targetId : null;
-            var expectedPosition = hasTarget ? (GridPos?)targetPos : null;
+            ThingId? expectedTarget;
+            GridPos? expectedPosition;
+            if (enforceExpectedTarget)
+            {
+                expectedTarget = expectedPlanTargetId ?? (hasTarget ? (ThingId?)targetId : null);
+                expectedPosition = expectedPlanTargetPosition ?? (hasTarget ? (GridPos?)targetPos : null);
+            }
+            else
+            {
+                expectedTarget = expectedPlanTargetId;
+                expectedPosition = expectedPlanTargetPosition;
+            }
             updatedSnapshotVersion = bootstrapper.ExecuteManualPlanStepSequence(
                 _playerPawnId.Value,
                 planStepIndex.Value,
