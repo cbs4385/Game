@@ -40,8 +40,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
 
     public void ConfigureDependencies(
         GoapSimulationBootstrapper requiredBootstrapper,
-        GoapSimulationView requiredSimulationView,
-        PanelSettings overridePanelSettings = null)
+        GoapSimulationView requiredSimulationView)
     {
         if (requiredBootstrapper == null)
         {
@@ -56,15 +55,6 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         bootstrapper = requiredBootstrapper;
         simulationView = requiredSimulationView;
         _dependenciesConfigured = true;
-
-        if (overridePanelSettings != null)
-        {
-            panelSettings = overridePanelSettings;
-            if (_document != null)
-            {
-                _document.panelSettings = overridePanelSettings;
-            }
-        }
 
         if (isActiveAndEnabled)
         {
@@ -325,11 +315,8 @@ public sealed class InventoryGridPresenter : MonoBehaviour
             var root = new VisualElement();
             root.AddToClassList("inv-slot");
 
-            ApplySlotStyle(root);
-
             var quantityLabel = new Label { name = "Quantity" };
             quantityLabel.AddToClassList("inv-qty");
-            ApplyQuantityLabelStyle(quantityLabel);
             quantityLabel.pickingMode = PickingMode.Ignore;
             root.Add(quantityLabel);
 
@@ -346,114 +333,29 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         _grid = _root.Q<VisualElement>("Grid");
         _emptyLabel = _root.Q<Label>("EmptyMessage");
 
-        if (_panel != null && _titleLabel != null && _grid != null && _emptyLabel != null)
+        if (_panel == null)
         {
-            return;
+            throw new InvalidOperationException(
+                "InventoryGridPresenter requires a VisualElement named 'InventoryPanel' in the assigned UIDocument.");
         }
 
-        _root.Clear();
+        if (_titleLabel == null)
+        {
+            throw new InvalidOperationException(
+                "InventoryGridPresenter requires a Label named 'Title' in the assigned UIDocument.");
+        }
 
-        _panel = new VisualElement { name = "InventoryPanel" };
-        _panel.AddToClassList("inv-panel");
-        ApplyPanelStyle(_panel);
-        _root.Add(_panel);
+        if (_grid == null)
+        {
+            throw new InvalidOperationException(
+                "InventoryGridPresenter requires a VisualElement named 'Grid' in the assigned UIDocument.");
+        }
 
-        _titleLabel = new Label("Inventory") { name = "Title" };
-        _titleLabel.AddToClassList("inv-title");
-        ApplyTitleStyle(_titleLabel);
-        _panel.Add(_titleLabel);
-
-        _grid = new VisualElement { name = "Grid" };
-        _grid.AddToClassList("inv-grid");
-        ApplyGridStyle(_grid);
-        _panel.Add(_grid);
-
-        _emptyLabel = new Label("No inventory") { name = "EmptyMessage" };
-        _emptyLabel.AddToClassList("inv-empty");
-        ApplyEmptyLabelStyle(_emptyLabel);
-        _panel.Add(_emptyLabel);
-    }
-
-    private static void ApplyPanelStyle(VisualElement panel)
-    {
-        panel.style.paddingLeft = 8f;
-        panel.style.paddingRight = 8f;
-        panel.style.paddingTop = 8f;
-        panel.style.paddingBottom = 8f;
-        panel.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.75f));
-        var borderColor = new StyleColor(new Color(1f, 1f, 1f, 0.1f));
-        panel.style.borderTopWidth = 1f;
-        panel.style.borderRightWidth = 1f;
-        panel.style.borderBottomWidth = 1f;
-        panel.style.borderLeftWidth = 1f;
-        panel.style.borderTopColor = borderColor;
-        panel.style.borderRightColor = borderColor;
-        panel.style.borderBottomColor = borderColor;
-        panel.style.borderLeftColor = borderColor;
-        panel.style.borderTopLeftRadius = 8f;
-        panel.style.borderTopRightRadius = 8f;
-        panel.style.borderBottomLeftRadius = 8f;
-        panel.style.borderBottomRightRadius = 8f;
-        panel.style.flexDirection = FlexDirection.Column;
-    }
-
-    private static void ApplyTitleStyle(Label title)
-    {
-        title.style.unityFontStyleAndWeight = FontStyle.Bold;
-        title.style.fontSize = 14f;
-        title.style.color = Color.white;
-        title.style.marginBottom = 6f;
-    }
-
-    private static void ApplyGridStyle(VisualElement grid)
-    {
-        grid.style.flexDirection = FlexDirection.Row;
-        grid.style.flexWrap = Wrap.Wrap;
-        grid.style.marginBottom = 6f;
-    }
-
-    private static void ApplyEmptyLabelStyle(Label emptyLabel)
-    {
-        emptyLabel.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.7f));
-        emptyLabel.style.fontSize = 12f;
-        emptyLabel.style.marginTop = 6f;
-    }
-
-    private static void ApplySlotStyle(VisualElement slot)
-    {
-        slot.style.borderTopWidth = 1f;
-        slot.style.borderRightWidth = 1f;
-        slot.style.borderBottomWidth = 1f;
-        slot.style.borderLeftWidth = 1f;
-        var borderColor = new StyleColor(new Color(1f, 1f, 1f, 0.1f));
-        slot.style.borderTopColor = borderColor;
-        slot.style.borderRightColor = borderColor;
-        slot.style.borderBottomColor = borderColor;
-        slot.style.borderLeftColor = borderColor;
-        slot.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.04f));
-        slot.style.borderTopLeftRadius = 6f;
-        slot.style.borderTopRightRadius = 6f;
-        slot.style.borderBottomLeftRadius = 6f;
-        slot.style.borderBottomRightRadius = 6f;
-        slot.style.backgroundImage = default;
-        slot.style.flexShrink = 0f;
-        slot.style.flexGrow = 0f;
-        slot.style.position = Position.Relative;
-        slot.style.marginRight = 4f;
-        slot.style.marginBottom = 4f;
-    }
-
-    private static void ApplyQuantityLabelStyle(Label quantityLabel)
-    {
-        quantityLabel.style.position = Position.Absolute;
-        quantityLabel.style.bottom = 2f;
-        quantityLabel.style.right = 4f;
-        quantityLabel.style.fontSize = 11f;
-        quantityLabel.style.color = Color.white;
-        quantityLabel.style.unityTextOutlineWidth = 0.4f;
-        quantityLabel.style.unityTextOutlineColor = new Color(0f, 0f, 0f, 0.8f);
-        quantityLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        quantityLabel.pickingMode = PickingMode.Ignore;
+        if (_emptyLabel == null)
+        {
+            throw new InvalidOperationException(
+                "InventoryGridPresenter requires a Label named 'EmptyMessage' in the assigned UIDocument.");
+        }
     }
 
     private void OnSlotClicked(int index)
