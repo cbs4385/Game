@@ -1012,10 +1012,30 @@ public sealed class GoapSimulationView : MonoBehaviour
             RenderClockLabel(hasClock, hasPawnUpdate);
         }
 
-        var hasPawnPanel = RenderSelectedPawnPanel(out var pawnPanelRect);
-        var hasThingPlanPanel = RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out var thingPlanRect);
+        bool shouldRenderThingPlanPanel = ShouldRenderThingPlanPanel();
+
+        var hasPawnPanel = RenderSelectedPawnPanel(out var pawnPanelRect, includePlanSteps: !shouldRenderThingPlanPanel);
+        Rect thingPlanRect = default;
+        var hasThingPlanPanel = shouldRenderThingPlanPanel &&
+            RenderThingPlanPanel(pawnPanelRect, hasPawnPanel, out thingPlanRect);
+
         RenderThingInventoryPanel(pawnPanelRect, thingPlanRect, hasPawnPanel, hasThingPlanPanel);
         RenderThingHover();
+    }
+
+    private bool ShouldRenderThingPlanPanel()
+    {
+        if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return false;
+        }
+
+        if (_selectedThingParticipation.Length == 0 && !HasRenderablePlanLines(_selectedThingPlanLines))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private void RenderClockLabel(bool hasClock, bool hasPawnUpdate)
@@ -1097,7 +1117,7 @@ public sealed class GoapSimulationView : MonoBehaviour
         _clockStyle.normal.textColor = clockTextColor;
     }
 
-    private bool RenderSelectedPawnPanel(out Rect panelRect)
+    private bool RenderSelectedPawnPanel(out Rect panelRect, bool includePlanSteps)
     {
         bool hasContent =
             !string.IsNullOrEmpty(_selectedPawnPanelTextBeforePlanSteps) ||
@@ -1126,7 +1146,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         float stepsHeight = 0f;
         float[] stepLineHeights = null;
-        if (_selectedPawnPlanStepLines.Length > 0)
+        if (includePlanSteps && _selectedPawnPlanStepLines.Length > 0)
         {
             int stepCount = Mathf.Min(_selectedPawnPlanStepLines.Length, _selectedPawnActionablePlanOptions.Count);
             if (stepCount > 0)
@@ -1183,7 +1203,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             currentY += beforeHeight;
         }
 
-        if (stepLineHeights != null)
+        if (includePlanSteps && stepLineHeights != null)
         {
             for (int i = 0; i < stepLineHeights.Length; i++)
             {
@@ -1552,6 +1572,11 @@ public sealed class GoapSimulationView : MonoBehaviour
         int count = stacks.Count;
         if (count <= 0)
         {
+            if (TryPopulateInventoryFromAttributes(thing))
+            {
+                return;
+            }
+
             _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
             _selectedThingInventoryLines = new[] { "<empty>" };
             _selectedThingInventoryHeader = "Contents (empty)";
@@ -1622,6 +1647,163 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedThingInventoryHeader = string.Empty;
         _selectedThingInventorySelectionIndex = null;
         _selectedThingInventorySelectionLabel = string.Empty;
+    }
+
+    private bool TryPopulateInventoryFromAttributes(ThingView thing)
+    {
+        if (thing?.Attributes == null || thing.Attributes.Count == 0)
+        {
+            return false;
+        }
+
+        var entries = new List<(int Order, string Label)>();
+        foreach (var attribute in thing.Attributes)
+        {
+            var key = attribute.Key;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            var trimmedKey = key.Trim();
+            if (!ShouldDisplayAttributeInInventoryPanel(trimmedKey))
+            {
+                continue;
+            }
+
+            var value = attribute.Value;
+            if (double.IsNaN(value) || double.IsInfinity(value))
+            {
+                continue;
+            }
+
+            var label = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}: {1}",
+                FormatInventoryAttributeName(trimmedKey),
+                FormatInventoryAttributeValue(value));
+
+            entries.Add((GetInventoryAttributeDisplayOrder(trimmedKey), label));
+        }
+
+        if (entries.Count == 0)
+        {
+            return false;
+        }
+
+        entries.Sort((a, b) =>
+        {
+            var orderComparison = a.Order.CompareTo(b.Order);
+            if (orderComparison != 0)
+            {
+                return orderComparison;
+            }
+
+            return string.CompareOrdinal(a.Label, b.Label);
+        });
+
+        var lineArray = new string[entries.Count];
+        for (int i = 0; i < entries.Count; i++)
+        {
+            lineArray[i] = entries[i].Label;
+        }
+
+        _selectedThingInventoryStacks = Array.Empty<InventoryStackView>();
+        _selectedThingInventoryLines = lineArray;
+        _selectedThingInventoryHeader = string.Format(
+            CultureInfo.InvariantCulture,
+            "Contents ({0})",
+            entries.Count);
+        _selectedThingInventorySelectionIndex = null;
+        _selectedThingInventorySelectionLabel = string.Empty;
+        return true;
+    }
+
+    private static bool ShouldDisplayAttributeInInventoryPanel(string attributeName)
+    {
+        if (string.IsNullOrEmpty(attributeName))
+        {
+            return false;
+        }
+
+        if (attributeName.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        if (attributeName.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        if (attributeName.IndexOf("ingredient", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static int GetInventoryAttributeDisplayOrder(string attributeName)
+    {
+        if (attributeName == null)
+        {
+            return int.MaxValue;
+        }
+
+        if (attributeName.IndexOf("ingredient", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return 0;
+        }
+
+        if (attributeName.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return 1;
+        }
+
+        if (attributeName.IndexOf("inventory", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return 2;
+        }
+
+        return 3;
+    }
+
+    private static string FormatInventoryAttributeName(string attributeName)
+    {
+        if (string.IsNullOrWhiteSpace(attributeName))
+        {
+            return string.Empty;
+        }
+
+        if (string.Equals(attributeName, "inventory_capacity", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Capacity";
+        }
+
+        if (string.Equals(attributeName, "ingredients", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Ingredients";
+        }
+
+        var normalized = attributeName.Replace('_', ' ');
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(normalized);
+    }
+
+    private static string FormatInventoryAttributeValue(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return "—";
+        }
+
+        var rounded = Math.Round(value);
+        if (Math.Abs(value - rounded) <= 0.0001d)
+        {
+            return rounded.ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        return value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
     private void HandleInventoryItemInvoked(int index)
