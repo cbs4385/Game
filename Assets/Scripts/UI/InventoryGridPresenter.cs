@@ -71,6 +71,14 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         {
             throw new InvalidOperationException("InventoryGridPresenter requires a UIDocument component.");
         }
+    }
+
+    private void OnEnable()
+    {
+        if (_document == null)
+        {
+            throw new InvalidOperationException("InventoryGridPresenter requires a UIDocument component.");
+        }
 
         if (bootstrapper == null)
         {
@@ -86,10 +94,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         {
             _document.panelSettings = panelSettings;
         }
-    }
 
-    private void OnEnable()
-    {
         _root = _document.rootVisualElement;
         if (_root == null)
         {
