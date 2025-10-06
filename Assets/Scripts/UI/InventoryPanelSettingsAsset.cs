@@ -423,6 +423,11 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
                 continue;
             }
 
+            if (!SupportsRenderingMode(property.PropertyType))
+            {
+                continue;
+            }
+
             var container = property.GetValue(target) ?? CreateContainerInstance(property.PropertyType);
             if (TryAssignRenderingModeBySemanticMatchOnObject(container, enumName, numericValue))
             {
@@ -447,6 +452,11 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
         {
             if (field.FieldType.IsEnum)
+            {
+                continue;
+            }
+
+            if (!SupportsRenderingMode(field.FieldType))
             {
                 continue;
             }
@@ -507,11 +517,21 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         if (property != null)
         {
+            if (!SupportsRenderingMode(property.PropertyType))
+            {
+                return false;
+            }
+
             var canRead = property.CanRead;
             var container = canRead ? property.GetValue(target) : null;
             if (container == null)
             {
                 container = CreateContainerInstance(property.PropertyType);
+            }
+
+            if (container == null)
+            {
+                return false;
             }
 
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
@@ -537,7 +557,17 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         if (field != null)
         {
+            if (!SupportsRenderingMode(field.FieldType))
+            {
+                return false;
+            }
+
             var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
+            if (container == null)
+            {
+                return false;
+            }
+
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
             {
                 field.SetValue(target, container);
@@ -560,11 +590,21 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         if (property != null)
         {
+            if (!SupportsRenderingMode(property.PropertyType))
+            {
+                return false;
+            }
+
             var canRead = property.CanRead;
             var container = canRead ? property.GetValue(target) : null;
             if (container == null)
             {
                 container = CreateContainerInstance(property.PropertyType);
+            }
+
+            if (container == null)
+            {
+                return false;
             }
 
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, numericValue))
@@ -590,7 +630,17 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         if (field != null)
         {
+            if (!SupportsRenderingMode(field.FieldType))
+            {
+                return false;
+            }
+
             var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
+            if (container == null)
+            {
+                return false;
+            }
+
             if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, numericValue))
             {
                 field.SetValue(target, container);
@@ -737,6 +787,11 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             return false;
         }
 
+        if (!SupportsRenderingMode(getter.ReturnType))
+        {
+            return false;
+        }
+
         var container = getter.Invoke(target, null);
         if (!TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
         {
@@ -762,6 +817,11 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
 
         var getter = type.GetMethod($"Get{pascalName}", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
         if (getter == null)
+        {
+            return false;
+        }
+
+        if (!SupportsRenderingMode(getter.ReturnType))
         {
             return false;
         }
@@ -810,6 +870,41 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
 
         return false;
+    }
+
+    private static bool SupportsRenderingMode(Type type)
+    {
+        if (type == null)
+        {
+            return false;
+        }
+
+        foreach (var memberName in RenderingModeMemberNames)
+        {
+            if (HasEnumMember(type, memberName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasEnumMember(Type type, string memberName)
+    {
+        if (type == null || string.IsNullOrEmpty(memberName))
+        {
+            return false;
+        }
+
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.PropertyType.IsEnum)
+        {
+            return true;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        return field != null && field.FieldType.IsEnum;
     }
 
     private static string ToPascalCase(string memberName)
