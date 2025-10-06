@@ -35,6 +35,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     private float _nextRefreshAt;
     private readonly List<SlotElements> _slotPool = new List<SlotElements>(32);
     private bool _selectionDirty;
+    private bool _initialized;
 
     public void ConfigureDependencies(
         GoapSimulationBootstrapper requiredBootstrapper,
@@ -62,6 +63,11 @@ public sealed class InventoryGridPresenter : MonoBehaviour
                 _document.panelSettings = overridePanelSettings;
             }
         }
+
+        if (isActiveAndEnabled)
+        {
+            InitializeIfReady();
+        }
     }
 
     private void Awake()
@@ -75,19 +81,39 @@ public sealed class InventoryGridPresenter : MonoBehaviour
 
     private void OnEnable()
     {
+        InitializeIfReady();
+    }
+
+    private void OnDisable()
+    {
+        _initialized = false;
+    }
+
+    private void Start()
+    {
+        InitializeIfReady();
+        if (!_initialized)
+        {
+            throw new InvalidOperationException(
+                "InventoryGridPresenter could not initialize because required dependencies were not configured before Start.");
+        }
+    }
+
+    private void InitializeIfReady()
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
         if (_document == null)
         {
             throw new InvalidOperationException("InventoryGridPresenter requires a UIDocument component.");
         }
 
-        if (bootstrapper == null)
+        if (bootstrapper == null || simulationView == null)
         {
-            throw new InvalidOperationException("InventoryGridPresenter requires a GoapSimulationBootstrapper reference.");
-        }
-
-        if (simulationView == null)
-        {
-            throw new InvalidOperationException("InventoryGridPresenter requires a GoapSimulationView reference.");
+            return;
         }
 
         if (panelSettings != null)
@@ -116,6 +142,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         _grid?.Clear();
         _selectionDirty = true;
         ApplySelectionToUi();
+        _initialized = true;
     }
 
     private void Update()
