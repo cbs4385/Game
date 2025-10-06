@@ -1402,6 +1402,31 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
 
+        if (manualOptions != null && manualOptions.Count > 0)
+        {
+            var deduped = new List<PlanActionOption>(manualOptions.Count);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < manualOptions.Count; i++)
+            {
+                var option = manualOptions[i];
+                string key = string.Concat(
+                    option.GoalId ?? string.Empty,
+                    "\n",
+                    option.ActivityId ?? string.Empty,
+                    "\n",
+                    option.RawLabel ?? string.Empty);
+                if (seen.Add(key))
+                {
+                    deduped.Add(option);
+                }
+            }
+
+            if (deduped.Count != manualOptions.Count)
+            {
+                manualOptions = deduped;
+            }
+        }
+
         bool usingManualOptions = manualOptions != null && manualOptions.Count > 0;
         if (usingManualOptions)
         {
