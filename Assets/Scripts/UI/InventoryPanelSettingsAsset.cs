@@ -8,7 +8,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
 {
     [Header("Scaling")]
     [SerializeField] private PanelScaleMode scaleMode = PanelScaleMode.ScaleWithScreenSize;
-    [SerializeField] private Vector2 referenceResolution = new Vector2(1920f, 1080f);
+    [SerializeField] private Vector2Int referenceResolution = new Vector2Int(1920, 1080);
     [SerializeField, Min(1f)] private float referenceDpi = 96f;
     [SerializeField, Range(0f, 1f)] private float match = 0f;
     [SerializeField] private PanelScreenMatchMode screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
@@ -42,36 +42,62 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         instance.hideFlags = HideFlags.HideAndDontSave;
         instance.name = $"{name}_Runtime";
 
-        instance.scaleMode = scaleMode;
-        AssignRequired(instance, nameof(referenceResolution), referenceResolution);
-        instance.referenceDpi = referenceDpi;
-        instance.match = match;
-        instance.screenMatchMode = screenMatchMode;
-        instance.scale = scale;
-        instance.targetTexture = targetTexture;
-        instance.clearDepthStencil = clearDepthStencil;
-        AssignEnumValue(instance, "panelClearFlags", GetPanelClearFlagsName(panelClearFlags));
-        instance.textSettings = textSettings;
-        instance.targetDisplay = targetDisplay;
-        TryAssignOptional(instance, nameof(drawToCameras), drawToCameras);
-        TryAssignOptional(instance, nameof(viewport), viewport);
-        TryAssignOptional(instance, nameof(vsync), vsync);
-        TryAssignOptional(instance, nameof(targetWidth), targetWidth);
-        TryAssignOptional(instance, nameof(targetHeight), targetHeight);
-        instance.sortingOrder = sortingOrder;
-        AssignEnumValue(instance, "renderingMode", GetRuntimePanelRenderingModeName(renderingMode));
-        TryAssignOptional(instance, nameof(vsyncCount), vsyncCount);
-        TryAssignOptional(instance, nameof(runtimeShader), runtimeShader);
-        TryAssignOptional(instance, nameof(runtimeWorldSpacePanelSettings), runtimeWorldSpacePanelSettings);
-        TryAssignOptional(instance, nameof(antiAliasing), antiAliasing);
-        TryAssignOptional(instance, nameof(pixelsPerUnit), pixelsPerUnit);
+        AssignRequired(instance, ScaleModeMemberName, scaleMode);
+        AssignRequired(instance, ReferenceResolutionMemberName, referenceResolution);
+        AssignRequired(instance, ReferenceDpiMemberName, referenceDpi);
+        AssignRequired(instance, MatchMemberName, match);
+        AssignRequired(instance, ScreenMatchModeMemberName, screenMatchMode);
+        AssignRequired(instance, ScaleMemberName, scale);
+        TryAssignOptional(instance, TargetTextureMemberName, targetTexture);
+        AssignRequired(instance, ClearDepthStencilMemberName, clearDepthStencil);
+        AssignEnumValue(instance, PanelClearFlagsMemberName, GetPanelClearFlagsName(panelClearFlags));
+        TryAssignOptional(instance, TextSettingsMemberName, textSettings);
+        AssignRequired(instance, TargetDisplayMemberName, targetDisplay);
+        TryAssignOptional(instance, DrawToCamerasMemberName, drawToCameras);
+        TryAssignOptional(instance, ViewportMemberName, viewport);
+        TryAssignOptional(instance, VsyncMemberName, vsync);
+        TryAssignOptional(instance, TargetWidthMemberName, targetWidth);
+        TryAssignOptional(instance, TargetHeightMemberName, targetHeight);
+        AssignRequired(instance, SortingOrderMemberName, sortingOrder);
+        AssignEnumValue(instance, RenderingModeMemberName, GetRuntimePanelRenderingModeName(renderingMode));
+        TryAssignOptional(instance, VsyncCountMemberName, vsyncCount);
+        TryAssignOptional(instance, RuntimeShaderMemberName, runtimeShader);
+        TryAssignOptional(instance, RuntimeWorldSpacePanelSettingsMemberName, runtimeWorldSpacePanelSettings);
+        TryAssignOptional(instance, AntiAliasingMemberName, antiAliasing);
+        TryAssignOptional(instance, PixelsPerUnitMemberName, pixelsPerUnit);
 
-        TryAssignOptional(instance, nameof(maxQueuedFrames), maxQueuedFrames);
-        TryAssignOptional(instance, nameof(worldSpaceLayer), worldSpaceLayer);
+        TryAssignOptional(instance, MaxQueuedFramesMemberName, maxQueuedFrames);
+        TryAssignOptional(instance, WorldSpaceLayerMemberName, worldSpaceLayer);
         TryAssignTargetLayerMask(instance, targetLayerMask);
 
         return instance;
     }
+
+    private const string ScaleModeMemberName = nameof(PanelSettings.scaleMode);
+    private const string ReferenceResolutionMemberName = "referenceResolution";
+    private const string ReferenceDpiMemberName = nameof(PanelSettings.referenceDpi);
+    private const string MatchMemberName = nameof(PanelSettings.match);
+    private const string ScreenMatchModeMemberName = nameof(PanelSettings.screenMatchMode);
+    private const string ScaleMemberName = nameof(PanelSettings.scale);
+    private const string TargetTextureMemberName = nameof(PanelSettings.targetTexture);
+    private const string ClearDepthStencilMemberName = nameof(PanelSettings.clearDepthStencil);
+    private const string PanelClearFlagsMemberName = "panelClearFlags";
+    private const string TextSettingsMemberName = nameof(PanelSettings.textSettings);
+    private const string TargetDisplayMemberName = nameof(PanelSettings.targetDisplay);
+    private const string DrawToCamerasMemberName = "drawToCameras";
+    private const string ViewportMemberName = "viewport";
+    private const string VsyncMemberName = "vsync";
+    private const string TargetWidthMemberName = "targetWidth";
+    private const string TargetHeightMemberName = "targetHeight";
+    private const string SortingOrderMemberName = nameof(PanelSettings.sortingOrder);
+    private const string RenderingModeMemberName = "renderingMode";
+    private const string VsyncCountMemberName = "vsyncCount";
+    private const string RuntimeShaderMemberName = "runtimeShader";
+    private const string RuntimeWorldSpacePanelSettingsMemberName = "runtimeWorldSpacePanelSettings";
+    private const string AntiAliasingMemberName = "antiAliasing";
+    private const string PixelsPerUnitMemberName = "pixelsPerUnit";
+    private const string MaxQueuedFramesMemberName = "maxQueuedFrames";
+    private const string WorldSpaceLayerMemberName = "worldSpaceLayer";
 
     [Flags]
     private enum PanelClearFlagsOption
@@ -236,50 +262,6 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
                 return true;
             default:
                 return false;
-        }
-    }
-
-    private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
-    {
-        if (string.IsNullOrEmpty(enumName))
-        {
-            return;
-        }
-
-        var type = target.GetType();
-        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property != null && property.CanWrite)
-        {
-            var value = CreateEnumValue(property.PropertyType, enumName, memberName);
-            property.SetValue(target, value);
-            return;
-        }
-
-        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (field != null)
-        {
-            var value = CreateEnumValue(field.FieldType, enumName, memberName);
-            field.SetValue(target, value);
-            return;
-        }
-
-        throw new MissingMemberException(type.FullName, memberName);
-    }
-
-    private static object CreateEnumValue(Type enumType, string enumName, string memberName)
-    {
-        if (!enumType.IsEnum)
-        {
-            throw new InvalidOperationException($"Member '{memberName}' on '{enumType.FullName}' is not an enum.");
-        }
-
-        try
-        {
-            return Enum.Parse(enumType, enumName, false);
-        }
-        catch (ArgumentException exception)
-        {
-            throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
         }
     }
 
