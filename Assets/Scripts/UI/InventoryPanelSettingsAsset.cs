@@ -92,9 +92,23 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
     private const string TargetWidthMemberName = "targetWidth";
     private const string TargetHeightMemberName = "targetHeight";
     private const string SortingOrderMemberName = nameof(PanelSettings.sortingOrder);
-    private const string RenderingModeMemberName = "renderingMode";
-    private const string RuntimePanelCreationSettingsMemberName = "runtimePanelCreationSettings";
-    private const string RuntimePanelSettingsMemberName = "runtimePanelSettings";
+    private static readonly string[] RenderingModeMemberNames =
+    {
+        "renderingMode",
+        "m_RenderingMode"
+    };
+
+    private static readonly string[] RuntimePanelCreationSettingsMemberNames =
+    {
+        "runtimePanelCreationSettings",
+        "m_RuntimePanelCreationSettings"
+    };
+
+    private static readonly string[] RuntimePanelSettingsMemberNames =
+    {
+        "runtimePanelSettings",
+        "m_RuntimePanelSettings"
+    };
     private const string VsyncCountMemberName = "vsyncCount";
     private const string RuntimeShaderMemberName = "runtimeShader";
     private const string RuntimeWorldSpacePanelSettingsMemberName = "runtimeWorldSpacePanelSettings";
@@ -275,16 +289,24 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         var numericValue = Convert.ToInt64(option);
 
         if (TryAssignRenderingModeByName(target, enumName) ||
-            TryAssignRenderingModeInContainerByName(target, RuntimePanelCreationSettingsMemberName, enumName) ||
-            TryAssignRenderingModeInContainerByName(target, RuntimePanelSettingsMemberName, enumName) ||
-            TryAssignRenderingModeByNumericValue(target, numericValue) ||
-            TryAssignRenderingModeInContainerByNumericValue(target, RuntimePanelCreationSettingsMemberName, numericValue) ||
-            TryAssignRenderingModeInContainerByNumericValue(target, RuntimePanelSettingsMemberName, numericValue))
+            TryAssignRenderingModeByNumericValue(target, numericValue))
         {
             return;
         }
 
-        throw new MissingMemberException(target.GetType().FullName, RenderingModeMemberName);
+        if (TryAssignRenderingModeInAnyContainerByName(target, enumName) ||
+            TryAssignRenderingModeInAnyContainerByNumericValue(target, numericValue))
+        {
+            return;
+        }
+
+        if (TryAssignRenderingModeBySemanticMatchOnObject(target, enumName, numericValue) ||
+            TryAssignRenderingModeInAllContainersBySemanticMatch(target, enumName, numericValue))
+        {
+            return;
+        }
+
+        throw new MissingMemberException(target.GetType().FullName, RenderingModeMemberNames[0]);
     }
 
     private static bool TryAssignRenderingModeByName(PanelSettings target, string enumName)
@@ -294,12 +316,12 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             return false;
         }
 
-        return TryAssignEnumValue(target, RenderingModeMemberName, enumName);
+        return TryAssignEnumValueOnObject(target, RenderingModeMemberNames, enumName);
     }
 
     private static bool TryAssignRenderingModeByNumericValue(PanelSettings target, long numericValue)
     {
-        return TryAssignEnumValue(target, RenderingModeMemberName, numericValue);
+        return TryAssignEnumValueOnObject(target, RenderingModeMemberNames, numericValue);
     }
 
     private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
@@ -308,6 +330,136 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         {
             throw new MissingMemberException(target.GetType().FullName, memberName);
         }
+    }
+
+    private static bool TryAssignRenderingModeInAnyContainerByName(PanelSettings target, string enumName)
+    {
+        foreach (var containerName in RuntimePanelCreationSettingsMemberNames)
+        {
+            if (TryAssignRenderingModeInContainerByName(target, containerName, enumName))
+            {
+                return true;
+            }
+        }
+
+        foreach (var containerName in RuntimePanelSettingsMemberNames)
+        {
+            if (TryAssignRenderingModeInContainerByName(target, containerName, enumName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignRenderingModeInAnyContainerByNumericValue(PanelSettings target, long numericValue)
+    {
+        foreach (var containerName in RuntimePanelCreationSettingsMemberNames)
+        {
+            if (TryAssignRenderingModeInContainerByNumericValue(target, containerName, numericValue))
+            {
+                return true;
+            }
+        }
+
+        foreach (var containerName in RuntimePanelSettingsMemberNames)
+        {
+            if (TryAssignRenderingModeInContainerByNumericValue(target, containerName, numericValue))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignRenderingModeBySemanticMatchOnObject(object target, string enumName, long numericValue)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+        var members = type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        foreach (var member in members)
+        {
+            var canWrite = member switch
+            {
+                PropertyInfo property when property.PropertyType.IsEnum => property.CanWrite,
+                FieldInfo field when field.FieldType.IsEnum => true,
+                _ => false
+            };
+
+            if (!canWrite || !IndicatesRenderingMode(member.Name))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(enumName) && TryAssignEnumValueOnObject(target, member.Name, enumName))
+            {
+                return true;
+            }
+
+            if (TryAssignEnumValueOnObject(target, member.Name, numericValue))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignRenderingModeInAllContainersBySemanticMatch(PanelSettings target, string enumName, long numericValue)
+    {
+        var type = target.GetType();
+
+        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            if (!property.CanRead)
+            {
+                continue;
+            }
+
+            var container = property.GetValue(target) ?? CreateContainerInstance(property.PropertyType);
+            if (TryAssignRenderingModeBySemanticMatchOnObject(container, enumName, numericValue))
+            {
+                if (property.CanWrite)
+                {
+                    property.SetValue(target, container);
+                    return true;
+                }
+
+                if (container != null && !property.PropertyType.IsValueType)
+                {
+                    return true;
+                }
+
+                if (TryInvokeContainerSetter(target, property.Name, property.PropertyType, container))
+                {
+                    return true;
+                }
+            }
+        }
+
+        foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            if (field.FieldType.IsEnum)
+            {
+                continue;
+            }
+
+            var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
+            if (TryAssignRenderingModeBySemanticMatchOnObject(container, enumName, numericValue))
+            {
+                field.SetValue(target, container);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryAssignRenderingModeInContainerByName(PanelSettings target, string containerMemberName, string enumName)
@@ -362,7 +514,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
                 container = CreateContainerInstance(property.PropertyType);
             }
 
-            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
             {
                 if (property.CanWrite)
                 {
@@ -386,7 +538,60 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         if (field != null)
         {
             var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
-            if (TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
+            {
+                field.SetValue(target, container);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignRenderingModeOnObjectByNumericValue(object target, string containerMemberName, long numericValue)
+    {
+        if (target == null || string.IsNullOrEmpty(containerMemberName))
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+
+        var property = type.GetProperty(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null)
+        {
+            var canRead = property.CanRead;
+            var container = canRead ? property.GetValue(target) : null;
+            if (container == null)
+            {
+                container = CreateContainerInstance(property.PropertyType);
+            }
+
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, numericValue))
+            {
+                if (property.CanWrite)
+                {
+                    property.SetValue(target, container);
+                    return true;
+                }
+
+                if (container != null && !property.PropertyType.IsValueType)
+                {
+                    return true;
+                }
+
+                if (TryInvokeContainerSetter(target, containerMemberName, property.PropertyType, container))
+                {
+                    return true;
+                }
+            }
+        }
+
+        var field = type.GetField(containerMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var container = field.GetValue(target) ?? CreateContainerInstance(field.FieldType);
+            if (TryAssignEnumValueOnObject(container, RenderingModeMemberNames, numericValue))
             {
                 field.SetValue(target, container);
                 return true;
@@ -585,7 +790,36 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
 
         var container = getter.Invoke(target, null);
-        if (!TryAssignEnumValueOnObject(container, RenderingModeMemberName, enumName))
+        if (!TryAssignEnumValueOnObject(container, RenderingModeMemberNames, enumName))
+        {
+            return false;
+        }
+
+        return TryInvokeContainerSetter(target, containerMemberName, getter.ReturnType, container);
+    }
+
+    private static bool TryAssignRenderingModeThroughAccessorsByNumericValue(object target, string containerMemberName, long numericValue)
+    {
+        if (target == null || string.IsNullOrEmpty(containerMemberName))
+        {
+            return false;
+        }
+
+        var type = target.GetType();
+        var pascalName = ToPascalCase(containerMemberName);
+        if (string.IsNullOrEmpty(pascalName))
+        {
+            return false;
+        }
+
+        var getter = type.GetMethod($"Get{pascalName}", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (getter == null)
+        {
+            return false;
+        }
+
+        var container = getter.Invoke(target, null);
+        if (!TryAssignEnumValueOnObject(container, RenderingModeMemberNames, numericValue))
         {
             return false;
         }
@@ -689,6 +923,40 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         return constructor != null ? constructor.Invoke(Array.Empty<object>()) : null;
     }
 
+    private static bool IndicatesRenderingMode(string memberName)
+    {
+        if (string.IsNullOrEmpty(memberName))
+        {
+            return false;
+        }
+
+        var lowered = memberName.ToLowerInvariant();
+        if (lowered.Contains("renderingmode") || lowered.Contains("renderermode"))
+        {
+            return true;
+        }
+
+        return lowered.Contains("render") && lowered.Contains("mode");
+    }
+
+    private static bool TryAssignEnumValueOnObject(object target, string[] memberNames, string enumName)
+    {
+        if (target == null || memberNames == null)
+        {
+            return false;
+        }
+
+        foreach (var memberName in memberNames)
+        {
+            if (TryAssignEnumValueOnObject(target, memberName, enumName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool TryAssignEnumValueOnObject(object target, string memberName, string enumName)
     {
         if (target == null)
@@ -712,6 +980,24 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             var value = CreateEnumValue(field.FieldType, enumName, memberName);
             field.SetValue(target, value);
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignEnumValueOnObject(object target, string[] memberNames, long numericValue)
+    {
+        if (target == null || memberNames == null)
+        {
+            return false;
+        }
+
+        foreach (var memberName in memberNames)
+        {
+            if (TryAssignEnumValueOnObject(target, memberName, numericValue))
+            {
+                return true;
+            }
         }
 
         return false;
