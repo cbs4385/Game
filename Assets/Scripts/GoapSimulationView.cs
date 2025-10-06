@@ -175,6 +175,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         EnsureBootstrapperReference();
         EnsureObserverCamera();
+        EnsureInventoryGridPresenter();
     }
 
     private void RenderThingInventoryPanel(
@@ -304,6 +305,7 @@ public sealed class GoapSimulationView : MonoBehaviour
     {
         EnsureBootstrapperReference();
         EnsureObserverCamera();
+        EnsureInventoryGridPresenter();
         bootstrapper.Bootstrapped += HandleBootstrapped;
         if (bootstrapper.HasBootstrapped && _world == null)
         {
@@ -2995,6 +2997,33 @@ public sealed class GoapSimulationView : MonoBehaviour
         if (bootstrapper == null)
         {
             throw new InvalidOperationException("GoapSimulationView could not locate a GoapSimulationBootstrapper in the scene.");
+        }
+
+        EnsureInventoryGridPresenter();
+    }
+
+    private void EnsureInventoryGridPresenter()
+    {
+        if (bootstrapper == null)
+        {
+            return;
+        }
+
+        if (inventoryGridPresenter == null)
+        {
+            var presenterObject = new GameObject("Inventory Grid Presenter");
+            presenterObject.SetActive(false);
+            presenterObject.transform.SetParent(transform, false);
+
+            var presenter = presenterObject.AddComponent<InventoryGridPresenter>();
+            presenter.ConfigureDependencies(bootstrapper, this, null);
+            presenterObject.SetActive(true);
+
+            inventoryGridPresenter = presenter;
+        }
+        else
+        {
+            inventoryGridPresenter.ConfigureDependencies(bootstrapper, this, null);
         }
     }
 

@@ -35,6 +35,34 @@ public sealed class InventoryGridPresenter : MonoBehaviour
     private float _nextRefreshAt;
     private readonly List<SlotElements> _slotPool = new List<SlotElements>(32);
 
+    public void ConfigureDependencies(
+        GoapSimulationBootstrapper requiredBootstrapper,
+        GoapSimulationView requiredSimulationView,
+        PanelSettings overridePanelSettings = null)
+    {
+        if (requiredBootstrapper == null)
+        {
+            throw new ArgumentNullException(nameof(requiredBootstrapper));
+        }
+
+        if (requiredSimulationView == null)
+        {
+            throw new ArgumentNullException(nameof(requiredSimulationView));
+        }
+
+        bootstrapper = requiredBootstrapper;
+        simulationView = requiredSimulationView;
+
+        if (overridePanelSettings != null)
+        {
+            panelSettings = overridePanelSettings;
+            if (_document != null)
+            {
+                _document.panelSettings = overridePanelSettings;
+            }
+        }
+    }
+
     private void Awake()
     {
         _document = GetComponent<UIDocument>();
@@ -71,14 +99,15 @@ public sealed class InventoryGridPresenter : MonoBehaviour
         _root.style.left = panelOffset.x;
         _root.style.top = panelOffset.y;
 
-        _panel = _root.Q<VisualElement>("InventoryPanel") ?? throw new InvalidOperationException("Inventory panel element was not found in the document.");
-        _titleLabel = _root.Q<Label>("Title") ?? throw new InvalidOperationException("Inventory title label was not found in the document.");
-        _grid = _root.Q<VisualElement>("Grid") ?? throw new InvalidOperationException("Inventory grid element was not found in the document.");
-        _emptyLabel = _root.Q<Label>("EmptyMessage") ?? throw new InvalidOperationException("Inventory empty label was not found in the document.");
+        EnsureLayoutElements();
 
         SetVisible(false);
-        _emptyLabel.style.display = DisplayStyle.None;
-        _grid.Clear();
+        if (_emptyLabel != null)
+        {
+            _emptyLabel.style.display = DisplayStyle.None;
+        }
+
+        _grid?.Clear();
     }
 
     private void Update()
@@ -203,6 +232,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
             var stack = slots[i];
             bool hasItem = stack.Item != null && stack.Quantity > 0;
             elements.Root.EnableInClassList("inv-slot--empty", !hasItem);
+            elements.Root.style.opacity = hasItem ? 1f : 0.35f;
 
             if (hasItem)
             {
@@ -231,7 +261,10 @@ public sealed class InventoryGridPresenter : MonoBehaviour
 
     private void SetVisible(bool visible)
     {
-        _panel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_panel != null)
+        {
+            _panel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
     }
 
     private void EnsureSlotPool(int capacity)
@@ -242,14 +275,132 @@ public sealed class InventoryGridPresenter : MonoBehaviour
             var root = new VisualElement();
             root.AddToClassList("inv-slot");
 
+            ApplySlotStyle(root);
+
             var quantityLabel = new Label { name = "Quantity" };
             quantityLabel.AddToClassList("inv-qty");
+            ApplyQuantityLabelStyle(quantityLabel);
             root.Add(quantityLabel);
 
             root.RegisterCallback<ClickEvent>(_ => OnSlotClicked(slotIndex));
 
             _slotPool.Add(new SlotElements(root, quantityLabel, slotIndex));
         }
+    }
+
+    private void EnsureLayoutElements()
+    {
+        _panel = _root.Q<VisualElement>("InventoryPanel");
+        _titleLabel = _root.Q<Label>("Title");
+        _grid = _root.Q<VisualElement>("Grid");
+        _emptyLabel = _root.Q<Label>("EmptyMessage");
+
+        if (_panel != null && _titleLabel != null && _grid != null && _emptyLabel != null)
+        {
+            return;
+        }
+
+        _root.Clear();
+
+        _panel = new VisualElement { name = "InventoryPanel" };
+        _panel.AddToClassList("inv-panel");
+        ApplyPanelStyle(_panel);
+        _root.Add(_panel);
+
+        _titleLabel = new Label("Inventory") { name = "Title" };
+        _titleLabel.AddToClassList("inv-title");
+        ApplyTitleStyle(_titleLabel);
+        _panel.Add(_titleLabel);
+
+        _grid = new VisualElement { name = "Grid" };
+        _grid.AddToClassList("inv-grid");
+        ApplyGridStyle(_grid);
+        _panel.Add(_grid);
+
+        _emptyLabel = new Label("No inventory") { name = "EmptyMessage" };
+        _emptyLabel.AddToClassList("inv-empty");
+        ApplyEmptyLabelStyle(_emptyLabel);
+        _panel.Add(_emptyLabel);
+    }
+
+    private static void ApplyPanelStyle(VisualElement panel)
+    {
+        panel.style.paddingLeft = 8f;
+        panel.style.paddingRight = 8f;
+        panel.style.paddingTop = 8f;
+        panel.style.paddingBottom = 8f;
+        panel.style.backgroundColor = new StyleColor(new Color(0f, 0f, 0f, 0.75f));
+        var borderColor = new StyleColor(new Color(1f, 1f, 1f, 0.1f));
+        panel.style.borderTopWidth = 1f;
+        panel.style.borderRightWidth = 1f;
+        panel.style.borderBottomWidth = 1f;
+        panel.style.borderLeftWidth = 1f;
+        panel.style.borderTopColor = borderColor;
+        panel.style.borderRightColor = borderColor;
+        panel.style.borderBottomColor = borderColor;
+        panel.style.borderLeftColor = borderColor;
+        panel.style.borderTopLeftRadius = 8f;
+        panel.style.borderTopRightRadius = 8f;
+        panel.style.borderBottomLeftRadius = 8f;
+        panel.style.borderBottomRightRadius = 8f;
+        panel.style.flexDirection = FlexDirection.Column;
+        panel.style.rowGap = 6f;
+    }
+
+    private static void ApplyTitleStyle(Label title)
+    {
+        title.style.unityFontStyleAndWeight = FontStyle.Bold;
+        title.style.fontSize = 14f;
+        title.style.color = Color.white;
+    }
+
+    private static void ApplyGridStyle(VisualElement grid)
+    {
+        grid.style.flexDirection = FlexDirection.Row;
+        grid.style.flexWrap = Wrap.Wrap;
+        grid.style.rowGap = 4f;
+        grid.style.columnGap = 4f;
+    }
+
+    private static void ApplyEmptyLabelStyle(Label emptyLabel)
+    {
+        emptyLabel.style.color = new StyleColor(new Color(1f, 1f, 1f, 0.7f));
+        emptyLabel.style.fontSize = 12f;
+    }
+
+    private static void ApplySlotStyle(VisualElement slot)
+    {
+        slot.style.borderTopWidth = 1f;
+        slot.style.borderRightWidth = 1f;
+        slot.style.borderBottomWidth = 1f;
+        slot.style.borderLeftWidth = 1f;
+        var borderColor = new StyleColor(new Color(1f, 1f, 1f, 0.1f));
+        slot.style.borderTopColor = borderColor;
+        slot.style.borderRightColor = borderColor;
+        slot.style.borderBottomColor = borderColor;
+        slot.style.borderLeftColor = borderColor;
+        slot.style.backgroundColor = new StyleColor(new Color(1f, 1f, 1f, 0.04f));
+        slot.style.borderTopLeftRadius = 6f;
+        slot.style.borderTopRightRadius = 6f;
+        slot.style.borderBottomLeftRadius = 6f;
+        slot.style.borderBottomRightRadius = 6f;
+        slot.style.backgroundImage = default;
+        slot.style.flexShrink = 0f;
+        slot.style.flexGrow = 0f;
+        slot.style.position = Position.Relative;
+    }
+
+    private static void ApplyQuantityLabelStyle(Label quantityLabel)
+    {
+        quantityLabel.style.position = Position.Absolute;
+        quantityLabel.style.bottom = 2f;
+        quantityLabel.style.right = 4f;
+        quantityLabel.style.fontSize = 11f;
+        quantityLabel.style.color = Color.white;
+        quantityLabel.style.unityTextOutlineWidth = 0.4f;
+        quantityLabel.style.unityTextOutlineColor = new Color(0f, 0f, 0f, 0.8f);
+        quantityLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        quantityLabel.pickingMode = PickingMode.Ignore;
     }
 
     private void OnSlotClicked(int index)
