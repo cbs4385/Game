@@ -283,6 +283,50 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         }
     }
 
+    private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
+    {
+        if (string.IsNullOrEmpty(enumName))
+        {
+            return;
+        }
+
+        var type = target.GetType();
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite)
+        {
+            var value = CreateEnumValue(property.PropertyType, enumName, memberName);
+            property.SetValue(target, value);
+            return;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var value = CreateEnumValue(field.FieldType, enumName, memberName);
+            field.SetValue(target, value);
+            return;
+        }
+
+        throw new MissingMemberException(type.FullName, memberName);
+    }
+
+    private static object CreateEnumValue(Type enumType, string enumName, string memberName)
+    {
+        if (!enumType.IsEnum)
+        {
+            throw new InvalidOperationException($"Member '{memberName}' on '{enumType.FullName}' is not an enum.");
+        }
+
+        try
+        {
+            return Enum.Parse(enumType, enumName, false);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
+        }
+    }
+
     private static void TryAssignTargetLayerMask(PanelSettings target, LayerMask mask)
     {
         var type = target.GetType();
