@@ -3175,8 +3175,13 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (inventoryGridPresenter == null)
         {
+            inventoryGridPresenter = GetComponentInChildren<InventoryGridPresenter>(includeInactive: true);
+        }
+
+        if (inventoryGridPresenter == null)
+        {
             throw new InvalidOperationException(
-                "GoapSimulationView requires an InventoryGridPresenter assigned in the inspector.");
+                "GoapSimulationView requires an InventoryGridPresenter component in the hierarchy.");
         }
 
         inventoryGridPresenter.ConfigureDependencies(bootstrapper, this);
