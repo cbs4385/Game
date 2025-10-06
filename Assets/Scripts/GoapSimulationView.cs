@@ -1404,27 +1404,7 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (manualOptions != null && manualOptions.Count > 0)
         {
-            var deduped = new List<PlanActionOption>(manualOptions.Count);
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < manualOptions.Count; i++)
-            {
-                var option = manualOptions[i];
-                string key = string.Concat(
-                    option.GoalId ?? string.Empty,
-                    "\n",
-                    option.ActivityId ?? string.Empty,
-                    "\n",
-                    option.RawLabel ?? string.Empty);
-                if (seen.Add(key))
-                {
-                    deduped.Add(option);
-                }
-            }
-
-            if (deduped.Count != manualOptions.Count)
-            {
-                manualOptions = deduped;
-            }
+            DeduplicatePlanOptions(manualOptions);
         }
 
         bool usingManualOptions = manualOptions != null && manualOptions.Count > 0;
@@ -2030,6 +2010,9 @@ public sealed class GoapSimulationView : MonoBehaviour
                     }
                 }
             }
+
+            DeduplicatePlanOptions(_selectedPawnPlanOptions);
+            DeduplicatePlanOptions(_selectedPawnAllActionablePlanOptions);
         }
         else
         {
@@ -2074,6 +2057,8 @@ public sealed class GoapSimulationView : MonoBehaviour
                 _selectedPawnActionablePlanOptions.Add(option);
             }
         }
+
+        DeduplicatePlanOptions(_selectedPawnActionablePlanOptions);
     }
 
     private string ComposeSelectedPawnPanelText(ThingId selectedId)
@@ -3485,6 +3470,64 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         var remainder = trimmed.Substring(dotIndex + 1).TrimStart();
         return remainder.Length > 0 ? remainder : trimmed;
+    }
+
+    private static void DeduplicatePlanOptions(List<PlanActionOption> options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (options.Count < 2)
+        {
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int writeIndex = 0;
+        for (int i = 0; i < options.Count; i++)
+        {
+            var option = options[i];
+            var identity = ComposePlanOptionIdentity(option);
+            if (!seen.Add(identity))
+            {
+                continue;
+            }
+
+            if (writeIndex != i)
+            {
+                options[writeIndex] = option;
+            }
+
+            writeIndex++;
+        }
+
+        if (writeIndex < options.Count)
+        {
+            options.RemoveRange(writeIndex, options.Count - writeIndex);
+        }
+    }
+
+    private static string ComposePlanOptionIdentity(PlanActionOption option)
+    {
+        if (option == null)
+        {
+            throw new ArgumentNullException(nameof(option));
+        }
+
+        string goalComponent = option.GoalId ?? string.Empty;
+        string activityComponent = option.ActivityId ?? string.Empty;
+        string targetComponent = option.TargetId.HasValue ? option.TargetId.Value.Value ?? string.Empty : string.Empty;
+        string rawLabelComponent = option.RawLabel ?? string.Empty;
+        return string.Concat(
+            goalComponent,
+            "\n",
+            activityComponent,
+            "\n",
+            targetComponent,
+            "\n",
+            rawLabelComponent);
     }
 
     private void HandlePlanStepButtonClicked(PlanActionOption option)
