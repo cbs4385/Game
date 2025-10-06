@@ -2335,6 +2335,7 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
                 _demoConfig.simulation.actorHostSeed,
                 logRoot,
                 _demoConfig.simulation.priorityJitter,
+                _demoConfig.simulation.actorLoopFrequencyHz,
                 _scheduleService,
                 _inventorySystem,
                 _shopSystem,
