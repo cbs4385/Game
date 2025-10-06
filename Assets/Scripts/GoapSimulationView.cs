@@ -1437,6 +1437,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             return null;
         }
 
+        PlanActionOption targetMatch = null;
         for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
         {
             var option = _selectedPawnPlanOptions[i];
@@ -1450,12 +1451,23 @@ public sealed class GoapSimulationView : MonoBehaviour
                 continue;
             }
 
-            if (!string.Equals(option.ActivityId, participation.Activity, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(participation.GoalId) &&
+                !string.Equals(option.GoalId, participation.GoalId, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            return option;
+            if (string.Equals(option.ActivityId, participation.Activity, StringComparison.OrdinalIgnoreCase))
+            {
+                return option;
+            }
+
+            targetMatch ??= option;
+        }
+
+        if (targetMatch != null)
+        {
+            return targetMatch;
         }
 
         return CreateFallbackPlanOption(participation, fallbackLabel);
