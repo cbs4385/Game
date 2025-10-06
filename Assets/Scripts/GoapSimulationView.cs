@@ -3773,6 +3773,17 @@ public sealed class GoapSimulationView : MonoBehaviour
             rawLabelComponent);
     }
 
+    private static bool PlanOptionsEquivalent(PlanActionOption option, string expectedIdentity)
+    {
+        if (option == null || string.IsNullOrEmpty(expectedIdentity))
+        {
+            return false;
+        }
+
+        var optionIdentity = ComposePlanOptionIdentity(option);
+        return string.Equals(optionIdentity, expectedIdentity, StringComparison.Ordinal);
+    }
+
     private void HandlePlanStepButtonClicked(PlanActionOption option)
     {
         if (option == null)
@@ -3800,6 +3811,8 @@ public sealed class GoapSimulationView : MonoBehaviour
                 "that is not present in the current world snapshot.");
         }
 
+        var clickedOptionIdentity = ComposePlanOptionIdentity(option);
+
         UpdateSelectedThingPlan(targetThing);
 
         int participationIndex = -1;
@@ -3808,7 +3821,7 @@ public sealed class GoapSimulationView : MonoBehaviour
             var participation = _selectedThingParticipation[i];
             var fallbackLabel = i < _selectedThingPlanLines.Length ? _selectedThingPlanLines[i] : string.Empty;
             var matchedOption = FindMatchingPlanOption(participation, fallbackLabel);
-            if (matchedOption != null && ReferenceEquals(matchedOption, option))
+            if (matchedOption != null && PlanOptionsEquivalent(matchedOption, clickedOptionIdentity))
             {
                 participationIndex = i;
                 break;
