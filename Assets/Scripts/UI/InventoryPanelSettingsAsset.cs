@@ -18,7 +18,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
     [SerializeField] private RenderTexture targetTexture;
     [SerializeField] private bool clearDepthStencil = true;
     [SerializeField] private int maxQueuedFrames = 8;
-    [SerializeField] private PanelSettings.PanelClearFlags panelClearFlags = PanelSettings.PanelClearFlags.DepthStencil;
+    [SerializeField] private PanelClearFlagsOption panelClearFlags = PanelClearFlagsOption.DepthStencil;
     [SerializeField] private PanelTextSettings textSettings;
     [SerializeField, Min(0)] private int targetDisplay = 0;
     [SerializeField] private bool drawToCameras = true;
@@ -29,7 +29,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
     [SerializeField] private int worldSpaceLayer;
     [SerializeField] private int sortingOrder;
     [SerializeField] private LayerMask targetLayerMask = ~0;
-    [SerializeField] private PanelSettings.RuntimePanelRenderingMode renderingMode = PanelSettings.RuntimePanelRenderingMode.Camera;
+    [SerializeField] private RuntimePanelRenderingModeOption renderingMode = RuntimePanelRenderingModeOption.Camera;
     [SerializeField, Min(0)] private int vsyncCount = 1;
     [SerializeField] private Shader runtimeShader;
     [SerializeField] private PanelSettings runtimeWorldSpacePanelSettings;
@@ -50,7 +50,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         instance.scale = scale;
         instance.targetTexture = targetTexture;
         instance.clearDepthStencil = clearDepthStencil;
-        instance.panelClearFlags = panelClearFlags;
+        AssignEnumValue(instance, "panelClearFlags", GetPanelClearFlagsName(panelClearFlags));
         instance.textSettings = textSettings;
         instance.targetDisplay = targetDisplay;
         instance.drawToCameras = drawToCameras;
@@ -59,7 +59,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         instance.targetWidth = targetWidth;
         instance.targetHeight = targetHeight;
         instance.sortingOrder = sortingOrder;
-        instance.renderingMode = renderingMode;
+        AssignEnumValue(instance, "renderingMode", GetRuntimePanelRenderingModeName(renderingMode));
         instance.vsyncCount = vsyncCount;
         instance.runtimeShader = runtimeShader;
         instance.runtimeWorldSpacePanelSettings = runtimeWorldSpacePanelSettings;
@@ -71,6 +71,49 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         TryAssignTargetLayerMask(instance, targetLayerMask);
 
         return instance;
+    }
+
+    [Flags]
+    private enum PanelClearFlagsOption
+    {
+        None = 0,
+        Color = 1,
+        Depth = 2,
+        Stencil = 4,
+        DepthStencil = Depth | Stencil,
+        All = Color | Depth | Stencil
+    }
+
+    private enum RuntimePanelRenderingModeOption
+    {
+        Disabled = 0,
+        Camera = 1,
+        WorldSpace = 2
+    }
+
+    private static string GetPanelClearFlagsName(PanelClearFlagsOption option)
+    {
+        return option switch
+        {
+            PanelClearFlagsOption.None => "None",
+            PanelClearFlagsOption.Color => "Color",
+            PanelClearFlagsOption.Depth => "Depth",
+            PanelClearFlagsOption.Stencil => "Stencil",
+            PanelClearFlagsOption.DepthStencil => "DepthStencil",
+            PanelClearFlagsOption.All => "All",
+            _ => throw new ArgumentOutOfRangeException(nameof(option), option, null)
+        };
+    }
+
+    private static string GetRuntimePanelRenderingModeName(RuntimePanelRenderingModeOption option)
+    {
+        return option switch
+        {
+            RuntimePanelRenderingModeOption.Disabled => "Disabled",
+            RuntimePanelRenderingModeOption.Camera => "Camera",
+            RuntimePanelRenderingModeOption.WorldSpace => "WorldSpace",
+            _ => throw new ArgumentOutOfRangeException(nameof(option), option, null)
+        };
     }
 
     private static void TryAssignOptional<T>(PanelSettings target, string memberName, T value)
@@ -87,6 +130,50 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         if (field != null && field.FieldType.IsAssignableFrom(typeof(T)))
         {
             field.SetValue(target, value);
+        }
+    }
+
+    private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
+    {
+        if (string.IsNullOrEmpty(enumName))
+        {
+            return;
+        }
+
+        var type = target.GetType();
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite)
+        {
+            var value = CreateEnumValue(property.PropertyType, enumName, memberName);
+            property.SetValue(target, value);
+            return;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var value = CreateEnumValue(field.FieldType, enumName, memberName);
+            field.SetValue(target, value);
+            return;
+        }
+
+        throw new MissingMemberException(type.FullName, memberName);
+    }
+
+    private static object CreateEnumValue(Type enumType, string enumName, string memberName)
+    {
+        if (!enumType.IsEnum)
+        {
+            throw new InvalidOperationException($"Member '{memberName}' on '{enumType.FullName}' is not an enum.");
+        }
+
+        try
+        {
+            return Enum.Parse(enumType, enumName, false);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException($"Value '{enumName}' is not defined for enum '{enumType.FullName}'.", exception);
         }
     }
 
