@@ -10,8 +10,6 @@ using DataDrivenGoap.Execution;
 using DataDrivenGoap.Items;
 using DataDrivenGoap.World;
 using UnityEngine;
-using UnityEngine.UIElements;
-
 using UnityEngine.InputSystem;
 
 [DisallowMultipleComponent]
@@ -56,7 +54,6 @@ public sealed class GoapSimulationView : MonoBehaviour
 
     private static readonly Color BuildingTintColor = new Color(0.75f, 0.24f, 0.24f, 1f);
     private const float BuildingTintBlend = 0.65f;
-    private const string InventoryPanelSettingsResourcePath = "UI/Inventory/InventoryPanelSettings";
 
     private static readonly IReadOnlyDictionary<string, string> ThingIconManifest = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -175,8 +172,6 @@ public sealed class GoapSimulationView : MonoBehaviour
     private string _lastPresenterInventoryHeader = string.Empty;
     private Rect? _lastSelectedPawnPanelRect;
     private Rect? _lastSelectedThingPlanPanelRect;
-    private InventoryPanelSettingsAsset _inventoryPanelSettingsAsset;
-    private PanelSettings _inventoryPanelSettings;
 
     private void Awake()
     {
@@ -333,12 +328,6 @@ public sealed class GoapSimulationView : MonoBehaviour
         if (bootstrapper != null)
         {
             bootstrapper.Bootstrapped -= HandleBootstrapped;
-        }
-
-        if (_inventoryPanelSettings != null)
-        {
-            Destroy(_inventoryPanelSettings);
-            _inventoryPanelSettings = null;
         }
 
         DisposeVisuals();
@@ -3177,44 +3166,6 @@ public sealed class GoapSimulationView : MonoBehaviour
         EnsureInventoryGridPresenter();
     }
 
-    private InventoryPanelSettingsAsset GetInventoryPanelSettingsAsset()
-    {
-        if (_inventoryPanelSettingsAsset != null)
-        {
-            return _inventoryPanelSettingsAsset;
-        }
-
-        var loaded = Resources.Load<InventoryPanelSettingsAsset>(InventoryPanelSettingsResourcePath);
-        if (loaded == null)
-        {
-            throw new InvalidOperationException(
-                $"Inventory panel settings asset not found at Resources/{InventoryPanelSettingsResourcePath}. " +
-                $"An {nameof(InventoryPanelSettingsAsset)} asset is required for the inventory UI.");
-        }
-
-        _inventoryPanelSettingsAsset = loaded;
-        return _inventoryPanelSettingsAsset;
-    }
-
-    private PanelSettings GetInventoryPanelSettings()
-    {
-        if (_inventoryPanelSettings != null)
-        {
-            return _inventoryPanelSettings;
-        }
-
-        var definition = GetInventoryPanelSettingsAsset();
-        var created = definition.CreateRuntimePanelSettings();
-        if (created == null)
-        {
-            throw new InvalidOperationException(
-                "Inventory panel settings asset failed to create a runtime PanelSettings instance.");
-        }
-
-        _inventoryPanelSettings = created;
-        return _inventoryPanelSettings;
-    }
-
     private void EnsureInventoryGridPresenter()
     {
         if (bootstrapper == null)
@@ -3224,20 +3175,11 @@ public sealed class GoapSimulationView : MonoBehaviour
 
         if (inventoryGridPresenter == null)
         {
-            var presenterObject = new GameObject("Inventory Grid Presenter");
-            presenterObject.SetActive(false);
-            presenterObject.transform.SetParent(transform, false);
-
-            var presenter = presenterObject.AddComponent<InventoryGridPresenter>();
-            presenter.ConfigureDependencies(bootstrapper, this, GetInventoryPanelSettings());
-            presenterObject.SetActive(true);
-
-            inventoryGridPresenter = presenter;
+            throw new InvalidOperationException(
+                "GoapSimulationView requires an InventoryGridPresenter assigned in the inspector.");
         }
-        else
-        {
-            inventoryGridPresenter.ConfigureDependencies(bootstrapper, this, GetInventoryPanelSettings());
-        }
+
+        inventoryGridPresenter.ConfigureDependencies(bootstrapper, this);
     }
 
     private void DisposeVisuals()
