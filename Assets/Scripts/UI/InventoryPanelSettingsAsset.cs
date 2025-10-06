@@ -349,7 +349,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
                     return true;
                 }
 
-                if (TryInvokeContainerSetter(type, containerMemberName, property.PropertyType, container))
+                if (TryInvokeContainerSetter(target, containerMemberName, property.PropertyType, container))
                 {
                     return true;
                 }
@@ -489,15 +489,17 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
             return false;
         }
 
-        return TryInvokeContainerSetter(type, containerMemberName, getter.ReturnType, container);
+        return TryInvokeContainerSetter(target, containerMemberName, getter.ReturnType, container);
     }
 
-    private static bool TryInvokeContainerSetter(Type targetType, string containerMemberName, Type containerType, object container)
+    private static bool TryInvokeContainerSetter(object target, string containerMemberName, Type containerType, object container)
     {
-        if (targetType == null || containerType == null)
+        if (target == null || containerType == null)
         {
             return false;
         }
+
+        var targetType = target.GetType();
 
         var pascalName = ToPascalCase(containerMemberName);
         if (string.IsNullOrEmpty(pascalName))
