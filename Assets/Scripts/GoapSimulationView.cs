@@ -1139,10 +1139,53 @@ public sealed class GoapSimulationView : MonoBehaviour
             }
         }
 
+        List<PlanActionOption> fallbackOptions = null;
+        if (entries.Length == 0 && _selectedPawnPlanOptions.Count > 0)
+        {
+            for (int i = 0; i < _selectedPawnPlanOptions.Count; i++)
+            {
+                var option = _selectedPawnPlanOptions[i];
+                if (!option.TargetId.HasValue)
+                {
+                    continue;
+                }
+
+                if (!NullableThingIdEquals(option.TargetId, thing.Id))
+                {
+                    continue;
+                }
+
+                fallbackOptions ??= new List<PlanActionOption>();
+                fallbackOptions.Add(option);
+            }
+
+            if (fallbackOptions != null && fallbackOptions.Count > 0)
+            {
+                entries = new ThingPlanParticipation[fallbackOptions.Count];
+                for (int i = 0; i < fallbackOptions.Count; i++)
+                {
+                    var option = fallbackOptions[i];
+                    entries[i] = new ThingPlanParticipation(
+                        option.GoalId,
+                        option.RawLabel,
+                        option.ActivityId,
+                        option.IsActionable);
+                }
+            }
+        }
+
         string[] formatted;
         if (entries.Length == 0)
         {
             formatted = new[] { "<none>" };
+        }
+        else if (fallbackOptions != null && fallbackOptions.Count == entries.Length)
+        {
+            formatted = new string[entries.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                formatted[i] = fallbackOptions[i].Label;
+            }
         }
         else
         {
