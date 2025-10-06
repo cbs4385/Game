@@ -50,7 +50,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         AssignRequired(instance, ScaleMemberName, scale);
         TryAssignOptional(instance, TargetTextureMemberName, targetTexture);
         AssignRequired(instance, ClearDepthStencilMemberName, clearDepthStencil);
-        AssignEnumValue(instance, PanelClearFlagsMemberName, GetPanelClearFlagsName(panelClearFlags));
+        AssignPanelClearFlags(instance, panelClearFlags);
         TryAssignOptional(instance, TextSettingsMemberName, textSettings);
         AssignRequired(instance, TargetDisplayMemberName, targetDisplay);
         TryAssignOptional(instance, DrawToCamerasMemberName, drawToCameras);
@@ -82,6 +82,8 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
     private const string TargetTextureMemberName = nameof(PanelSettings.targetTexture);
     private const string ClearDepthStencilMemberName = nameof(PanelSettings.clearDepthStencil);
     private const string PanelClearFlagsMemberName = "panelClearFlags";
+    private const string ClearFlagsMemberName = "clearFlags";
+    private const string ClearSettingsMemberName = "clearSettings";
     private const string TextSettingsMemberName = nameof(PanelSettings.textSettings);
     private const string TargetDisplayMemberName = nameof(PanelSettings.targetDisplay);
     private const string DrawToCamerasMemberName = "drawToCameras";
@@ -267,9 +269,17 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
 
     private static void AssignEnumValue(PanelSettings target, string memberName, string enumName)
     {
+        if (!TryAssignEnumValue(target, memberName, enumName))
+        {
+            throw new MissingMemberException(target.GetType().FullName, memberName);
+        }
+    }
+
+    private static bool TryAssignEnumValue(PanelSettings target, string memberName, string enumName)
+    {
         if (string.IsNullOrEmpty(enumName))
         {
-            return;
+            return false;
         }
 
         var type = target.GetType();
@@ -278,7 +288,7 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         {
             var value = CreateEnumValue(property.PropertyType, enumName, memberName);
             property.SetValue(target, value);
-            return;
+            return true;
         }
 
         var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -286,10 +296,99 @@ public sealed class InventoryPanelSettingsAsset : ScriptableObject
         {
             var value = CreateEnumValue(field.FieldType, enumName, memberName);
             field.SetValue(target, value);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void AssignPanelClearFlags(PanelSettings target, PanelClearFlagsOption option)
+    {
+        var enumName = GetPanelClearFlagsName(option);
+        if (TryAssignEnumValue(target, PanelClearFlagsMemberName, enumName))
+        {
             return;
         }
 
-        throw new MissingMemberException(type.FullName, memberName);
+        if (TryAssignEnumValue(target, ClearFlagsMemberName, enumName))
+        {
+            return;
+        }
+
+        if (TryAssignCompositePanelClearFlags(target, enumName))
+        {
+            return;
+        }
+    }
+
+    private static bool TryAssignCompositePanelClearFlags(PanelSettings target, string enumName)
+    {
+        var type = target.GetType();
+
+        var property = type.GetProperty(ClearSettingsMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanRead && property.CanWrite)
+        {
+            var settings = property.GetValue(target);
+            if (TryAssignPanelClearFlagsOnObject(settings, enumName, out var updated))
+            {
+                property.SetValue(target, updated);
+                return true;
+            }
+        }
+
+        var field = type.GetField(ClearSettingsMemberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+        {
+            var settings = field.GetValue(target);
+            if (TryAssignPanelClearFlagsOnObject(settings, enumName, out var updated))
+            {
+                field.SetValue(target, updated);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignPanelClearFlagsOnObject(object target, string enumName, out object updated)
+    {
+        updated = target;
+        if (target == null)
+        {
+            return false;
+        }
+
+        if (TryAssignEnumValueOnObject(target, PanelClearFlagsMemberName, enumName) ||
+            TryAssignEnumValueOnObject(target, ClearFlagsMemberName, enumName))
+        {
+            updated = target;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryAssignEnumValueOnObject(object target, string memberName, string enumName)
+    {
+        var type = target.GetType();
+
+        var property = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.CanWrite && property.PropertyType.IsEnum)
+        {
+            var value = CreateEnumValue(property.PropertyType, enumName, memberName);
+            property.SetValue(target, value);
+            return true;
+        }
+
+        var field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null && field.FieldType.IsEnum)
+        {
+            var value = CreateEnumValue(field.FieldType, enumName, memberName);
+            field.SetValue(target, value);
+            return true;
+        }
+
+        return false;
     }
 
     private static object CreateEnumValue(Type enumType, string enumName, string memberName)
