@@ -5,24 +5,27 @@
   border-width: 1px;
   border-color: rgba(255, 255, 255, 0.1);
   flex-direction: column;
-  gap: 6px;
 }
 
 .inv-title {
-  unity-font-style: bold;
+  -unity-font-style: bold;
   font-size: 14px;
   color: white;
+  margin-bottom: 6px;
 }
 
 .inv-empty {
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
+  margin-top: 6px;
 }
 
 .inv-grid {
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 4px;
+  margin-top: 6px;
+  margin-left: -2px;
+  margin-right: -2px;
 }
 
 .inv-slot {
@@ -32,6 +35,7 @@
   border-color: rgba(255, 255, 255, 0.1);
   background-color: rgba(255, 255, 255, 0.04);
   border-radius: 6px;
+  margin: 2px;
   -unity-background-scale-mode: scale-to-fit;
   position: relative;
 }
@@ -46,8 +50,7 @@
   right: 4px;
   font-size: 11px;
   color: white;
-  unity-text-outline-width: 0.4;
-  unity-text-outline-color: rgba(0, 0, 0, 0.8);
+  -unity-text-outline-width: 0.4;
+  -unity-text-outline-color: rgba(0, 0, 0, 0.8);
   -unity-font-style: bold;
-  pointer-events: none;
 }

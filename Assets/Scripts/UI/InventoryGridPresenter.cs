@@ -244,6 +244,7 @@ public sealed class InventoryGridPresenter : MonoBehaviour
 
             var quantityLabel = new Label { name = "Quantity" };
             quantityLabel.AddToClassList("inv-qty");
+            quantityLabel.pickingMode = PickingMode.Ignore;
             root.Add(quantityLabel);
 
             root.RegisterCallback<ClickEvent>(_ => OnSlotClicked(slotIndex));
