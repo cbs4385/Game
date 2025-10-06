@@ -1741,10 +1741,40 @@ public sealed class GoapSimulationView : MonoBehaviour
         }
     }
 
+    private static bool HasRenderablePlanLines(string[] planLines)
+    {
+        if (planLines == null || planLines.Length == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < planLines.Length; i++)
+        {
+            var line = planLines[i];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var trimmed = line.Trim();
+            if (!string.Equals(trimmed, "<none>", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool RenderThingPlanPanel(Rect pawnPanelRect, bool hasPawnPanel, out Rect planPanelRect)
     {
         planPanelRect = default;
         if (_selectedThingId == null || string.IsNullOrEmpty(_selectedThingHeader))
+        {
+            return false;
+        }
+
+        if (_selectedThingParticipation.Length == 0 && !HasRenderablePlanLines(_selectedThingPlanLines))
         {
             return false;
         }
