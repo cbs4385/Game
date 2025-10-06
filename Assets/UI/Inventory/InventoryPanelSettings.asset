@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 976c4357e90cd274fbf5f6b2bc2f2e17, type: 3}
+  m_Name: InventoryPanelSettings
+  m_EditorClassIdentifier:
+  targetTexture: {fileID: 0}
+  scaleMode: 1
+  referenceResolution: {x: 1920, y: 1080}
+  screenMatchMode: 0
+  match: 0
+  pixelsPerPoint: 1
+  clearDepthStencil: 1
+  clearColor: 0
+  colorClearValue: {r: 0, g: 0, b: 0, a: 0}
+  depthClearValue: 1
+  sortingMode: 0
+  targetDisplay: 0
+  sortingOrder: 0
+  vsync: 0
+  targetLayer: 0
+  scale: 1
+  referenceDpi: 96
+  referenceScale: 1
+  textSettings: {fileID: 0}
+  atlasBlitShader: {fileID: 0}
+  runtimeShader: {fileID: 0}
+  vectorImageShader: {fileID: 0}
