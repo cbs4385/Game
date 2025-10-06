@@ -3002,57 +3002,6 @@ public sealed class GoapSimulationView : MonoBehaviour
             : FormatPlanOptionDisplay(option, participationIndex);
     }
 
-    private void HandlePlanStepButtonClicked(PlanActionOption option)
-    {
-        if (option == null)
-        {
-            throw new ArgumentNullException(nameof(option));
-        }
-
-        if (_world == null)
-        {
-            throw new InvalidOperationException("Manual plan step selection requires an active world snapshot provider.");
-        }
-
-        if (!option.TargetId.HasValue || !option.TargetPosition.HasValue)
-        {
-            throw new InvalidOperationException(
-                $"Plan step '{option.Label}' does not define a valid target for manual execution.");
-        }
-
-        var snapshot = _world.Snap();
-        var targetThing = snapshot.GetThing(option.TargetId.Value);
-        if (targetThing == null)
-        {
-            throw new InvalidOperationException(
-                $"Manual plan step '{option.Label}' references target '{option.TargetId.Value.Value ?? "<unknown>"}' " +
-                "that is not present in the current world snapshot.");
-        }
-
-        UpdateSelectedThingPlan(targetThing);
-
-        int participationIndex = -1;
-        for (int i = 0; i < _selectedThingParticipation.Length; i++)
-        {
-            var participation = _selectedThingParticipation[i];
-            var fallbackLabel = i < _selectedThingPlanLines.Length ? _selectedThingPlanLines[i] : string.Empty;
-            var matchedOption = FindMatchingPlanOption(participation, fallbackLabel);
-            if (matchedOption != null && ReferenceEquals(matchedOption, option))
-            {
-                participationIndex = i;
-                break;
-            }
-        }
-
-        if (participationIndex < 0)
-        {
-            throw new InvalidOperationException(
-                $"Manual plan step '{option.Label}' did not map to a selectable plan option for target '{option.TargetId.Value.Value ?? "<unknown>"}'.");
-        }
-
-        HandlePlanOptionInvoked(participationIndex);
-    }
-
     private static string FormatPlanOptionDisplay(PlanActionOption option, int displayIndex)
     {
         if (option == null)
