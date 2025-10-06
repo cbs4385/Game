@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+  <ui:Style src="InventoryGrid.uss" />
+  <ui:VisualElement name="InventoryPanel" class="inv-panel">
+    <ui:Label name="Title" text="Inventory" class="inv-title" />
+    <ui:VisualElement name="Grid" class="inv-grid" />
+    <ui:Label name="EmptyMessage" text="No inventory" class="inv-empty" style="display: none;" />
+  </ui:VisualElement>
+</ui:UXML>

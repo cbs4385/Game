@@ -131,6 +131,17 @@ namespace DataDrivenGoap.Items
             return _slots.Select(s => s.ToView()).Where(v => v.Item != null && v.Quantity > 0).ToList();
         }
 
+        public IReadOnlyList<InventoryStackView> GetSlotViews()
+        {
+            var views = new InventoryStackView[_slots.Count];
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                views[i] = _slots[i].ToView();
+            }
+
+            return views;
+        }
+
         public int Count(string predicate)
         {
             if (string.IsNullOrWhiteSpace(predicate))
@@ -337,6 +348,16 @@ namespace DataDrivenGoap.Items
                 if (!_inventories.TryGetValue(owner, out var inv))
                     return Array.Empty<InventoryStackView>();
                 return inv.GetStacks();
+            }
+        }
+
+        public IReadOnlyList<InventoryStackView> SnapshotSlots(ThingId owner)
+        {
+            lock (_gate)
+            {
+                if (!_inventories.TryGetValue(owner, out var inv))
+                    return Array.Empty<InventoryStackView>();
+                return inv.GetSlotViews();
             }
         }
 

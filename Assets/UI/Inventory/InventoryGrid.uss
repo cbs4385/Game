@@ -1,0 +1,53 @@
+.inv-panel {
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.75);
+  border-radius: 8px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.1);
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inv-title {
+  unity-font-style: bold;
+  font-size: 14px;
+  color: white;
+}
+
+.inv-empty {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.inv-grid {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.inv-slot {
+  width: 40px;
+  height: 40px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  -unity-background-scale-mode: scale-to-fit;
+  position: relative;
+}
+
+.inv-slot--empty {
+  opacity: 0.35;
+}
+
+.inv-qty {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 11px;
+  color: white;
+  unity-text-outline-width: 0.4;
+  unity-text-outline-color: rgba(0, 0, 0, 0.8);
+  -unity-font-style: bold;
+  pointer-events: none;
+}

@@ -453,6 +453,52 @@ public sealed class GoapSimulationBootstrapper : MonoBehaviour
         return true;
     }
 
+    public bool TryGetInventorySlots(ThingId owner, out IReadOnlyList<InventoryStackView> slots)
+    {
+        var rawId = owner.Value;
+        if (string.IsNullOrWhiteSpace(rawId))
+        {
+            throw new ArgumentException("Inventory queries require a valid thing identifier.", nameof(owner));
+        }
+
+        if (_inventorySystem == null)
+        {
+            throw new InvalidOperationException("Inventory system has not been initialized.");
+        }
+
+        var normalizedId = rawId.Trim();
+        var normalizedOwner = string.Equals(normalizedId, rawId, StringComparison.Ordinal)
+            ? owner
+            : new ThingId(normalizedId);
+
+        bool hasInventory = _inventorySystem.HasInventory(owner);
+        ThingId resolvedOwner = owner;
+        if (!hasInventory && !string.Equals(normalizedId, rawId, StringComparison.Ordinal))
+        {
+            hasInventory = _inventorySystem.HasInventory(normalizedOwner);
+            if (hasInventory)
+            {
+                resolvedOwner = normalizedOwner;
+            }
+        }
+
+        if (!hasInventory)
+        {
+            slots = Array.Empty<InventoryStackView>();
+            return false;
+        }
+
+        var snapshot = _inventorySystem.SnapshotSlots(resolvedOwner);
+        if (snapshot == null)
+        {
+            throw new InvalidOperationException(
+                $"Inventory slot snapshot provider returned null for owner '{normalizedId}'.");
+        }
+
+        slots = snapshot;
+        return true;
+    }
+
     public bool TryGetActorPlanStatus(ThingId actorId, out ActorPlanStatus status)
     {
         if (string.IsNullOrWhiteSpace(actorId.Value))
