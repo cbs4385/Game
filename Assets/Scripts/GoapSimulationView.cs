@@ -3660,6 +3660,39 @@ public sealed class GoapSimulationView : MonoBehaviour
         _selectedPlanOptionLabel = participationIndex < _selectedThingPlanLines.Length
             ? _selectedThingPlanLines[participationIndex]
             : FormatPlanOptionDisplay(option, participationIndex);
+        RefreshSelectedThingPlanAfterManualAction();
+    }
+
+    private void RefreshSelectedThingPlanAfterManualAction()
+    {
+        if (_world == null)
+        {
+            throw new InvalidOperationException(
+                "Manual action refresh requires an active world instance.");
+        }
+
+        if (_selectedThingId == null)
+        {
+            throw new InvalidOperationException(
+                "Manual action refresh requires an active thing selection.");
+        }
+
+        var snapshot = _world.Snap();
+        if (snapshot == null)
+        {
+            throw new InvalidOperationException(
+                "World snapshot provider returned null while refreshing manual action state.");
+        }
+
+        var refreshedThing = snapshot.GetThing(_selectedThingId.Value);
+        if (refreshedThing != null)
+        {
+            UpdateSelectedThingPlan(refreshedThing);
+        }
+        else
+        {
+            ClearSelectedThingPlan();
+        }
     }
 
     private static string FormatPlanOptionDisplay(PlanActionOption option, int displayIndex)
